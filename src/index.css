@@ -1,0 +1,437 @@
+@layer legacy {
+  /* ============================================================
+     TRAX CRM - Design System
+     placeholder palette — TRAX branding pass pending
+     Slate/blue neutral placeholder, Heebo, RTL
+     ============================================================ */
+
+  :root {
+    /* Brand blues (placeholder — swap for real TRAX brand colors) */
+    --dp: #0f172a;   /* deep (logo/darkest) */
+    --mp: #2563eb;   /* mid (primary) */
+    --mp2: #3b82f6;  /* accent */
+    --lp: #93c5fd;   /* light */
+    --xlp: #eff6ff;  /* extra light */
+
+    /* Surfaces (light theme) */
+    --bg: #f8fafc;
+    --surface: #ffffff;
+    --surface-2: #f1f5f9;
+    --border: #e2e8f0;
+    --border-soft: #eef2f6;
+
+    /* Text */
+    --text: #0f172a;
+    --text-2: #64748b;
+    --text-3: #94a3b8;
+    --text-inv: #ffffff;
+
+    /* Dedicated tokens that must NOT be repurposed per-theme */
+    --heading: #0f172a;          /* card titles / kpi values / record titles */
+    --sidebar-bg: #0b1220;       /* sidebar stays dark in BOTH themes */
+    --sidebar-accent: #93a3c2;   /* sub/section text on the dark sidebar */
+    --gray-bg: #eef1f5;          /* neutral badge/chip background */
+
+    /* Status. Foregrounds are darkened so badge text clears WCAG AA (4.5:1)
+       against its own tinted background. */
+    --ok: #15803d;
+    --ok-bg: #eafaf0;
+    --warn: #a15c07;
+    --warn-bg: #fdf3e3;
+    --err: #b91c1c;
+    --err-bg: #fdecec;
+    --info: #1d4ed8;
+    --info-bg: #e8f0fd;
+
+    /* Urgency */
+    --urg-low: #15803d;
+    --urg-med: #a15c07;
+    --urg-high: #b91c1c;
+
+    /* Gradients */
+    --g1: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #2563eb 100%);
+    --g2: linear-gradient(135deg, #2563eb, #3b82f6);
+
+    /* Shadows */
+    --sh1: 0 2px 12px rgba(15, 23, 42, 0.08);
+    --sh2: 0 8px 32px rgba(15, 23, 42, 0.12);
+    --sh3: 0 16px 48px rgba(15, 23, 42, 0.18);
+
+    /* Radius / motion */
+    --r: 14px;
+    --rs: 9px;
+    --rx: 6px;
+    --t: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+
+    --sidebar-w: 244px;
+    --topbar-h: 60px;
+  }
+
+  :root[data-theme="dark"] {
+    /* Surfaces - deep slate, clearly separated layers */
+    --bg: #0b1220; --surface: #121a2b; --surface-2: #182236; --border: #263450; --border-soft: #1c2740;
+    /* Text - high contrast */
+    --text: #e7ecf5; --text-2: #a7b3c8; --text-3: #7c8aa3;
+    /* Accents (brightened so blue reads on dark) */
+    --mp: #60a5fa; --mp2: #93c5fd; --lp: #3c5a8c; --xlp: #1a2740;
+    --heading: #e7ecf5; --sidebar-bg: #070c17; --sidebar-accent: #8fa3c6; --gray-bg: #1c2740;
+    /* Status - opaque dark tints + bright foregrounds */
+    --ok: #4ade80; --ok-bg: #0f2a1c; --warn: #fbbf24; --warn-bg: #2c2210; --err: #f87171; --err-bg: #301616; --info: #7db0e0; --info-bg: #16273c;
+    --urg-low: #4ade80; --urg-med: #fbbf24; --urg-high: #f87171;
+    --g1: linear-gradient(135deg, #0b1220 0%, #16233d 50%, #24406e 100%);
+    --sh1: 0 2px 12px rgba(0,0,0,0.35); --sh2: 0 8px 32px rgba(0,0,0,0.45); --sh3: 0 16px 48px rgba(0,0,0,0.55);
+  }
+  :root[data-theme="dark"] .btn.ghost { background: var(--surface); }
+  :root[data-theme="dark"] .chip { background: var(--surface); }
+  :root[data-theme="dark"] .qa-btn { background: var(--surface); }
+  :root[data-theme="dark"] .kpi .accent { background: var(--xlp); }
+
+  * , *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Heebo', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, .kpi .value, .topbar h1 { font-family: 'Heebo', sans-serif; }
+  ::selection { background: var(--mp); color: #fff; }
+  a { color: var(--mp); text-decoration: none; }
+  button { font-family: inherit; cursor: pointer; }
+  input, select, textarea { font-family: inherit; }
+  /* A bare <textarea> falls back to its intrinsic `cols` width (~20 chars),
+     which produces tiny boxes floating inside full-width cards. Every
+     textarea in this app is meant to fill its container; the few that need a
+     fixed size set it explicitly and override this. */
+  textarea { width: 100%; }
+  /* Form controls that are neither .input nor inside .field fall back to the
+     browser's default white background with dark text. Against the dark theme
+     that reads as unstyled patches, and any inherited light text on that white
+     box becomes unreadable. Theme every control by default. */
+  input, select, textarea {
+    background-color: var(--surface);
+    color: var(--text);
+    border-color: var(--border);
+  }
+  input::placeholder, textarea::placeholder { color: var(--text-3); }
+
+  /* ---------- Buttons ---------- */
+  /* Aligned to the shadcn Button: same height, radius, weight and focus ring,
+     so a legacy .btn sitting next to a migrated <Button> reads as the same
+     control. */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    background: var(--mp); color: #fff; border: 1px solid transparent;
+    border-radius: var(--rs); min-height: 36px;
+    padding: 8px 16px; font-size: 0.875rem; font-weight: 500; line-height: 1.25rem;
+    transition: background-color .15s ease, border-color .15s ease, box-shadow .15s ease;
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); white-space: nowrap;
+  }
+  .btn:hover { background: color-mix(in srgb, var(--mp), #000 10%); }
+  .btn:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--mp2), transparent 55%); }
+  .btn:active { background: color-mix(in srgb, var(--mp), #000 16%); }
+  .btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; box-shadow: none; }
+  .btn.ghost {
+    background: var(--surface); color: var(--text); border: 1px solid var(--border);
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  }
+  .btn.ghost:hover { background: var(--surface-2); }
+  .btn.subtle { background: var(--xlp); color: var(--mp); box-shadow: none; border-color: transparent; }
+  .btn.subtle:hover { background: color-mix(in srgb, var(--xlp), var(--mp) 12%); }
+  .btn.danger { background: var(--err); }
+  .btn.danger:hover { background: color-mix(in srgb, var(--err), #000 10%); }
+  .btn.sm { min-height: 32px; padding: 6px 12px; font-size: 0.82rem; }
+  .btn.block { width: 100%; }
+  /* .chip is used as a filter toggle; give it the outline-Button shape. */
+  .chip { min-height: 36px; border-radius: var(--rs); font-size: 0.875rem; font-weight: 500; }
+
+  /* ---------- Cards ---------- */
+  .card {
+    background: var(--surface); border-radius: var(--r);
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    padding: 20px; border: 1px solid var(--border-soft);
+  }
+  .card-title {
+    display: flex; align-items: center; gap: 8px; font-size: 1rem; font-weight: 600;
+    color: var(--heading); margin-bottom: 14px;
+  }
+
+  /* ---------- Forms ---------- */
+  .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  /* --dp is the FIXED brand deep colour (logo). It is deliberately not
+     re-themed, so it must not be used for text that needs to stay readable
+     on dark surfaces — labels use the theme-aware text token instead. */
+  .field label { font-size: 0.85rem; font-weight: 600; color: var(--text); }
+  .field label .req { color: var(--err); margin-inline-start: 2px; }
+  .input, .field input, .field select, .field textarea {
+    width: 100%; padding: 8px 12px; min-height: 36px;
+    border: 1px solid var(--border); border-radius: var(--rs);
+    font-size: 0.875rem; color: var(--text); background: var(--surface);
+    transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  .field textarea { resize: vertical; min-height: 84px; }
+  .input:focus, .field input:focus, .field select:focus, .field textarea:focus {
+    outline: none; border-color: var(--mp2);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--mp2), transparent 65%);
+  }
+
+  /* ---------- Badges / chips ---------- */
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 50px;
+    font-size: 0.76rem; font-weight: 700; line-height: 1.4; white-space: nowrap;
+  }
+  .badge.ok   { background: var(--ok-bg);   color: var(--ok); }
+  .badge.warn { background: var(--warn-bg); color: var(--warn); }
+  .badge.err  { background: var(--err-bg);  color: var(--err); }
+  .badge.info { background: var(--info-bg); color: var(--info); }
+  .badge.mp   { background: var(--xlp);     color: var(--mp); }
+  .badge.gray { background: var(--gray-bg);  color: var(--text-2); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+  /* ---------- Tables ---------- */
+  .table-wrap { overflow-x: auto; border-radius: var(--r); border: 1px solid var(--border-soft); background: var(--surface); }
+  table.grid { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  table.grid thead th {
+    position: sticky; top: 0; background: var(--surface-2); color: var(--text-2);
+    font-weight: 700; font-size: 0.8rem; text-align: start; padding: 12px 14px;
+    border-bottom: 2px solid var(--border-soft); white-space: nowrap; z-index: 2;
+  }
+  table.grid tbody td { padding: 11px 14px; border-bottom: 1px solid var(--border-soft); vertical-align: middle; }
+  table.grid tbody tr { transition: background 0.15s; }
+  table.grid tbody tr:hover { background: var(--surface-2); }
+  table.grid tbody tr.clickable { cursor: pointer; }
+  /* Click-to-edit affordance. Deliberately NOT scoped to table.grid: the shared
+     ResourceList renders the shadcn table too. */
+  .cell-edit {
+    display: inline-block;
+    border: 1px solid transparent; border-radius: var(--rx); padding: 4px 7px; margin: -4px -7px;
+    transition: var(--t); cursor: text; min-width: 42px;
+  }
+  .cell-edit:hover { border-color: var(--border); background: var(--surface-2); }
+
+  /* Shared list table (ResourceList -> ported shadcn DataTable). Gives it the
+     same surface, radius and sticky header the hand-rolled table.grid has, so
+     both table styles read as one system during the migration. */
+  /* overflow-x must stay `auto`, not `hidden`: the inner table can be wider
+     than the viewport on small screens / at zoom, and hiding it makes the page
+     itself scroll sideways instead of the table. min-width:0 lets this flex
+     child shrink below its content width. */
+  .rl-table { min-width: 0; }
+  .rl-table > div { border-radius: var(--r); border-color: var(--border-soft); background: var(--surface); overflow-x: auto; overflow-y: hidden; }
+  .rl-table table { font-size: 0.9rem; }
+  .rl-table thead th { position: sticky; top: 0; z-index: 2; border-bottom: 2px solid var(--border-soft); }
+  .rl-table tbody td { border-bottom: 1px solid var(--border-soft); }
+  .rl-table tbody tr:hover .cell-edit { border-color: var(--border-soft); }
+  .rl-table .badge { white-space: nowrap; }
+
+  /* ---------- Layout shell ---------- */
+  .app { display: flex; min-height: 100vh; }
+  .sidebar {
+    width: var(--sidebar-w); background: var(--sidebar-bg); color: #fff; flex-shrink: 0;
+    display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh;
+  }
+  .sidebar-brand {
+    padding: 18px 20px; display: flex; align-items: center; gap: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  .sidebar-brand .logo {
+    width: 34px; height: 34px; border-radius: 9px; background: var(--g2);
+    display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 1rem;
+  }
+  .sidebar-brand .name { font-size: 1.15rem; }
+  .sidebar-brand .sub { font-size: 0.7rem; color: var(--sidebar-accent); }
+  .nav { flex: 1; padding: 12px 10px; overflow-y: auto; }
+  .nav-section { font-size: 0.68rem; color: var(--sidebar-accent); text-transform: uppercase; letter-spacing: 1px; padding: 14px 12px 6px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: var(--rs);
+    color: rgba(255, 255, 255, 0.82); font-size: 0.92rem; font-weight: 500; transition: var(--t); margin-bottom: 2px;
+  }
+  .nav-item:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
+  .nav-item.active { background: var(--g2); color: #fff; box-shadow: var(--sh1); }
+  .nav-item svg { width: 18px; height: 18px; flex-shrink: 0; }
+  .sidebar-foot { padding: 12px; border-top: 1px solid rgba(255, 255, 255, 0.1); font-size: 0.82rem; }
+
+  .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .topbar {
+    height: var(--topbar-h); background: var(--surface); border-bottom: 1px solid var(--border-soft);
+    display: flex; align-items: center; justify-content: space-between; padding: 0 24px; position: sticky; top: 0; z-index: 20;
+  }
+  .topbar h1 { font-size: 1.15rem; font-weight: 800; color: var(--heading); }
+  .content { padding: 22px 24px 60px; flex: 1; }
+
+  /* ---------- KPI tiles ---------- */
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; }
+  .kpi {
+    background: var(--surface); border: 1px solid var(--border-soft); border-radius: var(--r);
+    padding: 16px 18px; box-shadow: var(--sh1); position: relative; overflow: hidden;
+  }
+  .kpi .label { font-size: 0.82rem; color: var(--text-2); font-weight: 600; margin-bottom: 6px; }
+  .kpi .value { font-size: 1.9rem; font-weight: 900; color: var(--heading); line-height: 1; }
+  .kpi .sub { font-size: 0.76rem; color: var(--text-3); margin-top: 6px; }
+  .kpi .accent { position: absolute; inset-inline-end: 14px; top: 14px; width: 34px; height: 34px; border-radius: 9px; background: var(--xlp); color: var(--mp); display: flex; align-items: center; justify-content: center; }
+
+  /* ---------- Misc ---------- */
+  .row { display: flex; align-items: center; gap: 10px; }
+  .row.wrap { flex-wrap: wrap; }
+  .spacer { flex: 1; }
+  .muted { color: var(--text-2); }
+  .small { font-size: 0.82rem; }
+  .toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px; background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: 50px; padding: 6px 12px; font-size: 0.85rem; font-weight: 600; color: var(--text-2); transition: var(--t);
+  }
+  .chip.active { background: var(--xlp); border-color: var(--lp); color: var(--mp); }
+  .avatar {
+    width: 30px; height: 30px; border-radius: 50%; background: var(--g2); color: #fff;
+    display: inline-flex; align-items: center; justify-content: center; font-size: 0.78rem; font-weight: 700; flex-shrink: 0;
+  }
+
+  .spinner {
+    width: 22px; height: 22px; border: 3px solid var(--xlp); border-top-color: var(--mp);
+    border-radius: 50%; display: inline-block; animation: spin 0.7s linear infinite;
+  }
+  .spinner.light { border-color: rgba(255,255,255,0.35); border-top-color: #fff; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .center-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: var(--g1); padding: 20px; }
+  .empty { text-align: center; padding: 50px 20px; color: var(--text-2); }
+
+  /* ---------- Record layout ---------- */
+  .ef { display: flex; flex-direction: column; gap: 3px; padding: 7px 0; border-bottom: 1px solid var(--border-soft); }
+  /* --text-3 is the faintest tier — too low contrast for body text. Field
+     labels carry real information, so they use --text-2. --text-3 stays for
+     decorative placeholders. */
+  .ef-label { font-size: 0.76rem; color: var(--text-2); font-weight: 600; }
+  .ef-val { font-size: 0.9rem; font-weight: 600; color: var(--text); min-height: 20px; }
+  .ef-val.cell-edit { cursor: text; }
+  .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; }
+  @media (max-width: 640px){ .field-grid { grid-template-columns: 1fr; } }
+
+  .rec-header { background: var(--surface); border: 1px solid var(--border-soft); border-radius: var(--r); padding: 16px 18px; margin-bottom: 14px; box-shadow: var(--sh1); }
+  .rec-title { font-size: 1.15rem; font-weight: 800; color: var(--heading); }
+  .qa-btn { height: 34px; padding: 0 12px; gap: 6px; border-radius: 9px; border: 1.5px solid var(--border); background: var(--surface); color: var(--mp); display: inline-flex; align-items: center; justify-content: center; font-family: inherit; font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: var(--t); text-decoration: none; white-space: nowrap; }
+  .qa-btn:hover { background: var(--xlp); border-color: var(--lp); transform: translateY(-1px); }
+  .qa-btn.icon-only { width: 34px; padding: 0; }
+  .qa-btn .qa-label { color: var(--text); }
+  .qa-btn.danger { border-color: var(--err-bg); color: var(--err); }
+  .qa-btn.danger:hover { background: var(--err-bg); border-color: var(--err); }
+  .qa-btn.danger .qa-label { color: var(--err); }
+  @media (max-width: 1100px) { .qa-btn .qa-label { display: none; } .qa-btn { width: 34px; padding: 0; } }
+
+  /* record two-column grid: fields | activity feed, collapses on narrow screens */
+  .rec-grid { display: grid; gap: 16px; align-items: start; }
+  .rec-grid > * { min-width: 0; }
+  @media (max-width: 1000px) { .rec-grid { grid-template-columns: 1fr !important; } }
+
+  /* "+ create related" pills next to relation chips */
+  .rel-add { display: inline-flex; align-items: center; gap: 5px; background: var(--surface); border: 1.5px dashed var(--lp); border-radius: 50px; padding: 6px 12px; font-family: inherit; font-size: 0.82rem; font-weight: 600; color: var(--mp); cursor: pointer; transition: var(--t); }
+  .rel-add:hover { background: var(--xlp); border-style: solid; }
+
+  /* toast */
+  .toast-item { animation: toast-in 0.25s cubic-bezier(0.34, 1.4, 0.64, 1); }
+  @keyframes toast-in { from { transform: translateY(14px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+  /* refined scrollbar (webkit) */
+  *::-webkit-scrollbar { width: 9px; height: 9px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  *::-webkit-scrollbar-thumb { background: var(--lp); border-radius: 10px; border: 2px solid var(--bg); }
+  *::-webkit-scrollbar-thumb:hover { background: var(--mp); }
+
+  .rel-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .rel-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--surface-2); border: 1.5px solid var(--border-soft); border-radius: 50px; padding: 6px 13px; font-size: 0.85rem; font-weight: 600; color: var(--text-2); cursor: pointer; transition: var(--t); }
+  .rel-chip:hover { border-color: var(--lp); }
+  .rel-chip.active { background: var(--xlp); border-color: var(--lp); color: var(--mp); }
+  .rel-chip .cnt { background: var(--mp); color: #fff; border-radius: 50px; padding: 0 7px; font-size: 0.72rem; min-width: 20px; text-align: center; }
+
+  .sections-tabs { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 2px solid var(--border-soft); margin-bottom: 14px; }
+  .sec-tab { padding: 8px 14px; font-size: 0.88rem; font-weight: 600; color: var(--text-2); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; }
+  .sec-tab.active { color: var(--mp); border-bottom-color: var(--mp); }
+
+  .stage-bar { display: flex; gap: 3px; margin: 10px 0; overflow-x: auto; }
+  .stage { flex: 1; min-width: 74px; text-align: center; font-size: 0.72rem; font-weight: 600; padding: 6px 8px; background: var(--surface-2); color: var(--text-3); cursor: pointer; white-space: nowrap; border: 1px solid var(--border-soft); }
+  .stage.done { background: var(--xlp); color: var(--mp); }
+  .stage.current { background: var(--g2); color: #fff; border-color: transparent; }
+
+  /* ---------- Activity feed (notes / tasks) - composer + cards ---------- */
+  .feed-composer { background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--r); padding: 15px; margin-bottom: 16px; box-shadow: var(--sh1); transition: var(--t); }
+  .feed-composer:focus-within { border-color: var(--lp); box-shadow: 0 0 0 3px var(--xlp); }
+  .feed-composer textarea { width: 100%; min-height: 96px; display: block; background: var(--surface-2); border: 1px solid var(--border-soft); border-radius: var(--rs); padding: 10px 12px; font-size: 0.9rem; line-height: 1.55; resize: vertical; transition: var(--t); }
+  .feed-composer textarea:focus { background: var(--surface); border-color: var(--lp); }
+  .feed-footer { display: flex; align-items: center; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .feed-attach { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; cursor: pointer; font-size: 0.82rem; font-weight: 600; color: var(--mp); background: var(--surface-2); border: 1.5px solid var(--border); border-radius: var(--rs); padding: 0 13px; transition: var(--t); }
+  .feed-attach:hover { background: var(--xlp); border-color: var(--lp); }
+  .feed-date-presets { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .date-preset { font-size: 0.78rem; font-weight: 600; min-height: 34px; padding: 0 13px; border-radius: 50px; border: 1.5px solid var(--border); background: var(--surface-2); color: var(--text-2); cursor: pointer; transition: var(--t); }
+  .date-preset:hover { border-color: var(--lp); color: var(--mp); }
+  .date-preset.active { background: var(--g2); border-color: transparent; color: #fff; }
+  .urg-btn { font-size: 0.78rem; font-weight: 700; min-height: 34px; padding: 0 14px; border-radius: 50px; border: 1.5px solid var(--border); background: var(--surface-2); cursor: pointer; transition: var(--t); }
+  .urg-btn:hover { border-color: var(--lp); }
+  .feed-item { background: var(--surface); border: 1.5px solid var(--border-soft); border-radius: var(--r); padding: 14px; box-shadow: var(--sh1); transition: var(--t); }
+  .feed-item:hover { border-color: var(--border); }
+  .feed-item .feed-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+  .feed-item .feed-body { font-size: 0.88rem; white-space: pre-wrap; color: var(--text); line-height: 1.55; }
+  .feed-reply { border-inline-start: 2.5px solid var(--lp); margin-inline-start: 16px; margin-top: 10px; padding-inline-start: 13px; display: flex; flex-direction: column; gap: 8px; }
+  .feed-task { display: flex; align-items: center; gap: 9px; padding: 11px 13px; border-radius: var(--r); background: var(--surface); border: 1.5px solid var(--border-soft); border-inline-start: 4px solid var(--mp); box-shadow: var(--sh1); transition: var(--t); }
+  .feed-task:hover { border-inline-start-width: 6px; }
+  .link-btn { background: none; border: none; color: var(--mp); font-family: inherit; font-size: 0.78rem; font-weight: 600; cursor: pointer; padding: 2px 0; display: inline-flex; align-items: center; gap: 4px; }
+  .link-btn:hover { text-decoration: underline; }
+
+  /* ---------- Email composer + email thread cards ---------- */
+  .composer { border: 1.5px solid var(--border); border-radius: var(--r); background: var(--surface); overflow: hidden; box-shadow: var(--sh1); transition: var(--t); }
+  .composer:focus-within { border-color: var(--lp); }
+  .composer-toolbar { display: flex; align-items: center; gap: 4px; padding: 7px 10px; border-bottom: 1px solid var(--border-soft); background: var(--surface-2); flex-wrap: wrap; }
+  .composer-toolbar button { min-width: 30px; height: 28px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--text-2); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; font-size: 0.92rem; }
+  .composer-toolbar button:hover { background: var(--xlp); color: var(--mp); }
+  .composer-toolbar select { height: 28px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font-size: 0.8rem; padding: 0 6px; }
+  .composer-editor { min-height: 120px; max-height: 340px; overflow-y: auto; padding: 12px 14px; font-size: 0.92rem; line-height: 1.6; outline: none; color: var(--text); }
+  .composer-editor:empty:before { content: attr(data-ph); color: var(--text-3); }
+  .composer-editor a { color: var(--mp); text-decoration: underline; }
+  .composer-foot { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-top: 1px solid var(--border-soft); background: var(--surface-2); flex-wrap: wrap; }
+  .pop { background: var(--surface); border: 1px solid var(--border); border-radius: var(--rs); box-shadow: var(--sh2); }
+  .email-html { font-size: 0.9rem; line-height: 1.6; color: var(--text); overflow-x: auto; }
+  .email-html img { max-width: 100%; height: auto; }
+  .email-html a { color: var(--mp); }
+  .email-html table { max-width: 100%; }
+
+  /* ---------- Responsive ---------- */
+  @media (max-width: 860px) {
+    .sidebar { position: fixed; z-index: 100; transform: translateX(100%); transition: var(--t); }
+    .sidebar.open { transform: translateX(0); }
+    .content { padding: 16px; }
+  }
+
+  /* ---------- Native selects, matched to the shadcn trigger ----------
+     Native <select> elements are styled to match the shadcn Select trigger
+     so the app reads as one system: same height, radius, border and focus
+     ring, with the default OS arrow replaced by the same chevron shadcn
+     draws. The arrow is inlined as a data: URI because a strict CSP blocks
+     external requests. */
+  select.input, .field select {
+    appearance: none; -webkit-appearance: none;
+    padding-block: 0; height: 36px; line-height: 36px;
+    padding-inline-start: 12px; padding-inline-end: 32px;
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: left 10px center;
+    cursor: pointer;
+  }
+  :root[data-theme="dark"] select.input, :root[data-theme="dark"] .field select {
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%237c8aa3' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  }
+  /* In RTL the chevron belongs on the left edge, which `left` already gives us;
+     an explicit dir=ltr field flips it back to the right. */
+  [dir="ltr"] select.input, [dir="ltr"] .field select { background-position: right 10px center; }
+  select.input:hover, .field select:hover { border-color: var(--lp); }
+
+}
+
+/* `.grid` is also a Tailwind utility (display:grid), and since the cascade
+   bridge lets utilities win, every `<table className="grid">` in the CRM
+   would be turned into a grid container: thead and tbody become independent
+   items, so the header cells size to their own text and stop lining up with
+   the columns underneath. Unlayered, so it outranks the utility. */
+table.grid { display: table; }
+table.grid > thead { display: table-header-group; }
+table.grid > tbody { display: table-row-group; }

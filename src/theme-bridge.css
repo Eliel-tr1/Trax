@@ -1,0 +1,283 @@
+/* placeholder palette — TRAX branding pass pending */
+
+/* ============================================================
+   Tailwind v4 + shadcn/ui foundation, mapped onto the TRAX brand.
+
+   Loaded BEFORE index.css so our hand-written design system keeps
+   winning on any shared selector during the incremental migration.
+
+   The whole point of this file: every component in components/ui and
+   components/admin (ported from marmelab/atomic-crm, MIT) renders in
+   TRAX slate/blue automatically - light AND dark - because the shadcn
+   semantic tokens below simply point at our existing brand vars.
+   ============================================================ */
+
+/* Explicit cascade-layer order. This MUST come before the tailwind import.
+
+   Why it matters: index.css carries the legacy design system including a
+   global `*, *::before, *::after { margin:0; padding:0 }` reset. Unlayered
+   CSS beats layered CSS regardless of specificity, so that one rule would
+   silently kill EVERY tailwind spacing utility in the app (p-4 computed
+   to 0px, shadcn buttons had no padding, table cells had no padding).
+
+   Declaring `legacy` before `utilities` puts the old system underneath the
+   utilities, so tailwind wins where both apply while the legacy classes keep
+   styling the screens that have not been migrated yet. */
+@layer theme, base, components, legacy, utilities;
+
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* shadcn ships `dark:` as a `.dark` class. This app drives the theme from
+   :root[data-theme="dark"], so we retarget the variant instead of
+   introducing a second, competing theme switch. */
+@custom-variant dark (&:is([data-theme="dark"] *), [data-theme="dark"]&);
+
+@theme inline {
+  --font-sans: 'Heebo', system-ui, sans-serif;
+
+  --radius-sm: var(--rx);
+  --radius-md: var(--rs);
+  --radius-lg: var(--r);
+  --radius-xl: calc(var(--r) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--ok);
+  --color-warning: var(--warn);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent-color: var(--sidebar-accent-color);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --color-chart-1: var(--mp);
+  --color-chart-2: var(--mp2);
+  --color-chart-3: var(--info);
+  --color-chart-4: var(--ok);
+  --color-chart-5: var(--warn);
+}
+
+/* Semantic shadcn tokens -> TRAX brand tokens (defined in index.css).
+   Both themes are covered automatically: index.css already re-points
+   --surface/--text/--mp etc. under [data-theme="dark"], so these inherit
+   the dark values without a second declaration block. */
+:root {
+  --background: var(--bg);
+  --foreground: var(--text);
+  --card: var(--surface);
+  --card-foreground: var(--text);
+  --popover: var(--surface);
+  --popover-foreground: var(--text);
+
+  --primary: var(--mp);
+  --primary-foreground: #ffffff;
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--text);
+  --muted: var(--surface-2);
+  --muted-foreground: var(--text-2);
+  --accent: var(--xlp);
+  --accent-foreground: var(--heading);
+
+  --destructive: var(--err);
+  --destructive-foreground: #ffffff;
+
+  --input: var(--border);
+  --ring: var(--mp2);
+
+  /* The sidebar is deliberately dark in BOTH themes (brand decision), so it
+     maps to the dedicated tokens rather than the surface ones. */
+  --sidebar: var(--sidebar-bg);
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: var(--mp2);
+  --sidebar-primary-foreground: #ffffff;
+  /* NOTE the name: shadcn's sidebar reads --sidebar-accent as the hover/active
+     BACKGROUND, while the legacy stylesheet defines --sidebar-accent as a dim
+     text colour. Without this override the legacy value leaks through and
+     nav items render at low contrast. */
+  --sidebar-accent: rgba(255, 255, 255, 0.10);
+  --sidebar-accent-color: rgba(255, 255, 255, 0.10);
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgba(255, 255, 255, 0.10);
+  --sidebar-ring: var(--mp2);
+}
+
+/* Hebrew/RTL: ported components still carry some physical Tailwind classes
+   (ml-/mr-/left-/right-). Rather than hand-editing every file up front, flip
+   the handful that actually surface in RTL. Components are converted to
+   logical properties as each screen is migrated. */
+[dir="rtl"] .rtl-flip {
+  transform: scaleX(-1);
+}
+
+/* The legacy sheet styles every <a> with the brand colour. Nav links are
+   NavLinks (<a>), so on the dark sidebar they would render low-contrast.
+   Colour there must come from the sidebar's own foreground token. */
+[data-slot="sidebar"] a,
+[data-slot="sidebar"] a:hover {
+  color: inherit;
+}
+
+/* ---------- Switch thumb: direction-agnostic positioning ----------
+   The primitive moves its thumb with `translate-x-[calc(100%-2px)]`, which
+   fails here twice: the unchecked rule never took effect (the thumb measured
+   the same offset in both states, i.e. the toggle looked stuck), and
+   translate-x is a PHYSICAL axis, so even when it applies it pushes the thumb
+   the wrong way in RTL.
+
+   Absolute positioning on a LOGICAL inset is unambiguous: the thumb sits at
+   inline-start when off and inline-end when on, correct in both directions. */
+[data-slot="switch"] {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+}
+[data-slot="switch"] [data-slot="switch-thumb"] {
+  translate: none !important;
+  transform: none !important;
+  position: absolute;
+  top: 50%;
+  margin: 0;
+  inset-inline-start: 2px;
+  transform: translateY(-50%) !important;
+  transition: inset-inline-start 0.18s ease, background-color 0.18s ease;
+}
+[data-slot="switch"][data-state="checked"] [data-slot="switch-thumb"] {
+  inset-inline-start: calc(100% - 18px);
+}
+
+/* Dark theme re-points --mp to a BRIGHT blue so it reads on dark surfaces.
+   White text on that can fail contrast on every primary button, so the
+   primary foreground flips to a dark ink in this theme. */
+:root[data-theme="dark"] {
+  --primary-foreground: #0b1220;
+  --sidebar-primary-foreground: #0b1220;
+}
+
+/* The sidebar's collapse animates `width`. A running transition sits at the very
+   top of the cascade - above even `!important` - and here the width transition
+   never settled, so the rail stayed pinned at full width: `data-collapsible`
+   flipped to "icon", the labels hid, but the rail never narrowed and the
+   content never reclaimed the space. Dropping the width transition makes the
+   collapse snap instead of slide, which is the right trade for a button that
+   otherwise did nothing visible. */
+[data-slot="sidebar-gap"],
+[data-slot="sidebar-container"] {
+  transition: none;
+}
+
+/* ---------------------------------------------------------------------------
+   UX review round 1
+   ------------------------------------------------------------------------- */
+
+/* Rows in a long list need a resting rhythm. Without zebra or a hover tint the
+   tables read as one undifferentiated block of text, and it is easy to lose
+   which row you are on while moving across ten columns. */
+.rl-table tbody tr:nth-child(even),
+table.grid tbody tr:nth-child(even) {
+  background: var(--surface-2);
+}
+.rl-table tbody tr:hover,
+table.grid tbody tr:hover {
+  background: color-mix(in srgb, var(--mp) 7%, var(--surface));
+}
+
+/* A column full of "-" was competing with real data for attention. Empty
+   placeholders belong in the background. */
+.rl-table td .cell-edit,
+table.grid td {
+  --empty-ink: var(--text-3);
+}
+.cell-empty, .rl-table td .muted {
+  color: var(--text-3);
+  opacity: 0.65;
+}
+
+/* Header stays put while scrolling a long table - otherwise, twenty rows down,
+   the columns are anonymous. */
+.rl-table thead th,
+table.grid thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface);
+  box-shadow: inset 0 -1px 0 var(--border-soft);
+}
+
+/* Chips: the active one must be clearly distinct from inactive ones, so the
+   current tab is unambiguous. */
+.chip.active {
+  background: var(--mp);
+  color: #fff;
+  border-color: transparent;
+  font-weight: 600;
+}
+.chip.active:hover { background: color-mix(in srgb, var(--mp), #000 10%); }
+
+/* ---------------------------------------------------------------------------
+   UX review round 2
+   ------------------------------------------------------------------------- */
+
+/* The floating bulk-actions bar sat on top of the last table rows and hid them.
+   Reserving space at the foot of a list means the bar covers empty page instead
+   of data. */
+.rl-table { padding-bottom: 72px; }
+
+/* Destructive bulk actions were the visually loudest thing in that bar. They
+   stay available, just no longer dressed as the recommended next step. */
+[data-slot="card"].fixed button[class*="destructive"],
+[data-slot="card"].fixed .btn.danger {
+  order: 99;
+}
+
+/* ---------------------------------------------------------------------------
+   UX review round 3
+   ------------------------------------------------------------------------- */
+
+/* Horizontally scrollable strips gave no hint that more existed off-screen, and
+   on a phone the stage bar cut off the CURRENT stage - the one thing you look
+   at. A fade at the edges says "there is more this way". */
+.stage-bar {
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  mask-image: linear-gradient(to left, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+}
+.stage-bar .stage { scroll-snap-align: center; }
+
+/* Same idea for wide tables. */
+.rl-table > div, .table-wrap {
+  scrollbar-width: thin;
+}
+
+/* One button scale instead of several accidental ones. */
+.btn { min-height: 36px; }
+.btn.sm { min-height: 32px; }
+
+/* Collapse to one body text size. */
+.small { font-size: 0.875rem; }
+
+/* "Pick one of several" should look like the same control everywhere. */
+.chip {
+  border-radius: 9px;
+}

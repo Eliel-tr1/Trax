@@ -1,0 +1,213 @@
+/* ============================================================
+   ra-core providers: data, auth, i18n, store.
+
+   TRAX rewrite of bina-crm's lib/ra/providers.js — same mechanism
+   (dataProvider written directly on supabase-js, not ra-data-postgrest,
+   for the same reasons: multi-field Hebrew search via PostgREST `or=`,
+   embedded relation selects, soft-delete semantics).
+
+   Every table in data/001_init_schema.sql carries `deleted_at` (except
+   `contacts`, `app_users`, `audit_log`), so soft-delete is the default
+   here — the opposite of bina-crm where only some tables had it.
+
+   FK relationships are NOT guessed — every one below matches an actual
+   `references` clause in data/001_init_schema.sql:
+     sales.customer_id -> customers.id
+     sales.journey_id -> journeys.id
+     registrations.customer_id/journey_id/sale_id
+     contacts.customer_id
+   tasks/meetings/phone_calls/notes/documents are polymorphic via
+   related_type + related_id — NOT a real FK, so they are never embedded
+   in a PostgREST select; they're queried explicitly (see ActivityFeed.jsx).
+   ============================================================ */
+
+import { supabaseAuthProvider } from 'ra-supabase-core'
+import polyglotI18nProvider from 'ra-i18n-polyglot'
+import { localStorageStore } from 'ra-core'
+import { supabase } from '../supabase'
+import he from '../../i18n/he'
+
+const SOFT_DELETE = new Set([
+  'customers', 'sales', 'journeys', 'registrations', 'tasks',
+])
+
+// NOTE: sales.owner_id and tasks.assignee_id reference auth.users(id), not
+// app_users — app_users.id happens to equal the same uuid (1:1 mirror) but
+// there is no actual FK from sales/tasks to app_users, so PostgREST cannot
+// embed `owner:app_users!...` (schema-cache 400: "Could not find a
+// relationship"). Owner/assignee display names are resolved client-side
+// via loadOptions()'s `users` list instead (see lib/api.js, SaleDetail.jsx,
+// Tasks.jsx) rather than embedded here.
+export const SELECTS = {
+  customers: '*',
+  sales: '*, customer:customers(id,first_name,last_name,mobile_phone,business_unit), journey:journeys(id,name)',
+  journeys: '*',
+  registrations: '*, customer:customers(id,first_name,last_name), journey:journeys(id,name,departure_date), sale:sales(id,deal_name)',
+  tasks: '*',
+  contacts: '*, customer:customers(id,first_name,last_name)',
+}
+
+/* Free-text search targets for the `q` filter. */
+const SEARCH = {
+  customers: ['first_name', 'last_name', 'mobile_phone', 'email', 'company', 'work_email'],
+  sales: ['deal_name', 'campaign'],
+  journeys: ['name'],
+  registrations: ['registration_name', 'invoice_number'],
+  tasks: ['subject'],
+  contacts: ['name', 'phone', 'email'],
+}
+
+/* Related-table search: sales/registrations are searched by the customer's
+   name, which lives in a related table — PostgREST cannot embed a related
+   column into a top-level `or`, so ids are resolved first and folded in as
+   `<fk>.in.(...)`. */
+const SEARCH_REL = {
+  sales: { fk: 'customer_id', table: 'customers', fields: ['first_name', 'last_name', 'mobile_phone', 'email'] },
+  registrations: { fk: 'customer_id', table: 'customers', fields: ['first_name', 'last_name', 'mobile_phone', 'email'] },
+}
+
+/* "which column says this record belongs to me" — used by the "ממתין לי"
+   preset (sales I own) via a plain filter, not record-scoping; TRAX has no
+   per-user row restriction yet (RLS gives every authenticated user full
+   access — see data/001_init_schema.sql's RLS section). */
+export const OWNER_FIELD = { sales: 'owner_id', tasks: 'assignee_id' }
+
+const sel = (resource) => SELECTS[resource] || '*'
+
+const relatedIds = async (resource, term) => {
+  const rel = SEARCH_REL[resource]
+  if (!rel) return null
+  const { data } = await supabase.from(rel.table).select('id')
+    .or(rel.fields.map(f => `${f}.ilike.%${term}%`).join(',')).limit(200)
+  return (data || []).map(r => r.id)
+}
+
+/* Applies ra's filter object to a supabase query builder.
+   Supported key forms:
+     field            -> eq
+     field@ilike      -> ilike %value%
+     field@in         -> in (array)
+     field@gte/@lte   -> range
+     field@is         -> is (null)
+     field@neq        -> neq
+     q                -> or(ilike) across SEARCH[resource]  */
+const applyFilters = (q, resource, filter = {}, relIds = null) => {
+  for (const [rawKey, value] of Object.entries(filter)) {
+    if (value === undefined || value === null || value === '') continue
+
+    if (rawKey === 'q') {
+      const clauses = (SEARCH[resource] || []).map(f => `${f}.ilike.%${value}%`)
+      if (relIds?.length) clauses.push(`${SEARCH_REL[resource].fk}.in.(${relIds.join(',')})`)
+      if (!clauses.length) continue
+      q = q.or(clauses.join(','))
+      continue
+    }
+
+    const [field, op = 'eq'] = rawKey.split('@')
+    switch (op) {
+      case 'ilike': q = q.ilike(field, `%${value}%`); break
+      case 'in': q = q.in(field, Array.isArray(value) ? value : [value]); break
+      case 'gte': q = q.gte(field, value); break
+      case 'lte': q = q.lte(field, value); break
+      case 'gt': q = q.gt(field, value); break
+      case 'lt': q = q.lt(field, value); break
+      case 'neq': q = q.neq(field, value); break
+      case 'is': q = q.is(field, value === 'null' ? null : value); break
+      default: q = Array.isArray(value) ? q.in(field, value) : q.eq(field, value)
+    }
+  }
+  return q
+}
+
+const listQuery = async (resource, { filter, sort, pagination }) => {
+  const relIds = filter?.q ? await relatedIds(resource, filter.q) : null
+  let q = supabase.from(resource).select(sel(resource), { count: 'exact' })
+  if (SOFT_DELETE.has(resource)) q = q.is('deleted_at', null)
+  q = applyFilters(q, resource, filter, relIds)
+  if (sort?.field) q = q.order(sort.field, { ascending: sort.order !== 'DESC', nullsFirst: false })
+  if (pagination) {
+    const { page = 1, perPage = 50 } = pagination
+    q = q.range((page - 1) * perPage, page * perPage - 1)
+  }
+  return q
+}
+
+const unwrap = ({ data, error, count }) => {
+  if (error) throw new Error(error.message)
+  return { data: data || [], total: count ?? (data || []).length }
+}
+
+export const dataProvider = {
+  getList: async (resource, params) => unwrap(await listQuery(resource, params)),
+
+  getManyReference: async (resource, params) => {
+    const filter = { ...(params.filter || {}), [params.target]: params.id }
+    return unwrap(await listQuery(resource, { ...params, filter }))
+  },
+
+  getOne: async (resource, { id }) => {
+    const { data, error } = await supabase.from(resource).select(sel(resource)).eq('id', id).single()
+    if (error) throw new Error(error.message)
+    return { data }
+  },
+
+  getMany: async (resource, { ids }) => {
+    const { data, error } = await supabase.from(resource).select(sel(resource)).in('id', ids)
+    if (error) throw new Error(error.message)
+    return { data: data || [] }
+  },
+
+  create: async (resource, { data }) => {
+    const { data: row, error } = await supabase.from(resource).insert(data).select().single()
+    if (error) throw new Error(error.message)
+    return { data: row }
+  },
+
+  update: async (resource, { id, data }) => {
+    const patch = { ...data }
+    delete patch.id
+    const { data: row, error } = await supabase.from(resource).update(patch).eq('id', id).select().single()
+    if (error) throw new Error(error.message)
+    return { data: row }
+  },
+
+  updateMany: async (resource, { ids, data }) => {
+    const { error } = await supabase.from(resource).update(data).in('id', ids)
+    if (error) throw new Error(error.message)
+    return { data: ids }
+  },
+
+  // Soft-delete stamps deleted_at (every table above has the column); hard
+  // delete otherwise (contacts has no deleted_at column, per schema).
+  delete: async (resource, { id, previousData }) => {
+    const { error } = SOFT_DELETE.has(resource)
+      ? await supabase.from(resource).update({ deleted_at: new Date().toISOString() }).eq('id', id)
+      : await supabase.from(resource).delete().eq('id', id)
+    if (error) throw new Error(error.message)
+    return { data: previousData || { id } }
+  },
+
+  deleteMany: async (resource, { ids }) => {
+    const { error } = SOFT_DELETE.has(resource)
+      ? await supabase.from(resource).update({ deleted_at: new Date().toISOString() }).in('id', ids)
+      : await supabase.from(resource).delete().in('id', ids)
+    if (error) throw new Error(error.message)
+    return { data: ids }
+  },
+}
+
+export const authProvider = supabaseAuthProvider(supabase, {
+  getIdentity: async (user) => {
+    const { data } = await supabase.from('app_users').select('id, full_name').eq('id', user.id).maybeSingle()
+    return { id: data?.id ?? user.id, fullName: data?.full_name || user.email }
+  },
+})
+
+// Hebrew only (spec: "Hebrew-only agent, multilingual out of scope" — same
+// applies to this internal tool). `allowMissing` keeps an unmapped key from
+// throwing in production.
+export const i18nProvider = polyglotI18nProvider(() => he, 'he', [{ locale: 'he', name: 'עברית' }], {
+  allowMissing: true,
+})
+
+export const raStore = localStorageStore(undefined, 'trax')

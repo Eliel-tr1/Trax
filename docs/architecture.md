@@ -76,6 +76,18 @@ lists, relationships, and business rules: [domain-model.md](domain-model.md).
 actually occupies a seat, recounted per event rather than tracked as a
 cumulative counter.
 
+## Automation & API layer
+
+Business-rule automations run through a generic rule engine
+(`automation_rules`/`automation_logs`, one dispatch trigger per object) rather
+than one-off triggers, and the external API surface is a generic
+`/api/v1/{object}` (schema-resolved) rather than bespoke intake-only
+functions — see
+[decisions/0003-generic-automation-and-api-layer.md](decisions/0003-generic-automation-and-api-layer.md)
+for why. Structural computed fields (seat counts, status transitions,
+composite names) stay as plain triggers — only actual business rules go
+through the engine.
+
 ## Integration surface
 
 Edge Functions replace what would have been calls into Origami's API:
