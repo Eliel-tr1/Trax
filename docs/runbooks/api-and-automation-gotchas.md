@@ -24,6 +24,30 @@
 already committed to the client's site/landing/Xcon forms
 (`docs/domain-model.md` → "הטפסים באתרים") as a thin wrapper over `api-v1`.
 
+## n8n lead-intake workflow — live and verified
+
+Workflow "TRAX - Lead Intake (site/landing/Xcon forms)", id `pjhRD7eOj8Xs7aDR`
+on the Vitrue n8n instance (`n8n.srv1873970.hstgr.cloud`), created via the
+Public API and activated. Webhook URL:
+`{N8N_VITRUE_URL}/webhook/trax-lead-intake` — POST the exact payload
+contract, it forwards to `lead-intake` and returns its response.
+
+Despite the documented Amorphicure-instance gotcha (CLI/API-created webhook
+nodes never registering — see `n8n_hostinger_deployment.md` memory), **this
+webhook registered and worked correctly on the first try, verified twice**
+with real end-to-end customer+sale creation (test rows cleaned up after).
+That gotcha was confirmed on a different n8n instance/version
+(`72.60.34.206`, Amorphicure) — evidently doesn't reproduce here. Still,
+if this workflow is ever redeployed with new node code, re-verify with a
+real POST before trusting it live — don't assume this instance is
+permanently exempt.
+
+Only the site-form path is wired end-to-end tonight. WhatsApp/Instagram/
+Facebook DM intake and the Xcon-specific form still need their own
+workflows pointed at the same webhook (or their own, calling the same
+contract) — not built tonight, out of scope for the CRM repo itself per
+architecture.md (this repo only needed to prove the receiving side works).
+
 ## Windows/Git-Bash curl gotcha (cost real debugging time once already)
 
 `curl -d '<hebrew text>'` on Windows Git Bash mangles UTF-8 into `?????`
