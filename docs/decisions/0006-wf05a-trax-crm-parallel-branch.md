@@ -66,3 +66,42 @@ cleanup in Origami if that matters (name "בדיקת וובהוק", phone
 **What this doesn't cover**: `Xcon` isn't handled by this branch — WF05a is
 specifically the TRAX website's own lead form, it has no Xcon variant, so
 `business_unit` is hardcoded to `TRAX`.
+
+## Follow-up (same day): defaults, full UTM set, execution_url
+
+Client feedback after the first pass, all applied:
+
+- **`lead_source` is hardcoded to `"אתר TRAX"`**, not derived from
+  `utm_source` — a real bug in the first version. `lead_source` (מקור הגעה)
+  is TRAX's own channel taxonomy (site / landing page / referral / etc.);
+  `utm_source` (the ad platform that drove traffic TO the site) is a
+  different concept and stays in its own column.
+- **Default account manager / sales rep**: every customer/sale created by
+  this branch gets `account_manager_id`/`owner_id` = גולדי
+  (`772a4955-5302-475a-ba69-2e3a2929d0f0`), until reassigned.
+- **Full UTM field set**: a real historical n8n execution (id `342`)
+  revealed the site form actually sends `funnel`, `utm_adset`, `utm_ad`,
+  and `utm_placement` too, on top of the 6 already mapped — these were
+  being silently dropped. Added as new columns (migration
+  `data/015_full_utm_fields.sql`) and now written on both `customers` and
+  `sales`.
+- **`next_call_at`** defaults to the moment the lead came in (same day),
+  on both create and update — a repeat form submission is renewed
+  interest, so it bumps the follow-up date even on an already-open sale.
+- **Notes**: no real form submission has ever included a message field
+  (checked execution history) — built defensively for when the site form
+  adds one (reads `message`/`notes`/`comment` off the RAW webhook body, not
+  G1's filtered output, so G1 itself stays untouched). Appends rather than
+  overwrites on a repeat submission, so an earlier note isn't lost.
+- **`execution_url`**: the new n8n node now computes
+  `{n8n_url}/workflow/{id}/executions/{execution.id}` via n8n's own
+  `$workflow`/`$execution` expressions and writes it to both `customers`
+  and `sales` on every create/update from this branch — the `execution_url`
+  column already existed everywhere per earlier work, this is what
+  actually populates it for this specific automation.
+
+Verified live again after these changes: a real webhook POST with a
+message and the full UTM set produced exactly the expected row — hardcoded
+lead_source, appended note, Goldi as account manager/rep, all 10 UTM-ish
+fields, a real execution_url, and next_call_at at submission time. Test
+data cleaned up afterward.

@@ -24,6 +24,7 @@ const SCHEMA: Record<string, { table: string; fields: string[] }> = {
       "extreme_experience_level", "preferred_language",
       "company", "job_title", "work_email", "owner_id", "account_manager_id", "custom", "execution_url",
       "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "landing_page", "referrer",
+      "funnel", "utm_adset", "utm_ad", "utm_placement",
     ],
   },
   sales: {
@@ -35,6 +36,7 @@ const SCHEMA: Record<string, { table: string; fields: string[] }> = {
       "qualification_rating", "qualification_summary", "next_call_at",
       "interest_area", "custom", "execution_url",
       "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "landing_page", "referrer",
+      "funnel", "utm_adset", "utm_ad", "utm_placement",
     ],
   },
   journeys: {
