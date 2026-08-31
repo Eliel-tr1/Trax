@@ -18,6 +18,24 @@ const EMPTY_COLUMN_WIDTHS = {}
    survives a reload but not a different browser/profile, so the layout is
    mirrored server-side, keyed by resource: prefs.columnLayout.<resource>.
 
+   FOUND LIVE (root-caused with mount/unmount + save-check console tracing,
+   don't re-break this): a React effect always fires once on mount even
+   though its dependency array didn't "change" from a prior render — there
+   is no prior render to diff against. On this component's very first
+   mount, that fired the save effect below with the local columnRanks/
+   columnWidths hooks not necessarily settled yet from ra-core's store, so
+   it could write a spurious/incomplete value, call fetchRep(), which
+   flips permissionStore's `loading` true→false, which makes
+   RequirePermission remount its guarded subtree (including THIS
+   component) — closing a self-sustaining ~1-2s mount→spurious-save→
+   fetchRep→remount loop with no user interaction at all (that's what
+   "the screen keeps refreshing" was). Comparing current-vs-last-saved
+   content (JSON.stringify) alone does NOT fix this: the fix has to be
+   that the save effect is INERT on the render where it first becomes
+   eligible to run (right after hydrate), and only ever acts on a
+   genuinely later dependency change — hence armedRef below, separate
+   from hydrated.
+
    Renders nothing — it only watches two store keys and syncs them. */
 export default function ColumnLayoutSync({ resource, datatableStoreKey }) {
   const rep = useAuthStore(s => s.rep)
@@ -26,7 +44,9 @@ export default function ColumnLayoutSync({ resource, datatableStoreKey }) {
   const [columnRanks, setColumnRanks] = useStore(`${datatableStoreKey}_columnRanks`)
   const [columnWidths, setColumnWidths] = useStore(`${datatableStoreKey}_columnWidths`, EMPTY_COLUMN_WIDTHS)
   const hydrated = useRef(false)
+  const armedRef = useRef(false) // becomes true only after the save effect has already run once and skipped itself
   const saveTimer = useRef(null)
+  const lastSavedRef = useRef(undefined) // last value THIS TAB actually wrote — never diff against server-echoed rep.prefs (jsonb key order isn't guaranteed stable)
 
   // Hydrate once from server prefs, but only fill in what the local store
   // doesn't already have — a returning user's in-browser drag state should
@@ -36,6 +56,7 @@ export default function ColumnLayoutSync({ resource, datatableStoreKey }) {
     hydrated.current = true
     const saved = rep.prefs?.columnLayout?.[resource]
     if (!saved) return
+    lastSavedRef.current = { columnRanks: saved.columnRanks || null, columnWidths: saved.columnWidths || null }
     if (columnRanks === undefined && Array.isArray(saved.columnRanks)) setColumnRanks(saved.columnRanks)
     if ((!columnWidths || Object.keys(columnWidths).length === 0) && saved.columnWidths) {
       setColumnWidths(saved.columnWidths)
@@ -44,14 +65,17 @@ export default function ColumnLayoutSync({ resource, datatableStoreKey }) {
   }, [rep])
 
   // Persist whenever the live layout actually changes, debounced so a drag
-  // or a resize doesn't fire a write per pixel/frame.
+  // or a resize doesn't fire a write per pixel/frame. Deliberately inert on
+  // its first eligible firing (see the file-level comment above) — only a
+  // real subsequent change to columnRanks/columnWidths schedules a save.
   useEffect(() => {
     if (!hydrated.current || !user) return
+    if (!armedRef.current) { armedRef.current = true; return }
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(async () => {
       const current = { columnRanks: columnRanks || null, columnWidths: columnWidths || null }
-      const prevSaved = rep?.prefs?.columnLayout?.[resource] || { columnRanks: null, columnWidths: null }
-      if (JSON.stringify(current) === JSON.stringify(prevSaved)) return
+      if (JSON.stringify(current) === JSON.stringify(lastSavedRef.current)) return
+      lastSavedRef.current = current
       const nextPrefs = {
         ...(rep?.prefs || {}),
         columnLayout: { ...(rep?.prefs?.columnLayout || {}), [resource]: current },

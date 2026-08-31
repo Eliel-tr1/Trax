@@ -50,7 +50,7 @@ export default function UserPicker({
           </div>
           <div className="max-h-56 overflow-y-auto p-1">
             {allowEmpty && (
-              <button type="button" onClick={() => pick('')}
+              <button type="button" onClick={() => pick(null)}
                 className="hover:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm">
                 <span className="text-muted-foreground grid size-6 place-items-center"><X className="size-3.5" /></span>
                 <span className="flex-1 text-start">{emptyLabel}</span>
