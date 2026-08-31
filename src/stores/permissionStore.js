@@ -92,9 +92,18 @@ export const usePermissionStore = create((set, get) => ({
     return ownerId != null && ownerId === get().userId
   },
 
-  load: async (userId) => {
+  // silent=true skips the loading:true flip — RequirePermission.jsx unmounts
+  // its guarded subtree while loading is true, so a "background refresh"
+  // call (e.g. after editing a role's permissions elsewhere in Settings)
+  // would otherwise unmount+remount the very screen the user is on,
+  // resetting all its local state (found live: editing a permission
+  // checkbox reset RolesTab's selected-role dropdown back to the first
+  // role alphabetically — "the screen refreshes and jumps to a different
+  // panel"). A stale matrix for the few hundred ms of this fetch is a
+  // non-issue; an unwanted remount of the active screen is not.
+  load: async (userId, silent = false) => {
     if (!userId) { set({ loading: false, userId: null, matrix: {} }); return }
-    set({ loading: true, userId })
+    set({ loading: !silent, userId })
     const pairs = RESOURCES.flatMap(r => ACTIONS.map(a => ({ resource: r.key, action: a })))
     const results = await Promise.all(pairs.map(({ resource, action }) =>
       supabase.rpc('can_access', { p_resource: resource, p_action: action })

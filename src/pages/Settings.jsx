@@ -866,8 +866,10 @@ function RolesTab() {
     setSaving(null)
     if (error) { toast('השמירה נכשלה: ' + error.message, 'err'); return }
     setPermsByRole(m => ({ ...m, [role.id]: [...(m[role.id] || []).filter(p => p.resource !== resource), data] }))
-    // If this changed the current user's own role, refresh their live permission set.
-    if (myUserId) reload(myUserId)
+    // If this changed the current user's own role, refresh their live permission
+    // set — silently, so it doesn't unmount/remount this very screen (see
+    // permissionStore.js's `load` doc comment for what that used to break).
+    if (myUserId) reload(myUserId, true)
   }
 
   if (!roles) return <div className="empty"><span className="spinner" /></div>
