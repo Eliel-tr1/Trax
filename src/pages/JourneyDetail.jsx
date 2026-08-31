@@ -116,41 +116,75 @@ export default function JourneyDetail() {
         {!regs.length ? (
           <div className="empty small">אין עדיין הרשמות למסע זה</div>
         ) : (
-          <div className="table-wrap">
-            <table className="grid">
-              <thead>
-                <tr>
-                  <th>הרשמה</th><th>שם מלא</th><th>טלפון</th><th>אימייל</th><th>גיל</th><th>מין</th>
-                  <th>מגבלות רפואיות / פיזיות</th><th>העדפות תזונה</th>
-                </tr>
-              </thead>
-              <tbody>
-                {regs.flatMap(r => {
-                  const passengers = passengersByReg[r.id] || []
-                  if (!passengers.length) {
-                    return [
-                      <tr key={r.id}>
-                        <td style={{ fontWeight: 600 }}>{r.registration_name || '-'}</td>
-                        <td colSpan={7} className="muted small">אין נוסעים רשומים</td>
-                      </tr>,
-                    ]
-                  }
-                  return passengers.map((p, i) => (
-                    <tr key={p.id}>
-                      {i === 0 && <td rowSpan={passengers.length} style={{ fontWeight: 600, verticalAlign: 'top' }}>{r.registration_name || '-'}</td>}
-                      <td>{p.is_primary && <span className="badge mp" style={{ marginInlineEnd: 6 }}>לקוח</span>}{p.full_name}</td>
-                      <td dir="ltr">{p.phone || '-'}</td>
-                      <td dir="ltr">{p.email || '-'}</td>
-                      <td>{p.age ?? '-'}</td>
-                      <td>{p.gender || '-'}</td>
-                      <td>{p.medical_notes || '-'}</td>
-                      <td>{p.dietary_notes || '-'}</td>
-                    </tr>
-                  ))
-                })}
-              </tbody>
-            </table>
-          </div>
+          <>
+            {/* Desktop/tablet: 8-column grid, grouped by registration. Below
+                `sm` this collapses to a card per passenger (same split as
+                RegistrationPassengers) — an 8-column table in a 375px page
+                forced horizontal scroll inside a sliver of a container. */}
+            <div className="table-wrap hidden sm:block">
+              <table className="grid">
+                <thead>
+                  <tr>
+                    <th>הרשמה</th><th>שם מלא</th><th>טלפון</th><th>אימייל</th><th>גיל</th><th>מין</th>
+                    <th>מגבלות רפואיות / פיזיות</th><th>העדפות תזונה</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {regs.flatMap(r => {
+                    const passengers = passengersByReg[r.id] || []
+                    if (!passengers.length) {
+                      return [
+                        <tr key={r.id}>
+                          <td style={{ fontWeight: 600 }}>{r.registration_name || '-'}</td>
+                          <td colSpan={7} className="muted small">אין נוסעים רשומים</td>
+                        </tr>,
+                      ]
+                    }
+                    return passengers.map((p, i) => (
+                      <tr key={p.id}>
+                        {i === 0 && <td rowSpan={passengers.length} style={{ fontWeight: 600, verticalAlign: 'top' }}>{r.registration_name || '-'}</td>}
+                        <td>{p.is_primary && <span className="badge mp" style={{ marginInlineEnd: 6 }}>לקוח</span>}{p.full_name}</td>
+                        <td dir="ltr">{p.phone || '-'}</td>
+                        <td dir="ltr">{p.email || '-'}</td>
+                        <td>{p.age ?? '-'}</td>
+                        <td>{p.gender || '-'}</td>
+                        <td>{p.medical_notes || '-'}</td>
+                        <td>{p.dietary_notes || '-'}</td>
+                      </tr>
+                    ))
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="sm:hidden" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {regs.map(r => {
+                const passengers = passengersByReg[r.id] || []
+                return (
+                  <div key={r.id}>
+                    <div className="small" style={{ fontWeight: 700, marginBottom: 6 }}>{r.registration_name || '-'}</div>
+                    {!passengers.length ? (
+                      <div className="muted small">אין נוסעים רשומים</div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {passengers.map(p => (
+                          <div key={p.id} className="card" style={{ padding: 12 }}>
+                            <div style={{ fontWeight: 600, marginBottom: 4 }}>{p.is_primary && <span className="badge mp" style={{ marginInlineEnd: 6 }}>לקוח</span>}{p.full_name}</div>
+                            <div className="ef"><span className="ef-label">טלפון</span><span className="ef-val" dir="ltr">{p.phone || '-'}</span></div>
+                            <div className="ef"><span className="ef-label">אימייל</span><span className="ef-val" dir="ltr">{p.email || '-'}</span></div>
+                            <div className="ef"><span className="ef-label">גיל</span><span className="ef-val">{p.age ?? '-'}</span></div>
+                            <div className="ef"><span className="ef-label">מין</span><span className="ef-val">{p.gender || '-'}</span></div>
+                            <div className="ef"><span className="ef-label">מגבלות רפואיות / פיזיות</span><span className="ef-val">{p.medical_notes || '-'}</span></div>
+                            <div className="ef" style={{ borderBottom: 'none' }}><span className="ef-label">העדפות תזונה</span><span className="ef-val">{p.dietary_notes || '-'}</span></div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </>
         )}
       </div>
     </RecordLayout>

@@ -213,6 +213,19 @@ export function DvizStyles() {
 
       .dviz-fade-in { animation: dviz-fade-in 0.4s ease both; }
       @keyframes dviz-fade-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+      /* Mobile: the fixed-width label + value columns leave almost no room
+         for the actual bar/funnel track on a 375px screen, especially with
+         long combined labels (e.g. "אינסטגרם · montenegro-oct") — the track
+         was shrinking to a sliver. Stack label above track+value instead,
+         same collapse pattern as .field-grid at 640px in index.css. */
+      @media (max-width: 480px) {
+        .dviz-bar-row, .dviz-funnel-row { flex-wrap: wrap; row-gap: 4px; }
+        .dviz-bar-label, .dviz-funnel-label {
+          width: 100%; text-align: start; white-space: normal; overflow: visible; text-overflow: clip;
+        }
+        .dviz-bar-track, .dviz-funnel-track { flex: 1 1 auto; min-width: 0; }
+      }
     `}</style>
   )
 }
