@@ -25,7 +25,7 @@ const relStyle = (key) => REL_STYLE[key] || { icon: 'grid', hue: 270 }
 // actions: [{ icon, title, href?, onClick? }]
 // stage: { stages:[{key,label}], current, onSet }
 // objectType/recordId: for the polymorphic ActivityFeed (notes/tasks)
-export default function RecordLayout({ title, subtitle, status, backTo, actions = [], related = [], stage, objectType, recordId, recordType, record, onRelatedCreated, feed = true, children }) {
+export default function RecordLayout({ title, subtitle, status, backTo, actions = [], related = [], stage, objectType, recordId, recordType, record, onRelatedCreated, feed = true, feedProps = {}, children }) {
   const nav = useNavigate()
   const [openRel, setOpenRel] = useState(null)
   const [createRel, setCreateRel] = useState(null)
@@ -120,7 +120,7 @@ export default function RecordLayout({ title, subtitle, status, backTo, actions 
         <div data-tour="rec-fields" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {children}
         </div>
-        {feed && <ActivityFeed objectType={objectType} recordId={recordId} />}
+        {feed && <ActivityFeed objectType={objectType} recordId={recordId} {...feedProps} />}
       </div>
 
       {createRel && (

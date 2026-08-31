@@ -8,6 +8,8 @@ import {
 } from '../lib/constants'
 import RecordLayout from '../components/RecordLayout'
 import EditField from '../components/EditField'
+import RecordFormModal from '../components/RecordFormModal'
+import { REGISTRATION_STATUS_BADGE } from './Registrations'
 
 const STATUS_BADGE = { 'ליד חדש': 'mp', 'בטיפול': 'warn', 'לקוח פעיל': 'ok', 'לקוח עבר': 'gray', 'לא רלוונטי': 'gray' }
 const SECTIONS = ['פרטים', 'מועדון']
@@ -17,18 +19,26 @@ export default function CustomerDetail() {
   const [c, setC] = useState(null)
   const [sales, setSales] = useState([])
   const [contacts, setContacts] = useState([])
+  const [registrations, setRegistrations] = useState([])
+  const [meetings, setMeetings] = useState([])
+  const [calls, setCalls] = useState([])
   const [sec, setSec] = useState('פרטים')
+  const [showNewMeeting, setShowNewMeeting] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const load = async () => {
     setLoading(true)
     const { data } = await supabase.from('customers').select('*').eq('id', id).single()
     setC(data)
-    const [{ data: s }, { data: ct }] = await Promise.all([
+    const [{ data: s }, { data: ct }, { data: reg }, { data: mt }, { data: pc }] = await Promise.all([
       supabase.from('sales').select('id, deal_name, stage').eq('customer_id', id).is('deleted_at', null).order('created_at', { ascending: false }),
       supabase.from('contacts').select('*').eq('customer_id', id).order('created_at', { ascending: false }),
+      supabase.from('registrations').select('id, registration_name, status').eq('customer_id', id).is('deleted_at', null).order('created_at', { ascending: false }),
+      supabase.from('meetings').select('*').eq('related_type', 'customer').eq('related_id', id).is('deleted_at', null).order('start_at', { ascending: false }),
+      supabase.from('phone_calls').select('*').eq('related_type', 'customer').eq('related_id', id).order('occurred_at', { ascending: false }),
     ])
-    setSales(s || []); setContacts(ct || []); setLoading(false)
+    setSales(s || []); setContacts(ct || []); setRegistrations(reg || []); setMeetings(mt || []); setCalls(pc || [])
+    setLoading(false)
   }
   useEffect(() => { load() }, [id])
 
@@ -47,13 +57,40 @@ export default function CustomerDetail() {
         { source: 'stage', label: 'שלב', render: r => <span className="badge mp">{r.stage}</span> },
       ],
       columns: [{ label: 'עסקה', get: r => r.deal_name || '-' }, { label: 'שלב', get: r => <span className="badge mp">{r.stage}</span> }] },
+    { key: 'registrations', label: 'הרשמות', count: registrations.length, rows: registrations, onOpen: r => `/registrations/${r.id}`,
+      resource: 'registrations', fk: 'customer_id', recordId: id,
+      listColumns: [
+        { source: 'registration_name', label: 'הרשמה', render: r => r.registration_name || '-' },
+        { source: 'status', label: 'סטטוס', render: r => <span className={`badge ${REGISTRATION_STATUS_BADGE[r.status] || 'gray'}`}>{r.status}</span> },
+      ],
+      columns: [{ label: 'הרשמה', get: r => r.registration_name || '-' }, { label: 'סטטוס', get: r => <span className={`badge ${REGISTRATION_STATUS_BADGE[r.status] || 'gray'}`}>{r.status}</span> }] },
     { key: 'contacts', label: 'אנשי קשר', count: contacts.length, rows: contacts,
       columns: [{ label: 'שם', get: r => r.name }, { label: 'טלפון', get: r => r.phone || '-' }, { label: 'תפקיד', get: r => r.role || '-' }] },
+    { key: 'meetings', label: 'פגישות', count: meetings.length, rows: meetings,
+      columns: [
+        { label: 'נושא', get: r => r.subject },
+        { label: 'תאריך ושעה', get: r => r.start_at ? new Date(r.start_at).toLocaleString('he-IL') : '-' },
+        { label: 'סוג', get: r => r.type || '-' },
+        { label: 'סיכום', get: r => r.summary || '-' },
+      ] },
+    { key: 'calls', label: 'שיחות', count: calls.length, rows: calls,
+      columns: [
+        { label: 'כיוון', get: r => r.direction },
+        { label: 'תאריך', get: r => r.occurred_at ? new Date(r.occurred_at).toLocaleString('he-IL') : '-' },
+        { label: 'משך', get: r => r.duration_seconds != null ? `${r.duration_seconds} שנ׳` : '-' },
+        { label: 'תוצאה', get: r => r.result || '-' },
+        { label: 'הקלטה', get: r => r.recording_url ? <a href={r.recording_url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}>▶</a> : '-' },
+      ] },
   ]
 
   const waHref = c.mobile_phone
     ? `https://wa.me/972${c.mobile_phone.replace(/\D/g, '').replace(/^0/, '')}`
     : null
+
+  const actions = [
+    ...(waHref ? [{ icon: 'message', title: 'וואטסאפ', href: waHref }] : []),
+    { icon: 'calendar', title: 'פגישה חדשה', onClick: () => setShowNewMeeting(true) },
+  ]
 
   return (
     <RecordLayout
@@ -61,7 +98,7 @@ export default function CustomerDetail() {
       subtitle={c.business_unit}
       backTo="/customers"
       status={{ label: c.status, badge: STATUS_BADGE[c.status] || 'gray' }}
-      actions={waHref ? [{ icon: 'message', title: 'וואטסאפ', href: waHref }] : []}
+      actions={actions}
       objectType="customer" recordId={id}
       recordType="customer" record={c} onRelatedCreated={() => load()}
       related={related}
@@ -92,6 +129,10 @@ export default function CustomerDetail() {
         </div>}
         <div style={{ marginTop: 10 }}><EditField label="הערות" value={c.notes} type="textarea" onSave={v => save('notes', v)} /></div>
       </div>
+      {showNewMeeting && (
+        <RecordFormModal type="meeting" defaults={{ related_type: 'customer', related_id: id, business_unit: c.business_unit }}
+          onClose={() => setShowNewMeeting(false)} onCreated={() => { setShowNewMeeting(false); load() }} />
+      )}
     </RecordLayout>
   )
 }

@@ -10,7 +10,7 @@ import {
   EXPERIENCE_LEVELS, PREFERRED_LANGUAGES, SALE_STAGES, SALE_CHANNELS,
   LOSS_REASONS, QUALIFICATION_RATINGS, CURRENCIES, INTEREST_AREAS,
   JOURNEY_DESTINATIONS, JOURNEY_STATUSES, REGISTRATION_STATUSES,
-  PAYMENT_METHODS, TASK_STATUSES, TASK_PRIORITIES, enumOpts,
+  PAYMENT_METHODS, TASK_STATUSES, TASK_PRIORITIES, MEETING_TYPES, enumOpts,
 } from './constants'
 
 // field types: text | number | date | datetime | checkbox | textarea | select
@@ -127,6 +127,21 @@ export const SCHEMA = {
       { key: 'status', label: 'סטטוס', type: 'select', options: enumOpts(TASK_STATUSES), default: 'פתוחה', wave: 1 },
       { key: 'priority', label: 'עדיפות', type: 'select', options: enumOpts(TASK_PRIORITIES), default: 'רגילה', wave: 1 },
       { key: 'description', label: 'תיאור', type: 'textarea', wave: 1 },
+    ],
+    relations: [],
+  },
+  // Meeting (פגישה) — manual "add meeting" only; not a full list/detail
+  // screen per the spec (mostly auto-created by calendar sync). Used by
+  // RecordFormModal from Customer/Sale detail pages.
+  meeting: {
+    table: 'meetings', labelOne: 'פגישה', labelMany: 'פגישות', icon: 'calendar',
+    listPath: null, detailPath: null, softDelete: false, titleField: 'subject',
+    fields: [
+      { key: 'subject', label: 'נושא', type: 'text', required: true, wave: 1 },
+      { key: 'start_at', label: 'תאריך ושעה', type: 'datetime', required: true, wave: 1 },
+      { key: 'duration_minutes', label: 'משך (דקות)', type: 'number', wave: 1 },
+      { key: 'type', label: 'סוג', type: 'select', options: enumOpts(MEETING_TYPES), wave: 1 },
+      { key: 'summary', label: 'סיכום', type: 'textarea', wave: 1 },
     ],
     relations: [],
   },

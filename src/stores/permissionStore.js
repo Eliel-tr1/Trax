@@ -12,8 +12,11 @@ export const RESOURCES = [
   { key: 'dashboard', label: 'לוח בקרה' },
   { key: 'customers', label: 'לקוחות' },
   { key: 'sales', label: 'מכירות' },
+  { key: 'journeys', label: 'מסעות' },
+  { key: 'registrations', label: 'הרשמות' },
   { key: 'tasks', label: 'משימות' },
   { key: 'contacts', label: 'אנשי קשר' },
+  { key: 'settings', label: 'הגדרות' },
 ]
 
 export const usePermissionStore = create(() => ({

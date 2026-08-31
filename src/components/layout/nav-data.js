@@ -1,6 +1,4 @@
-/* Navigation as data — TRAX rewrite of bina-crm's nav-data.js. Wave 1
-   screens only (see docs/roadmap.md); journeys/registrations are schema-
-   ready but have no screens yet. */
+/* Navigation as data — TRAX rewrite of bina-crm's nav-data.js. */
 
 export const NAV_GROUPS = [
   {
@@ -18,16 +16,34 @@ export const NAV_GROUPS = [
       { path: '/sales', label: 'מכירות', icon: 'money', resource: 'sales' },
     ],
   },
+  {
+    key: 'journeys',
+    title: 'מסעות',
+    items: [
+      { path: '/journeys', label: 'מסעות', icon: 'calendar', resource: 'journeys' },
+      { path: '/registrations', label: 'הרשמות', icon: 'tag', resource: 'registrations' },
+    ],
+  },
+  {
+    key: 'system',
+    title: null,
+    items: [
+      { path: '/settings', label: 'הגדרות', icon: 'cog', resource: 'settings' },
+    ],
+  },
 ]
 
 export const DETAIL_TITLES = [
   ['/customers/', 'כרטיס לקוח'],
   ['/sales/', 'כרטיס מכירה'],
+  ['/journeys/', 'כרטיס מסע'],
+  ['/registrations/', 'כרטיס הרשמה'],
 ]
 
 export const allNavItems = () => NAV_GROUPS.flatMap(g => g.items)
 
 export function titleForPath(pathname) {
+  if (pathname === '/profile') return 'הפרופיל שלי'
   const match = allNavItems()
     .filter(n => n.path === pathname || (n.path !== '/' && pathname.startsWith(n.path)))
     .sort((a, b) => b.path.length - a.path.length)[0]

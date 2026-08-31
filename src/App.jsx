@@ -11,7 +11,13 @@ import Customers from './pages/Customers'
 import CustomerDetail from './pages/CustomerDetail'
 import Sales from './pages/Sales'
 import SaleDetail from './pages/SaleDetail'
+import Journeys from './pages/Journeys'
+import JourneyDetail from './pages/JourneyDetail'
+import Registrations from './pages/Registrations'
+import RegistrationDetail from './pages/RegistrationDetail'
 import Tasks from './pages/Tasks'
+import Profile from './pages/Profile'
+import Settings from './pages/Settings'
 import RequirePermission from './components/RequirePermission'
 import { dataProvider, authProvider, i18nProvider, raStore } from './lib/ra/providers'
 
@@ -58,7 +64,13 @@ export default function App() {
               <Route path="customers/:id" element={<RequirePermission resource="customers"><CustomerDetail /></RequirePermission>} />
               <Route path="sales" element={<RequirePermission resource="sales"><Sales /></RequirePermission>} />
               <Route path="sales/:id" element={<RequirePermission resource="sales"><SaleDetail /></RequirePermission>} />
+              <Route path="journeys" element={<RequirePermission resource="journeys"><Journeys /></RequirePermission>} />
+              <Route path="journeys/:id" element={<RequirePermission resource="journeys"><JourneyDetail /></RequirePermission>} />
+              <Route path="registrations" element={<RequirePermission resource="registrations"><Registrations /></RequirePermission>} />
+              <Route path="registrations/:id" element={<RequirePermission resource="registrations"><RegistrationDetail /></RequirePermission>} />
               <Route path="tasks" element={<RequirePermission resource="tasks"><Tasks /></RequirePermission>} />
+              <Route path="profile" element={<Profile />} />
+              <Route path="settings" element={<RequirePermission resource="settings"><Settings /></RequirePermission>} />
               <Route path="*" element={<Navigate to="/" />} />
             </Route>
           </Routes>

@@ -5,10 +5,11 @@ import { updateField, loadOptions } from '../lib/api'
 import { toast } from '../components/Toaster'
 import {
   SALE_STAGES, SALE_CHANNELS, LEAD_SOURCES, LOSS_REASONS, INTEREST_AREAS,
-  enumOpts,
+  CURRENCIES, QUALIFICATION_RATINGS, enumOpts,
 } from '../lib/constants'
 import RecordLayout from '../components/RecordLayout'
 import EditField from '../components/EditField'
+import RecordFormModal from '../components/RecordFormModal'
 
 const STAGES = SALE_STAGES.map(s => ({ key: s, label: s }))
 const STAGE_BADGE = {
@@ -19,16 +20,19 @@ const STAGE_BADGE = {
 export default function SaleDetail() {
   const { id } = useParams()
   const [s, setS] = useState(null)
-  const [opts, setOpts] = useState({ users: [] })
+  const [opts, setOpts] = useState({ users: [], journeys: [] })
+  const [meetings, setMeetings] = useState([])
+  const [showNewMeeting, setShowNewMeeting] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const load = async () => {
     setLoading(true)
-    const [{ data }, o] = await Promise.all([
+    const [{ data }, o, { data: mt }] = await Promise.all([
       supabase.from('sales').select('*, customer:customers(id,first_name,last_name,business_unit)').eq('id', id).single(),
       loadOptions(),
+      supabase.from('meetings').select('*').eq('related_type', 'sale').eq('related_id', id).is('deleted_at', null).order('start_at', { ascending: false }),
     ])
-    setS(data); setOpts(o); setLoading(false)
+    setS(data); setOpts(o); setMeetings(mt || []); setLoading(false)
   }
   useEffect(() => { load() }, [id])
 
@@ -49,6 +53,17 @@ export default function SaleDetail() {
 
   const isXcon = s.business_unit === 'Xcon'
   const userOpts = opts.users.map(u => ({ value: u.id, label: u.full_name }))
+  const journeyOpts = (opts.journeys || []).map(j => ({ value: j.id, label: j.name }))
+
+  const related = [
+    { key: 'meetings', label: 'פגישות', count: meetings.length, rows: meetings,
+      columns: [
+        { label: 'נושא', get: r => r.subject },
+        { label: 'תאריך ושעה', get: r => r.start_at ? new Date(r.start_at).toLocaleString('he-IL') : '-' },
+        { label: 'סוג', get: r => r.type || '-' },
+        { label: 'סיכום', get: r => r.summary || '-' },
+      ] },
+  ]
 
   return (
     <RecordLayout
@@ -56,9 +71,11 @@ export default function SaleDetail() {
       subtitle={s.customer ? `${s.customer.first_name} ${s.customer.last_name} · ${s.business_unit}` : s.business_unit}
       backTo="/sales"
       status={{ label: s.stage, badge: STAGE_BADGE[s.stage] || 'gray' }}
+      actions={[{ icon: 'calendar', title: 'פגישה חדשה', onClick: () => setShowNewMeeting(true) }]}
       objectType="sale" recordId={id}
       recordType="sale" record={s} onRelatedCreated={() => load()}
       stage={{ stages: STAGES, current: s.stage, onSet: setStage }}
+      related={related}
     >
       <div className="card">
         <div className="field-grid">
@@ -70,9 +87,20 @@ export default function SaleDetail() {
           <EditField label="קמפיין" value={s.campaign} onSave={v => save('campaign', v)} />
           <EditField label="בעלים" value={s.owner_id} display={opts.users.find(u => u.id === s.owner_id)?.full_name} type="select" options={userOpts} onSave={v => save('owner_id', v)} />
           <EditField label="סיבת אי סגירה" value={s.loss_reason} type="select" options={enumOpts(LOSS_REASONS)} onSave={v => save('loss_reason', v)} />
+          <EditField label="מסע מבוקש" value={s.journey_id} display={opts.journeys?.find(j => j.id === s.journey_id)?.name} type="select" options={journeyOpts} onSave={v => save('journey_id', v)} />
+          <EditField label="מספר משתתפים" value={s.participants_count} type="number" onSave={v => save('participants_count', v)} />
+          <EditField label="שווי צפוי" value={s.expected_value} type="number" onSave={v => save('expected_value', v)} />
+          <EditField label="מטבע" value={s.currency} type="select" options={CURRENCIES} onSave={v => save('currency', v)} />
+          <EditField label="דירוג הסמכה" value={s.qualification_rating} type="select" options={enumOpts(QUALIFICATION_RATINGS)} onSave={v => save('qualification_rating', v)} />
+          <EditField label="תאריך שיחה הבאה" value={s.next_call_at?.slice(0, 16)} type="datetime" onSave={v => save('next_call_at', v)} />
           {isXcon && <EditField label="תחום עניין" value={s.interest_area} type="select" options={enumOpts(INTEREST_AREAS)} onSave={v => save('interest_area', v)} />}
         </div>
+        <div style={{ marginTop: 10 }}><EditField label="סיכום הסמכה מהסוכן" value={s.qualification_summary} type="textarea" onSave={v => save('qualification_summary', v)} /></div>
       </div>
+      {showNewMeeting && (
+        <RecordFormModal type="meeting" defaults={{ related_type: 'sale', related_id: id, business_unit: s.business_unit }}
+          onClose={() => setShowNewMeeting(false)} onCreated={() => { setShowNewMeeting(false); load() }} />
+      )}
     </RecordLayout>
   )
 }

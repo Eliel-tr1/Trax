@@ -42,7 +42,13 @@ export const SELECTS = {
   customers: '*',
   sales: '*, customer:customers(id,first_name,last_name,mobile_phone,business_unit), journey:journeys(id,name)',
   journeys: '*',
-  registrations: '*, customer:customers(id,first_name,last_name), journey:journeys(id,name,departure_date), sale:sales(id,deal_name)',
+  // journey:journeys!inner (not a plain left-embed) is load-bearing: a
+  // top-level filter on an embedded column like `journey.business_unit`
+  // only NULLS the embed on a non-matching row with a plain embed — it
+  // does NOT exclude the row (verified live against this project). !inner
+  // makes it a real filter. Safe here because registrations.journey_id is
+  // NOT NULL, so every row always has a matching journey to join against.
+  registrations: '*, customer:customers(id,first_name,last_name), journey:journeys!inner(id,name,departure_date,business_unit), sale:sales(id,deal_name)',
   tasks: '*',
   contacts: '*, customer:customers(id,first_name,last_name)',
 }

@@ -18,15 +18,27 @@ now passed). Scope, unchanged:
 
 ## Wave 2 — the full system
 
-- מסע + הרשמה למסע entities, full field set.
-- Seat computation (מקומות שנמכרו/פנויים) + status automation
-  (כמעט מלא/מלא).
-- Both dashboards, all 10 metrics.
-- Phone call integration (Voicenter recordings/transcripts → customer card).
+- ✅ מסע + הרשמה למסע entities, full field set — list + detail screens built
+  (Journeys.jsx/JourneyDetail.jsx, Registrations.jsx/RegistrationDetail.jsx),
+  wired into nav, routing, and Customer/Journey/Sale reverse relations.
+- ✅ Seat computation (מקומות שנמכרו/פנויים) + status automation
+  (כמעט מלא/מלא) — already lived in the DB trigger (001_init_schema.sql);
+  UI now displays it read-only, never writes to it.
+- ✅ Both dashboards, all 10 metrics — Dashboard.jsx rewritten with לוח
+  מכירות + לוח מסעות ותפוסה as sectioned tabs, client-side aggregation,
+  business-unit scoped, currencies never summed across each other.
+- ✅ פגישה (Meeting) — manual "add meeting" from Customer/Sale detail +
+  read-only related list. שיחת טלפון (Phone call) — read-only related list
+  on Customer detail (no manual create, per spec: PBX/agent-only).
+- ✅ /profile (own app_users row + password change) and /settings
+  (system_settings, automation_rules on/off, read-only api_keys) built.
+- Phone call integration (Voicenter recordings/transcripts → customer card)
+  — UI is ready to display rows the moment the integration writes them;
+  the integration itself is still outstanding.
 - Xcon view/report separation.
 - Closed-won welcome message trigger.
-- **Hard-blocked on the client delivering the journeys list** (destination,
-  dates, price/person, seat count) — see blockers.md.
+- Journeys list has been delivered and seeded (7 live journey rows as of
+  30.08.2026) — the earlier hard-block no longer applies.
 
 Only after Wave 2 is solid does work start on the WhatsApp agent (Max) —
 that's a separate build (Vitrue Flows spec `trax-club`), this repo only

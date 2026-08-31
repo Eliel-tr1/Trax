@@ -1,17 +1,22 @@
 @layer legacy {
   /* ============================================================
      TRAX CRM - Design System
-     placeholder palette — TRAX branding pass pending
-     Slate/blue neutral placeholder, Heebo, RTL
+     Real TRAX brand, pulled from trax-club.com (docs/branding.md):
+     burnt-orange rgb(214,90,31) accent, near-black brand ground, Rubik.
      ============================================================ */
 
   :root {
-    /* Brand blues (placeholder — swap for real TRAX brand colors) */
-    --dp: #0f172a;   /* deep (logo/darkest) */
-    --mp: #2563eb;   /* mid (primary) */
-    --mp2: #3b82f6;  /* accent */
-    --lp: #93c5fd;   /* light */
-    --xlp: #eff6ff;  /* extra light */
+    /* Brand — burnt orange, per docs/branding.md (measured rgb(214,90,31)
+       on trax-club.com). --mp is darkened ~15% from the literal measured
+       color: white text on the exact site orange only hits ~3.9:1 contrast
+       (measured), short of WCAG AA's 4.5:1 for normal text — #b64d1a keeps
+       it recognizably the same orange at ~5.2:1. --mp2 is the literal
+       brand hex, for accents/gradients that don't carry small text. */
+    --dp: #0a0a0a;   /* deep (site's own near-black ground) */
+    --mp: #b64d1a;   /* mid (primary) — AA-adjusted from the measured accent */
+    --mp2: #d65a1f;  /* accent — trax-club.com's literal dominant color */
+    --lp: #f0b28c;   /* light */
+    --xlp: #fdf1ea;  /* extra light */
 
     /* Surfaces (light theme) */
     --bg: #f8fafc;
@@ -49,8 +54,8 @@
     --urg-high: #b91c1c;
 
     /* Gradients */
-    --g1: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #2563eb 100%);
-    --g2: linear-gradient(135deg, #2563eb, #3b82f6);
+    --g1: linear-gradient(135deg, #0a0a0a 0%, #2b1810 50%, #d65a1f 100%);
+    --g2: linear-gradient(135deg, #d65a1f, #b64d1a);
 
     /* Shadows */
     --sh1: 0 2px 12px rgba(15, 23, 42, 0.08);
@@ -72,13 +77,13 @@
     --bg: #0b1220; --surface: #121a2b; --surface-2: #182236; --border: #263450; --border-soft: #1c2740;
     /* Text - high contrast */
     --text: #e7ecf5; --text-2: #a7b3c8; --text-3: #7c8aa3;
-    /* Accents (brightened so blue reads on dark) */
-    --mp: #60a5fa; --mp2: #93c5fd; --lp: #3c5a8c; --xlp: #1a2740;
+    /* Accents (brightened orange so it reads on dark — matches trax-club.com's own dark-first identity) */
+    --mp: #e8794a; --mp2: #f0996f; --lp: #7a4426; --xlp: #2b1810;
     --heading: #e7ecf5; --sidebar-bg: #070c17; --sidebar-accent: #8fa3c6; --gray-bg: #1c2740;
     /* Status - opaque dark tints + bright foregrounds */
     --ok: #4ade80; --ok-bg: #0f2a1c; --warn: #fbbf24; --warn-bg: #2c2210; --err: #f87171; --err-bg: #301616; --info: #7db0e0; --info-bg: #16273c;
     --urg-low: #4ade80; --urg-med: #fbbf24; --urg-high: #f87171;
-    --g1: linear-gradient(135deg, #0b1220 0%, #16233d 50%, #24406e 100%);
+    --g1: linear-gradient(135deg, #0b0b0b 0%, #2b1810 50%, #d65a1f 100%);
     --sh1: 0 2px 12px rgba(0,0,0,0.35); --sh2: 0 8px 32px rgba(0,0,0,0.45); --sh3: 0 16px 48px rgba(0,0,0,0.55);
   }
   :root[data-theme="dark"] .btn.ghost { background: var(--surface); }
@@ -89,13 +94,13 @@
   * , *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
   html { scroll-behavior: smooth; }
   body {
-    font-family: 'Heebo', system-ui, sans-serif;
+    font-family: 'Rubik', 'Heebo', system-ui, sans-serif;
     background: var(--bg);
     color: var(--text);
     line-height: 1.55;
     -webkit-font-smoothing: antialiased;
   }
-  h1, h2, h3, .kpi .value, .topbar h1 { font-family: 'Heebo', sans-serif; }
+  h1, h2, h3, .kpi .value, .topbar h1 { font-family: 'Rubik', 'Heebo', sans-serif; }
   ::selection { background: var(--mp); color: #fff; }
   a { color: var(--mp); text-decoration: none; }
   button { font-family: inherit; cursor: pointer; }

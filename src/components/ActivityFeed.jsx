@@ -26,7 +26,10 @@ import UserAvatar from './UserAvatar'
    this schema (documents is its own table) — this feed only posts notes
    and tasks, no reply threads, no attachments. That's a deliberate scope
    cut for Wave 1, not an oversight. */
-export default function ActivityFeed({ objectType, recordId }) {
+// allowTasks: false hides the "משימה" mode — used for objectType='journey',
+// which isn't in tasks.related_type's CHECK constraint (see
+// data/001_init_schema.sql), so inserting a task there would just fail.
+export default function ActivityFeed({ objectType, recordId, allowTasks = true }) {
   const user = useAuthStore(s => s.user)
   const rep = useAuthStore(s => s.rep)
   const [notes, setNotes] = useState([])
@@ -105,12 +108,12 @@ export default function ActivityFeed({ objectType, recordId }) {
       <CardContent>
         <div className="mb-3 flex items-center gap-2">
           <Button size="sm" variant={mode === 'note' ? 'default' : 'outline'} onClick={() => setMode('note')}><Icon name="edit" size={13} /> הערה</Button>
-          <Button size="sm" variant={mode === 'task' ? 'default' : 'outline'} onClick={() => setMode('task')}><Icon name="calendar" size={13} /> משימה</Button>
+          {allowTasks && <Button size="sm" variant={mode === 'task' ? 'default' : 'outline'} onClick={() => setMode('task')}><Icon name="calendar" size={13} /> משימה</Button>}
         </div>
 
         <div className="bg-card focus-within:border-ring mb-4 rounded-lg border p-3 transition-colors">
           <Textarea className="min-h-24 resize-y" value={text} onChange={e => setText(e.target.value)} placeholder={mode === 'note' ? 'הוסיפו הערה…' : 'נושא המשימה…'} />
-          {mode === 'task' && (
+          {allowTasks && mode === 'task' && (
             <>
               <div className="mt-3 flex flex-wrap items-center gap-1.5">
                 <Input className="h-7 w-48 text-xs" type="datetime-local" dir="ltr" value={due} onChange={e => setDue(e.target.value)} />
