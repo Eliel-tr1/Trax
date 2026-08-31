@@ -1,0 +1,143 @@
+{
+    "roles": [
+        {
+            "id": "05d9caa5-8d80-4e53-9f5d-7c66342b9062",
+            "key": "owner",
+            "label": "בעלים",
+            "created_at": "2026-08-31T07:57:12.072211+00:00",
+            "description": "גישה מלאה לכל המערכת — גולדי וזרקוש"
+        },
+        {
+            "id": "84c52148-a5b0-44d8-b160-b675d4b75506",
+            "key": "sales_rep",
+            "label": "נציג מכירות",
+            "created_at": "2026-08-31T07:57:12.072211+00:00",
+            "description": "רק עסקאות ולקוחות שהוא הבעלים שלהם, בלי לוחות בקרה כספיים"
+        },
+        {
+            "id": "f7a2a4d5-accf-480f-893c-f2be8ec925d4",
+            "key": "trip_escort",
+            "label": "מלווה מסע",
+            "created_at": "2026-08-31T07:57:12.072211+00:00",
+            "description": "צפייה במסעות והרשמות בלבד, כולל הערות רפואיות ואיש קשר לחירום"
+        },
+        {
+            "id": "8c767fa6-d040-40f8-96ec-26fdb324eea3",
+            "key": "viewer",
+            "label": "צפייה בלבד",
+            "created_at": "2026-08-31T07:57:12.072211+00:00",
+            "description": "דוחות בלבד, בלי עריכה"
+        }
+    ],
+    "api_keys": [
+        {
+            "id": "09904125-e6aa-4538-a0ed-752f075efdee",
+            "name": "lead-intake-qa",
+            "role": "integration",
+            "is_active": true,
+            "created_at": "2026-08-30T20:38:09.684474+00:00",
+            "key_prefix": "trax_",
+            "last_used_at": "2026-08-31T09:20:55.217835+00:00"
+        }
+    ],
+    "app_users": [
+        {
+            "id": "19426636-3dbc-4b0e-b085-eb482d241ed0",
+            "role": "owner",
+            "phone": null,
+            "prefs": {},
+            "role_id": "05d9caa5-8d80-4e53-9f5d-7c66342b9062",
+            "full_name": "זרקוש",
+            "is_active": true,
+            "avatar_url": null,
+            "created_at": "2026-08-30T20:30:54.097677+00:00"
+        },
+        {
+            "id": "37e8f2e1-e231-4347-b5e6-f0ef093df703",
+            "role": "owner",
+            "phone": null,
+            "prefs": {
+                "navOrder": ["/", "/tasks", "/customers", "/sales", "/journeys", "/registrations", "/meetings", "/phone-calls", "/settings"],
+                "navHidden": [],
+                "onboardingDone": true
+            },
+            "role_id": "05d9caa5-8d80-4e53-9f5d-7c66342b9062",
+            "full_name": "גולדי",
+            "is_active": true,
+            "avatar_url": "https://zahrgdefjekucizocjtu.supabase.co/storage/v1/object/public/avatars/37e8f2e1-e231-4347-b5e6-f0ef093df703.jpg?t=1788171297399",
+            "created_at": "2026-08-30T20:30:54.097677+00:00"
+        }
+    ],
+    "picklists": [],
+    "permissions": [
+        {"id": "856d98cc-2d10-461a-9696-a0454ed59d24", "scope": "all", "role_id": "05d9caa5-8d80-4e53-9f5d-7c66342b9062", "can_edit": true, "can_view": true, "resource": "customers", "can_create": true, "can_delete": true},
+        {"id": "f9418c3f-2b80-43f3-9d27-49bfb705e53b", "scope": "all", "role_id": "05d9caa5-8d80-4e53-9f5d-7c66342b9062", "can_edit": true, "can_view": true, "resource": "sales", "can_create": true, "can_delete": true},
+        {"id": "44a1b5c5-f86b-4dc1-a455-78037664a451", "scope": "all", "role_id": "05d9caa5-8d80-4e53-9f5d-7c66342b9062", "can_edit": true, "can_view": true, "resource": "journeys", "can_create": true, "can_delete": true},
+        {"id": "f6ab0700-ce7c-46d8-9a33-56f05f8759ac", "scope": "all", "role_id": "05d9caa5-8d80-4e53-9f5d-7c66342b9062", "can_edit": true, "can_view": true, "resource": "registrations", "can_create": true, "can_delete": true},
+        {"id": "cdc66d67-3aa4-4bfc-ab3c-ee299cf715e2", "scope": "all", "role_id": "05d9caa5-8d80-4e53-9f5d-7c66342b9062", "can_edit": true, "can_view": true, "resource": "tasks", "can_create": true, "can_delete": true},
+        {"id": "45f51a2c-16d8-4d87-ba2c-8bc022821f6a", "scope": "all", "role_id": "05d9caa5-8d80-4e53-9f5d-7c66342b9062", "can_edit": true, "can_view": true, "resource": "meetings", "can_create": true, "can_delete": true},
+        {"id": "733c3787-82f8-4ced-b0eb-686a85df0aba", "scope": "all", "role_id": "05d9caa5-8d80-4e53-9f5d-7c66342b9062", "can_edit": true, "can_view": true, "resource": "phone_calls", "can_create": true, "can_delete": true},
+        {"id": "d18b36be-354f-476e-87b7-69ce90640fa2", "scope": "all", "role_id": "05d9caa5-8d80-4e53-9f5d-7c66342b9062", "can_edit": true, "can_view": true, "resource": "settings", "can_create": true, "can_delete": true},
+        {"id": "7c627111-4872-4182-9947-c9f81e26998b", "scope": "all", "role_id": "05d9caa5-8d80-4e53-9f5d-7c66342b9062", "can_edit": true, "can_view": true, "resource": "users", "can_create": true, "can_delete": true},
+        {"id": "8dc9b936-ab98-4948-ab44-99a2d9297adf", "scope": "all", "role_id": "05d9caa5-8d80-4e53-9f5d-7c66342b9062", "can_edit": true, "can_view": true, "resource": "dashboard", "can_create": true, "can_delete": true},
+        {"id": "947b58b7-40a7-4cdf-a8c9-4d858b650431", "scope": "mine", "role_id": "84c52148-a5b0-44d8-b160-b675d4b75506", "can_edit": true, "can_view": true, "resource": "customers", "can_create": true, "can_delete": false},
+        {"id": "06aa25ba-ce12-42ec-bced-51518220051a", "scope": "mine", "role_id": "84c52148-a5b0-44d8-b160-b675d4b75506", "can_edit": true, "can_view": true, "resource": "sales", "can_create": true, "can_delete": false},
+        {"id": "b6f54e35-41f9-467e-b3f6-618ddd50954a", "scope": "mine", "role_id": "84c52148-a5b0-44d8-b160-b675d4b75506", "can_edit": true, "can_view": true, "resource": "tasks", "can_create": true, "can_delete": false},
+        {"id": "e254a60c-1c57-42d6-9296-7d439cdd384e", "scope": "all", "role_id": "f7a2a4d5-accf-480f-893c-f2be8ec925d4", "can_edit": false, "can_view": true, "resource": "journeys", "can_create": false, "can_delete": false},
+        {"id": "c0193af0-a677-4693-883e-eb699d9dffa6", "scope": "all", "role_id": "f7a2a4d5-accf-480f-893c-f2be8ec925d4", "can_edit": false, "can_view": true, "resource": "registrations", "can_create": false, "can_delete": false},
+        {"id": "e2cee3d7-d87b-4976-8fa0-d95104e2a144", "scope": "all", "role_id": "8c767fa6-d040-40f8-96ec-26fdb324eea3", "can_edit": false, "can_view": true, "resource": "customers", "can_create": false, "can_delete": false},
+        {"id": "af967138-351b-4ff2-afc0-b5117d4c0625", "scope": "all", "role_id": "8c767fa6-d040-40f8-96ec-26fdb324eea3", "can_edit": false, "can_view": true, "resource": "sales", "can_create": false, "can_delete": false},
+        {"id": "b62bd382-8a54-4f95-95df-4e1a19aae00b", "scope": "all", "role_id": "8c767fa6-d040-40f8-96ec-26fdb324eea3", "can_edit": false, "can_view": true, "resource": "journeys", "can_create": false, "can_delete": false},
+        {"id": "6af90037-114e-41c7-b8bb-85bf19d6536e", "scope": "all", "role_id": "8c767fa6-d040-40f8-96ec-26fdb324eea3", "can_edit": false, "can_view": true, "resource": "registrations", "can_create": false, "can_delete": false},
+        {"id": "7e0e41dc-1c27-4c37-ba6b-314a1bcf0a0d", "scope": "all", "role_id": "8c767fa6-d040-40f8-96ec-26fdb324eea3", "can_edit": false, "can_view": true, "resource": "tasks", "can_create": false, "can_delete": false},
+        {"id": "bb109051-a8a1-4fdb-bca6-4437654b28d9", "scope": "all", "role_id": "8c767fa6-d040-40f8-96ec-26fdb324eea3", "can_edit": false, "can_view": true, "resource": "dashboard", "can_create": false, "can_delete": false},
+        {"id": "892cf516-b921-4ee2-b007-9d51b6c3f339", "scope": "all", "role_id": "05d9caa5-8d80-4e53-9f5d-7c66342b9062", "can_edit": true, "can_view": true, "resource": "contacts", "can_create": true, "can_delete": true},
+        {"id": "d10a6478-4310-48d2-ae9d-91d56f163176", "scope": "all", "role_id": "84c52148-a5b0-44d8-b160-b675d4b75506", "can_edit": true, "can_view": true, "resource": "contacts", "can_create": true, "can_delete": false}
+    ],
+    "custom_fields": [],
+    "system_settings": [
+        {"key": "system_name", "value": "TRAX CRM", "updated_at": "2026-08-31T08:07:27.66+00:00"},
+        {"key": "system_logo_url", "value": null, "updated_at": "2026-08-31T10:19:15.564+00:00"}
+    ],
+    "automation_rules": [
+        {
+            "id": "da375d8d-a891-4727-854e-ee7d67c85c7b",
+            "name": "משימת מעקב לתאריך שיחה הבאה",
+            "actions": [{"type": "create_record", "object": "tasks", "values": {"subject": "מעקב: תאריך שיחה הבאה"}}],
+            "is_active": true,
+            "conditions": {"match": "all", "rules": [{"op": "eq", "field": "stage", "value": "ממתין להחלטה"}]},
+            "created_at": "2026-08-30T20:36:42.64159+00:00",
+            "updated_at": "2026-08-30T20:36:42.64159+00:00",
+            "object_name": "sales",
+            "schedule_cron": null,
+            "trigger_event": "update",
+            "trigger_fields": ["stage"]
+        },
+        {
+            "id": "8b2c658d-dda3-4750-9723-d87a91143a01",
+            "name": "התראה בסגירה מוצלחת",
+            "actions": [{"type": "notify", "message": "עסקה נסגרה בהצלחה"}],
+            "is_active": true,
+            "conditions": {"match": "all", "rules": [{"op": "eq", "field": "stage", "value": "נסגר בהצלחה"}]},
+            "created_at": "2026-08-30T20:36:42.64159+00:00",
+            "updated_at": "2026-08-30T20:36:42.64159+00:00",
+            "object_name": "sales",
+            "schedule_cron": null,
+            "trigger_event": "update",
+            "trigger_fields": ["stage"]
+        },
+        {
+            "id": "81963b95-e467-483b-a2f3-4340db1bd953",
+            "name": "התראה על ליד חדש",
+            "actions": [{"type": "notify", "message": "התקבל ליד חדש"}],
+            "is_active": true,
+            "conditions": {"match": "all", "rules": []},
+            "created_at": "2026-08-30T20:36:42.64159+00:00",
+            "updated_at": "2026-08-30T20:36:42.64159+00:00",
+            "object_name": "customers",
+            "schedule_cron": null,
+            "trigger_event": "create",
+            "trigger_fields": null
+        }
+    ]
+}
