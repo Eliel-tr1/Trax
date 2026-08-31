@@ -56,9 +56,14 @@ export default function SaleDetail() {
     // Fire the celebration only on the actual transition INTO the won stage
     // (not on every render, and not when it's already won) — a random
     // effect (fireworks/jeep/skier/skydiver) plays via CelebrationHost.
+    // save() already applies the stage optimistically before awaiting the
+    // network write, so the UI (and the user's sense of "I just won this
+    // deal") moves on even if that write later rejects (e.g. an unrelated
+    // server-side trigger error) — the celebration is wrapped in
+    // try/finally so it stays in sync with what's on screen either way,
+    // instead of silently vanishing whenever save() throws.
     const enteringWon = stage === WON_STAGE && s.stage !== WON_STAGE
-    await save('stage', stage)
-    if (enteringWon) celebrateWin()
+    try { await save('stage', stage) } finally { if (enteringWon) celebrateWin() }
   }
 
   if (loading) return <div className="empty"><span className="spinner" /></div>

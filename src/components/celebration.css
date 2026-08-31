@@ -1,0 +1,147 @@
+/* Full-screen "deal won" celebration overlay. Self-contained on purpose —
+   kept out of index.css's legacy layer so it can't collide with it. */
+
+.celeb-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  animation: celeb-overlay-fade 3.6s ease forwards;
+}
+
+@keyframes celeb-overlay-fade {
+  0% { opacity: 0; }
+  8% { opacity: 1; }
+  82% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.celeb-scene {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.celeb-banner {
+  position: relative;
+  z-index: 2;
+  padding: 14px 30px;
+  border-radius: 999px;
+  background: rgba(10, 10, 10, 0.55);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  animation: celeb-banner-in 0.5s cubic-bezier(.2, 1.4, .4, 1) 0.15s both,
+             celeb-banner-out 0.5s ease 2.7s both;
+}
+
+@keyframes celeb-banner-in {
+  0% { transform: translateY(14px) scale(0.92); opacity: 0; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+@keyframes celeb-banner-out {
+  0% { transform: translateY(0) scale(1); opacity: 1; }
+  100% { transform: translateY(-10px) scale(0.96); opacity: 0; }
+}
+
+/* ---------- Jeep effect ---------- */
+.celeb-jeep-sky {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, #2a1305 0%, #6a2e0f 45%, #d65a1f 78%, #f0b28c 100%);
+}
+.celeb-jeep-ground {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 22%;
+  background: linear-gradient(180deg, #3a2412, #1b1108);
+}
+.celeb-jeep-rig {
+  position: absolute; bottom: 18%; left: -18%;
+  animation: celeb-jeep-drive 3s cubic-bezier(.35, .08, .3, 1) forwards;
+}
+@keyframes celeb-jeep-drive {
+  0% { left: -18%; transform: translateY(0) rotate(0deg); }
+  45% { transform: translateY(-3px) rotate(-1deg); }
+  55% { transform: translateY(1px) rotate(1deg); }
+  100% { left: 92%; transform: translateY(0) rotate(0deg); }
+}
+.celeb-dust {
+  position: absolute; bottom: 20%; border-radius: 50%;
+  background: radial-gradient(circle, rgba(240, 178, 140, 0.55), rgba(240, 178, 140, 0));
+  animation: celeb-dust-puff 1.1s ease-out infinite;
+}
+@keyframes celeb-dust-puff {
+  0% { transform: scale(0.3) translateX(0); opacity: 0.65; }
+  100% { transform: scale(2.4) translateX(-40px); opacity: 0; }
+}
+
+/* ---------- Skier effect ---------- */
+.celeb-ski-slope {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, #cfe8fb 0%, #eaf6ff 55%, #ffffff 100%);
+}
+.celeb-ski-rig {
+  position: absolute; top: 14%; left: 4%;
+  animation: celeb-ski-run 2.6s cubic-bezier(.3, .1, .25, 1) forwards;
+}
+@keyframes celeb-ski-run {
+  0% { top: 14%; left: 4%; transform: rotate(-8deg) scale(0.9); }
+  70% { top: 58%; left: 62%; transform: rotate(-8deg) scale(1); }
+  85% { top: 60%; left: 78%; transform: rotate(0deg) scale(1.04); }
+  100% { top: 60%; left: 82%; transform: rotate(0deg) scale(1.04); }
+}
+.celeb-snow-spray {
+  position: absolute; border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0));
+  animation: celeb-snow-puff 0.8s ease-out infinite;
+}
+@keyframes celeb-snow-puff {
+  0% { transform: scale(0.2); opacity: 0.85; }
+  100% { transform: scale(1.8) translateY(6px); opacity: 0; }
+}
+.celeb-finish-flag {
+  position: absolute; top: 46%; left: 84%;
+  opacity: 0;
+  animation: celeb-flag-in 0.4s ease 1.9s forwards;
+}
+@keyframes celeb-flag-in {
+  0% { opacity: 0; transform: translateY(8px) scale(0.8); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ---------- Skydiver effect ---------- */
+.celeb-sky-bg {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, #0a2a52 0%, #1c5fa8 40%, #6fb4e6 75%, #cfe8fb 100%);
+}
+.celeb-cloud {
+  position: absolute; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.35);
+  animation: celeb-cloud-drift linear infinite;
+}
+@keyframes celeb-cloud-drift {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-140px); }
+}
+.celeb-diver-rig {
+  position: absolute; top: -12%; left: 46%;
+  animation: celeb-diver-fall 2.8s cubic-bezier(.22, .6, .3, 1) forwards;
+}
+@keyframes celeb-diver-fall {
+  0% { top: -12%; transform: translateX(0) rotate(-6deg) scale(0.85); }
+  60% { top: 48%; transform: translateX(-6%) rotate(4deg) scale(1); }
+  100% { top: 58%; transform: translateX(-6%) rotate(0deg) scale(1.05); }
+}
+.celeb-chute {
+  opacity: 0;
+  animation: celeb-chute-open 0.5s ease 1.55s forwards;
+  transform-origin: 50% 100%;
+}
+@keyframes celeb-chute-open {
+  0% { opacity: 0; transform: scaleY(0.2) scaleX(0.6); }
+  100% { opacity: 1; transform: scaleY(1) scaleX(1); }
+}

@@ -25,8 +25,24 @@ export default function LoginPage() {
   const submit = (e) => { e.preventDefault(); doLogin() }
 
   return (
-    <div className="center-screen">
-      <Card className="w-full max-w-sm shadow-2xl">
+    <div className="login-bg-screen">
+      <video
+        className="login-bg-video"
+        autoPlay muted loop playsInline preload="auto"
+        poster="https://trax-club.com/__l5e/assets-v1/ceb69c41-0c7b-41a3-b86c-95f82cd9d65e/trax-hero-poster.jpg"
+      >
+        {/* TRAX's own hero video from trax-club.com — their own footage on
+            their own internal CRM login screen. Hotlinked rather than
+            bundled: the file is ~9-14MB (webm/mp4), the CDN serves it with
+            open CORS + a one-year immutable cache, and pulling that much
+            weight into this app's own build would bloat every deploy for
+            no benefit — see docs/branding.md / presentation_ram_fix notes
+            on why we keep heavy media off this bundle. */}
+        <source src="https://trax-club.com/__l5e/assets-v1/ced416fe-30db-4b1c-8d2c-b2667cee6f5b/trax-hero.webm" type="video/webm" />
+        <source src="https://trax-club.com/__l5e/assets-v1/6f5c6e72-e88b-4273-8959-848fd787b02c/trax-hero-h264.mp4" type="video/mp4" />
+      </video>
+      <div className="login-bg-overlay" />
+      <Card className="login-card w-full max-w-sm shadow-2xl">
         <CardContent className="pt-2">
           <div className="mb-6 flex flex-col items-center gap-2">
             <div className="text-2xl font-bold">TRAX CRM</div>
