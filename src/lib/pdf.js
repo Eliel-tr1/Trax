@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf'
 import html2canvas from 'html2canvas'
+import { formatDate, formatDateTime, formatNumber } from './format'
 
 // Journey PDF export (JourneyDetail's "ייצא PDF" button).
 //
@@ -11,8 +12,8 @@ import html2canvas from 'html2canvas'
 // html2canvas, then drops that canvas into the PDF as a paginated image.
 // Slightly heavier than pure vector text, but the only realistic way to
 // get correct, readable Hebrew out of jsPDF without shipping a font file.
-const fmtDate = (d) => d ? new Date(d).toLocaleDateString('he-IL') : '-'
-const fmtDateTime = (d) => d ? new Date(d).toLocaleString('he-IL') : '-'
+const fmtDate = formatDate
+const fmtDateTime = formatDateTime
 const CURRENCY_LABEL = { EUR: 'יורו', ILS: 'שקל', USD: 'דולר' }
 
 function esc(v) {
@@ -25,7 +26,7 @@ function buildHtml(journey, groups) {
   const rows = groups.map(g => {
     const regHeader = `
       <tr class="reg-row">
-        <td colspan="7">${esc(g.registration.registration_name || 'הרשמה')} — סטטוס: ${esc(g.registration.status)}${g.registration.amount_paid != null ? ` · שולם: ${esc(g.registration.amount_paid)} ${CURRENCY_LABEL[g.registration.currency] || g.registration.currency || ''}` : ''}</td>
+        <td colspan="7">${esc(g.registration.registration_name || 'הרשמה')}, סטטוס: ${esc(g.registration.status)}${g.registration.amount_paid != null ? ` · שולם: ${esc(formatNumber(g.registration.amount_paid))} ${CURRENCY_LABEL[g.registration.currency] || g.registration.currency || ''}` : ''}</td>
       </tr>`
     const passengerRows = g.passengers.length
       ? g.passengers.map(p => `
@@ -45,7 +46,7 @@ function buildHtml(journey, groups) {
   return `
     <div style="direction:rtl; font-family: Arial, 'Segoe UI', sans-serif; width: 740px; padding: 24px; color:#1a1a1a; background:#fff;">
       <div style="font-size:20px; font-weight:700; margin-bottom:4px;">${esc(journey.name)}</div>
-      <div style="font-size:12px; color:#555; margin-bottom:16px;">דוח מסע — הופק ב-${fmtDateTime(new Date())}</div>
+      <div style="font-size:12px; color:#555; margin-bottom:16px;">דוח מסע, הופק ב-${fmtDateTime(new Date())}</div>
 
       <table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:20px;">
         <tbody>

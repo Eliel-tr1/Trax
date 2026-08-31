@@ -8,8 +8,10 @@ import {
 } from '../lib/constants'
 import RecordLayout from '../components/RecordLayout'
 import EditField from '../components/EditField'
+import { PhoneDisplay } from '../components/PhoneInput'
 import { MeetingFormModal } from './Meetings'
 import { REGISTRATION_STATUS_BADGE } from './Registrations'
+import { formatDate, formatDateTime } from '../lib/format'
 
 const STATUS_BADGE = { 'ליד חדש': 'mp', 'בטיפול': 'warn', 'לקוח פעיל': 'ok', 'לקוח עבר': 'gray', 'לא רלוונטי': 'gray' }
 const SECTIONS = ['פרטים', 'מועדון']
@@ -65,7 +67,7 @@ export default function CustomerDetail() {
       ],
       columns: [{ label: 'הרשמה', get: r => r.registration_name || '-' }, { label: 'סטטוס', get: r => <span className={`badge ${REGISTRATION_STATUS_BADGE[r.status] || 'gray'}`}>{r.status}</span> }] },
     { key: 'contacts', label: 'אנשי קשר', count: contacts.length, rows: contacts,
-      columns: [{ label: 'שם', get: r => r.name }, { label: 'טלפון', get: r => r.phone || '-' }, { label: 'תפקיד', get: r => r.role || '-' }] },
+      columns: [{ label: 'שם', get: r => r.name }, { label: 'טלפון', get: r => <PhoneDisplay value={r.phone} /> }, { label: 'תפקיד', get: r => r.role || '-' }] },
     // Resource-mode chips (paginated, sortable, exportable — the same
     // mechanism JourneyDetail uses for its "הרשמות" chip), not a static
     // inline table: meetings/phone_calls are now standalone entities with
@@ -77,20 +79,22 @@ export default function CustomerDetail() {
       resource: 'meetings', filter: { related_type: 'customer', related_id: id },
       listColumns: [
         { source: 'subject', label: 'נושא', render: r => r.subject },
-        { source: 'start_at', label: 'תאריך ושעה', render: r => r.start_at ? new Date(r.start_at).toLocaleString('he-IL') : '-' },
+        { source: 'start_at', label: 'תאריך ושעה', render: r => formatDateTime(r.start_at) },
         { source: 'type', label: 'סוג', render: r => r.type || '-' },
       ] },
     { key: 'calls', label: 'שיחות', count: calls.length, onOpen: r => `/phone-calls/${r.id}`,
       resource: 'phone_calls', filter: { related_type: 'customer', related_id: id },
       listColumns: [
         { source: 'direction', label: 'כיוון', render: r => r.direction },
-        { source: 'occurred_at', label: 'תאריך', render: r => r.occurred_at ? new Date(r.occurred_at).toLocaleString('he-IL') : '-' },
+        { source: 'occurred_at', label: 'תאריך', render: r => formatDateTime(r.occurred_at) },
         { source: 'result', label: 'תוצאה', render: r => r.result || '-' },
       ] },
   ]
 
+  // mobile_phone is stored E.164 (e.g. "+972501234567") via PhoneInput —
+  // wa.me wants the digits only, no leading '+' and no local-dial munging.
   const waHref = c.mobile_phone
-    ? `https://wa.me/972${c.mobile_phone.replace(/\D/g, '').replace(/^0/, '')}`
+    ? `https://wa.me/${c.mobile_phone.replace(/\D/g, '')}`
     : null
 
   const actions = [
@@ -114,13 +118,13 @@ export default function CustomerDetail() {
         {sec === 'פרטים' && <div className="field-grid">
           <EditField label="שם פרטי" value={c.first_name} onSave={v => save('first_name', v)} />
           <EditField label="שם משפחה" value={c.last_name} onSave={v => save('last_name', v)} />
-          <EditField label="טלפון נייד" value={c.mobile_phone} ltr onSave={v => save('mobile_phone', v)} />
+          <EditField label="טלפון נייד" value={c.mobile_phone} type="phone" onSave={v => save('mobile_phone', v)} />
           <EditField label="אימייל" value={c.email} ltr onSave={v => save('email', v)} />
           <EditField label="יחידה עסקית" value={c.business_unit} readOnly readOnlyReason="נקבע בעת יצירת הלקוח ולא ניתן לשינוי" />
           <EditField label="מקור הגעה" value={c.lead_source} type="select" options={enumOpts(LEAD_SOURCES)} onSave={v => save('lead_source', v)} />
           <EditField label="קמפיין" value={c.campaign} onSave={v => save('campaign', v)} />
           <EditField label="סטטוס לקוח" value={c.status} type="select" options={enumOpts(CUSTOMER_STATUSES)} onSave={v => save('status', v)} />
-          <EditField label="תאריך פנייה ראשונה" value={c.first_contact_at?.slice(0, 10)} readOnly readOnlyReason="נחתם אוטומטית ביצירת הרשומה" />
+          <EditField label="תאריך פנייה ראשונה" value={c.first_contact_at} display={formatDate(c.first_contact_at)} readOnly readOnlyReason="נחתם אוטומטית ביצירת הרשומה" />
           {isXcon && <EditField label="חברה" value={c.company} onSave={v => save('company', v)} />}
           {isXcon && <EditField label="תפקיד" value={c.job_title} onSave={v => save('job_title', v)} />}
           {isXcon && <EditField label="מייל עבודה" value={c.work_email} ltr onSave={v => save('work_email', v)} />}

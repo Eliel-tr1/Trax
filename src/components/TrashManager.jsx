@@ -7,6 +7,7 @@ import { Checkbox } from './ui/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { confirmDialog } from './Dialogs'
 import { toast } from './Toaster'
+import { formatDateTime } from '../lib/format'
 
 /* Recycle bin — porting bina-crm's TrashManager.jsx pattern to TRAX's own
    entity set. Every table in lib/ra/providers.js's SOFT_DELETE set stamps
@@ -151,7 +152,7 @@ export default function TrashManager() {
                   <Checkbox checked={sel.has(r.id)} onCheckedChange={v => setSel(s => { const n = new Set(s); v ? n.add(r.id) : n.delete(r.id); return n })} />
                 </td>
                 <td className="px-3 py-2">{obj.line(r)}</td>
-                <td className="text-muted-foreground px-3 py-2 text-xs">{new Date(r.deleted_at).toLocaleString('he-IL')}</td>
+                <td className="text-muted-foreground px-3 py-2 text-xs">{formatDateTime(r.deleted_at)}</td>
                 <td className="px-3 py-2 text-end">
                   <Button variant="ghost" size="sm" className="h-7" onClick={() => restore([r.id])}>שחזור</Button>
                 </td>

@@ -13,6 +13,8 @@ import { usePermissionStore, RESOURCES } from '../stores/permissionStore'
 import { startOnboarding } from '../components/Onboarding'
 import { applyTheme } from '../components/ThemeToggle'
 import ImageCropDialog from '../components/ImageCropDialog'
+import { PhoneDisplay } from '../components/PhoneInput'
+import { formatDateTime } from '../lib/format'
 
 // Fixed dropdown values for the two new app_users columns (see MEMORY.md /
 // project brief: department text, permission_profile text). permission_profile
@@ -247,7 +249,7 @@ function ApiKeys() {
                   <td style={{ fontWeight: 600 }}>{k.name}</td>
                   <td className="small" dir="ltr">{k.key_prefix}…</td>
                   <td>{k.role}</td>
-                  <td className="small">{k.last_used_at ? new Date(k.last_used_at).toLocaleString('he-IL') : 'מעולם לא נעשה בו שימוש'}</td>
+                  <td className="small">{k.last_used_at ? formatDateTime(k.last_used_at) : 'מעולם לא נעשה בו שימוש'}</td>
                   <td><button className={`badge ${k.is_active ? 'ok' : 'gray'}`} style={{ border: 'none', cursor: 'pointer' }} onClick={() => toggle(k)}>{k.is_active ? 'פעיל' : 'לא פעיל'}</button></td>
                   {canDelete && <td><button className="btn subtle sm" style={{ color: 'var(--err)', padding: '2px 6px' }} onClick={() => delKey(k.id)}><Icon name="x" size={12} /></button></td>}
                 </tr>
@@ -501,7 +503,7 @@ function DuplicatesTab() {
               <div key={c.id} className="row small" style={{ padding: '6px 8px', borderRadius: 8, background: j === 0 ? 'var(--xlp)' : 'var(--surface-2)', marginBottom: 4 }}>
                 {j === 0 && <span className="badge mp" style={{ fontSize: '0.62rem' }}>ראשי</span>}
                 <b>{c.first_name} {c.last_name}</b>
-                <span className="muted" dir="ltr">{c.mobile_phone}</span>
+                <span className="muted"><PhoneDisplay value={c.mobile_phone} /></span>
                 <span className="muted" dir="ltr">{c.work_email}</span>
               </div>
             ))}
@@ -570,13 +572,13 @@ function UsersTab() {
                 <td><UserAvatar user={u} showName size="sm" /></td>
                 <td>
                   <select className="input" style={{ minWidth: 130 }} value={u.permission_profile || ''} onChange={e => changeField(u, 'permission_profile', e.target.value || null)}>
-                    <option value="">—</option>
+                    <option value="">-</option>
                     {PERMISSION_PROFILES.map(p => <option key={p} value={p}>{p}</option>)}
                   </select>
                 </td>
                 <td>
                   <select className="input" style={{ minWidth: 130 }} value={u.department || ''} onChange={e => changeField(u, 'department', e.target.value || null)}>
-                    <option value="">—</option>
+                    <option value="">-</option>
                     {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
                   </select>
                 </td>
@@ -593,7 +595,7 @@ function UsersTab() {
       </div>
       <p className="muted small" style={{ marginTop: 6 }}>
         "פרופיל הרשאה" הוא תווית פשוטה (מנהל מערכת / מנהל צוות / נציג) שנקבעת ביצירת המשתמש. "תפקיד (RBAC)"
-        הוא ה־role האמיתי שנאכף בפועל בהרשאות (טאב "תפקידים והרשאות" למטה) — שינוי הפרופיל כאן לא משנה את
+        הוא ה־role האמיתי שנאכף בפועל בהרשאות (טאב "תפקידים והרשאות" למטה), שינוי הפרופיל כאן לא משנה את
         התפקיד אוטומטית, לכך יש לבחור תפקיד בנפרד.
       </p>
       {showInvite && <InviteUserModal roles={roles} onClose={() => setShowInvite(false)} onInvited={() => { setShowInvite(false); load() }} />}
@@ -658,7 +660,7 @@ function InviteUserModal({ roles, onClose, onInvited }) {
       }
     }
     setBusy(false)
-    toast('הזמנה נשלחה בהצלחה — המשתמש יקבל מייל להגדרת סיסמה')
+    toast('הזמנה נשלחה בהצלחה, המשתמש יקבל מייל להגדרת סיסמה')
     onInvited?.()
   }
 
@@ -677,7 +679,7 @@ function InviteUserModal({ roles, onClose, onInvited }) {
           <button type="button" className="btn subtle sm" onClick={() => fileRef.current?.click()}>
             {avatarPreview ? 'החלפת תמונה' : 'העלאת תמונת פרופיל'}
           </button>
-          <div className="muted small" style={{ marginTop: 4 }}>אופציונלי — ניתן להוסיף מאוחר יותר</div>
+          <div className="muted small" style={{ marginTop: 4 }}>אופציונלי, ניתן להוסיף מאוחר יותר</div>
         </div>
       </div>
 

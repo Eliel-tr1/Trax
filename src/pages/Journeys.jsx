@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useRefresh } from 'ra-core'
 import { JOURNEY_STATUSES, JOURNEY_DESTINATIONS, enumOpts } from '../lib/constants'
 import { extraHiddenColumns } from '../lib/schema'
+import { formatDate, formatCurrency } from '../lib/format'
 import { useBusinessUnitStore } from '../stores/businessUnitStore'
 import ResourceList from '../components/ResourceList'
 import { BulkDeleteButton } from '../components/admin/bulk-delete-button'
@@ -33,7 +34,7 @@ export default function Journeys() {
     { source: 'destination', label: 'יעד', csv: r => r.destination,
       render: r => <Cell row={r} field="destination" mode="select" options={destOpts} display={v => v || '-'} /> },
     { source: 'departure_date', label: 'תאריך יציאה', csv: r => r.departure_date,
-      render: r => <span className="small">{r.departure_date ? new Date(r.departure_date).toLocaleDateString('he-IL') : '-'}</span> },
+      render: r => <span className="small">{formatDate(r.departure_date)}</span> },
     { source: 'status', label: 'סטטוס', csv: r => r.status,
       render: r => <Cell row={r} field="status" mode="select" options={statusOpts}
         display={v => <span className={`badge ${JOURNEY_STATUS_BADGE[v] || 'gray'}`}>{v}</span>} /> },

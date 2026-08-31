@@ -14,8 +14,9 @@ import {
   PAYMENT_METHODS, TASK_STATUSES, TASK_PRIORITIES, MEETING_TYPES,
   CALL_DIRECTIONS, CALL_RESULTS, enumOpts,
 } from './constants'
+import { formatDate, formatDateTime, formatNumber } from './format'
 
-// field types: text | number | date | datetime | checkbox | textarea | select
+// field types: text | number | date | datetime | checkbox | textarea | select | phone
 // select: `options` = static [{value,label}] OR `optionsFrom` = dynamic key
 //   resolved from loadOptions(): 'customers' | 'journeys' | 'users'
 // wave: 1 | 2 — informational only (schema doesn't hide wave-2 fields, per
@@ -27,7 +28,7 @@ export const SCHEMA = {
     fields: [
       { key: 'first_name', label: 'שם פרטי', type: 'text', required: true, wave: 1 },
       { key: 'last_name', label: 'שם משפחה', type: 'text', required: true, wave: 1 },
-      { key: 'mobile_phone', label: 'טלפון נייד', type: 'text', ltr: true, wave: 1 },
+      { key: 'mobile_phone', label: 'טלפון נייד', type: 'phone', ltr: true, wave: 1 },
       { key: 'email', label: 'אימייל', type: 'text', ltr: true, wave: 1 },
       { key: 'business_unit', label: 'יחידה עסקית', type: 'select', options: enumOpts(BUSINESS_UNITS), default: 'TRAX', required: true, wave: 1 },
       { key: 'lead_source', label: 'מקור הגעה', type: 'select', options: enumOpts(LEAD_SOURCES), wave: 1 },
@@ -178,7 +179,7 @@ export const SCHEMA = {
     fields: [
       { key: 'customer_id', label: 'לקוח', type: 'select', optionsFrom: 'customers', required: true, wave: 1 },
       { key: 'name', label: 'שם', type: 'text', required: true, wave: 1 },
-      { key: 'phone', label: 'טלפון', type: 'text', ltr: true, wave: 1 },
+      { key: 'phone', label: 'טלפון', type: 'phone', ltr: true, wave: 1 },
       { key: 'email', label: 'אימייל', type: 'text', ltr: true, wave: 1 },
       { key: 'role', label: 'תפקיד', type: 'text', wave: 1 },
     ],
@@ -201,8 +202,9 @@ export function fieldOptions(field, opts) {
 function renderScalarText(v, field) {
   if (v === null || v === undefined || v === '') return '-'
   if (field.type === 'checkbox') return v ? '✓ כן' : '✗ לא'
-  if (field.type === 'date') return new Date(v).toLocaleDateString('he-IL')
-  if (field.type === 'datetime') return new Date(v).toLocaleString('he-IL')
+  if (field.type === 'date') return formatDate(v)
+  if (field.type === 'datetime') return formatDateTime(v)
+  if (field.type === 'number') return formatNumber(v)
   if (Array.isArray(v)) return v.length ? String(v.length) : '-'
   return String(v)
 }

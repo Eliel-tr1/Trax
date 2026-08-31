@@ -4,7 +4,8 @@ import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/authStore'
 import { useBusinessUnitStore } from '../stores/businessUnitStore'
 import { loadOptions } from '../lib/api'
-import { SALE_STAGES, SALE_STAGES_CLOSED, LEAD_SOURCES, CUSTOMER_STATUSES, CURRENCY_SYMBOLS } from '../lib/constants'
+import { SALE_STAGES, SALE_STAGES_CLOSED, LEAD_SOURCES, CUSTOMER_STATUSES } from '../lib/constants'
+import { formatCurrency, formatDate } from '../lib/format'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
@@ -96,13 +97,13 @@ function CurrencyBreakdown({ byCurrency, label }) {
         <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', cursor: 'default' }}>
           {entries.map(([cur, total]) => (
             <div key={cur}>
-              <b>{CURRENCY_SYMBOLS[cur] || ''}{Math.round(total).toLocaleString('he-IL')}</b>{' '}
+              <b>{formatCurrency(Math.round(total), cur)}</b>{' '}
               <span className="muted small">{cur}</span>
             </div>
           ))}
         </div>
       </TooltipTrigger>
-      <TooltipContent>{label} — לעולם לא מסוכם בין מטבעות שונים</TooltipContent>
+      <TooltipContent>{label}, לעולם לא מסוכם בין מטבעות שונים</TooltipContent>
     </Tooltip>
   )
 }
@@ -292,7 +293,7 @@ function SalesTab({ unit, rangeFrom, rangeTo, ownerId, journeyId, source, campai
   if (!sales) return <div className="empty"><span className="spinner" /></div>
 
   const won = sales.filter(s => s.stage === 'נסגר בהצלחה')
-  const lost = sales.filter(s => s.stage === 'נסגר באי הצלחה')
+  const lost = sales.filter(s => s.stage === 'עסקה הופסדה')
   const winRate = (won.length + lost.length) ? Math.round((won.length / (won.length + lost.length)) * 1000) / 10 : 0
   const revenueByCurrency = sumByCurrency(won, 'expected_value')
   const avgDealByCurrency = {}
@@ -311,7 +312,7 @@ function SalesTab({ unit, rangeFrom, rangeTo, ownerId, journeyId, source, campai
   // Closed stages shown as the funnel's terminal rows too, so the whole
   // pipeline — including the outcome — reads in one chart.
   funnelStages.push({ label: 'נסגר בהצלחה', value: won.length })
-  funnelStages.push({ label: 'נסגר באי הצלחה', value: lost.length })
+  funnelStages.push({ label: 'עסקה הופסדה', value: lost.length })
 
   const byOwner = {}
   for (const s of sales) {
@@ -325,7 +326,7 @@ function SalesTab({ unit, rangeFrom, rangeTo, ownerId, journeyId, source, campai
     }
   }
   const leaderboard = Object.entries(byOwner)
-    .map(([id, v]) => ({ id, name: id === '__none__' ? 'לא משויך' : (reps.find(r => r.id === id)?.full_name || '—'), ...v }))
+    .map(([id, v]) => ({ id, name: id === '__none__' ? 'לא משויך' : (reps.find(r => r.id === id)?.full_name || '-'), ...v }))
     .sort((a, b) => b.won - a.won || b.count - a.count)
 
   const lossReasons = groupCount(lost, 'loss_reason')
@@ -336,10 +337,10 @@ function SalesTab({ unit, rangeFrom, rangeTo, ownerId, journeyId, source, campai
         <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
           <StatTile label="הכנסה מעסקאות שנסגרו" value={<CurrencyBreakdown byCurrency={revenueByCurrency} label="הכנסה לפי מטבע" />} />
           <StatTile label="עסקאות שנסגרו בהצלחה" value={won.length} tooltip="מספר עסקאות בשלב נסגר בהצלחה בטווח שנבחר" />
-          <StatTile label="עסקאות שנסגרו באי הצלחה" value={lost.length} tooltip="מספר עסקאות בשלב נסגר באי הצלחה בטווח שנבחר" />
+          <StatTile label="עסקאות שהופסדו" value={lost.length} tooltip="מספר עסקאות בשלב עסקה הופסדה בטווח שנבחר" />
           <StatTile label="יחס סגירה" value={`${winRate}%`} tooltip={`${won.length} מתוך ${won.length + lost.length} עסקאות שנסגרו`} />
           <StatTile label="גודל עסקה ממוצע" value={<CurrencyBreakdown byCurrency={avgDealByCurrency} label="גודל עסקה ממוצע לפי מטבע" />} />
-          <StatTile label="אורך מחזור מכירה ממוצע" value={`${avgCycle} ימים`} tooltip="מבוסס על הפרש בין תאריך יצירה לעדכון אחרון בעסקאות שנסגרו בהצלחה — קירוב, אין שדה תאריך סגירה ייעודי" />
+          <StatTile label="אורך מחזור מכירה ממוצע" value={`${avgCycle} ימים`} tooltip="מבוסס על הפרש בין תאריך יצירה לעדכון אחרון בעסקאות שנסגרו בהצלחה, קירוב, אין שדה תאריך סגירה ייעודי" />
         </div>
 
         <div className="grid gap-4 lg:grid-cols-2">
@@ -528,11 +529,11 @@ function JourneyGroup({ title, journeys, revenueByJourney, animate }) {
                 </div>
               </CardHeader>
               <CardContent style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div className="muted small">{j.departure_date ? new Date(j.departure_date).toLocaleDateString('he-IL') : 'ללא תאריך'}</div>
+                <div className="muted small">{j.departure_date ? formatDate(j.departure_date) : 'ללא תאריך'}</div>
                 <ProgressBar
                   value={j.seats_sold || 0} total={j.seats_total || 0} animate={animate}
                   tone={JOURNEY_TONE[j.status] || 'default'}
-                  label={`${j.seats_sold || 0}/${j.seats_total || 0} מקומות נמכרו (${j.seats_total ? Math.round(((j.seats_sold || 0) / j.seats_total) * 100) : 0}%) · מינימום להוצאה לדרך: ${j.min_seats || '—'}`}
+                  label={`${j.seats_sold || 0}/${j.seats_total || 0} מקומות נמכרו (${j.seats_total ? Math.round(((j.seats_sold || 0) / j.seats_total) * 100) : 0}%) · מינימום להוצאה לדרך: ${j.min_seats || '-'}`}
                 />
                 <div className="small" style={{ fontWeight: 600 }}>{j.seats_sold || 0}/{j.seats_total || 0} מקומות</div>
                 <div>

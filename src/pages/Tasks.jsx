@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useRefresh } from 'ra-core'
 import { TASK_STATUSES, TASK_PRIORITIES, TASK_PRIORITY_COLOR, enumOpts } from '../lib/constants'
 import { extraHiddenColumns } from '../lib/schema'
+import { formatDateTime } from '../lib/format'
 import { useBusinessUnitStore } from '../stores/businessUnitStore'
 import { useAuthStore } from '../stores/authStore'
 import { loadOptions } from '../lib/api'
@@ -40,7 +41,7 @@ export default function Tasks() {
     { source: 'assignee_id', label: 'אחראי', csv: r => nameFor(r.assignee_id),
       render: r => <UserAvatar user={userFor(r.assignee_id)} /> },
     { source: 'due_at', label: 'תאריך יעד', csv: r => r.due_at,
-      render: r => <span className="small">{r.due_at ? new Date(r.due_at).toLocaleString('he-IL') : '-'}</span> },
+      render: r => <span className="small">{formatDateTime(r.due_at)}</span> },
     { source: 'priority', label: 'עדיפות', csv: r => r.priority,
       render: r => <span className="badge" style={{ background: TASK_PRIORITY_COLOR[r.priority], color: '#fff' }}>{r.priority}</span> },
     { source: 'status', label: 'סטטוס', csv: r => r.status,

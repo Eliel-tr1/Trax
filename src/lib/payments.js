@@ -4,7 +4,8 @@
 //
 // Deliberately NOT a port of bina-crm's lib/finance.js (that file encodes
 // bina's specific financing/instalment math, which doesn't apply here).
-import { CURRENCY_SYMBOLS, REGISTRATION_STATUSES } from './constants'
+import { REGISTRATION_STATUSES } from './constants'
+import { formatCurrency } from './format'
 
 // Registration payment status progression: משוריין → שולמה מקדמה → שולם במלואו (→ בוטל any time).
 export const REGISTRATION_STATUS_ORDER = ['משוריין', 'שולמה מקדמה', 'שולם במלואו']
@@ -23,10 +24,7 @@ export function isActiveRegistrationStatus(status) {
 // domain-model.md "Dashboards": "never summed across currencies without an
 // explicit conversion"). Each amount is formatted with its own symbol.
 export function formatMoney(amount, currency) {
-  if (amount === null || amount === undefined || amount === '') return '-'
-  const symbol = CURRENCY_SYMBOLS[currency] || ''
-  const n = Number(amount).toLocaleString('he-IL', { maximumFractionDigits: 2 })
-  return symbol ? `${symbol}${n}` : n
+  return formatCurrency(amount, currency)
 }
 
 // Group a set of currency-tagged amounts by currency and sum WITHIN each
@@ -34,7 +32,7 @@ export function formatMoney(amount, currency) {
 export function sumByCurrency(rows, amountField = 'amount_paid', currencyField = 'currency') {
   const totals = {}
   for (const r of rows || []) {
-    const cur = r[currencyField] || '—'
+    const cur = r[currencyField] || 'ללא מטבע'
     const amt = Number(r[amountField]) || 0
     totals[cur] = (totals[cur] || 0) + amt
   }

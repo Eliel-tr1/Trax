@@ -10,6 +10,7 @@ import RecordFormModal from './RecordFormModal'
 import ResourceList from './ResourceList'
 import UserAvatar from './UserAvatar'
 import { confirmDialog } from './Dialogs'
+import { formatDateTime } from '../lib/format'
 
 // Ported from bina-crm — Fireberry-style record shell (header, optional
 // stage bar, related-record chips, field sections + activity feed).
@@ -161,7 +162,7 @@ function AuditFooter({ record }) {
 
   if (!('created_at' in record) && !('updated_at' in record)) return null
   const userFor = (id) => id ? users?.find(u => u.id === id) : null
-  const fmt = (v) => v ? new Date(v).toLocaleString('he-IL') : null
+  const fmt = (v) => v ? formatDateTime(v) : null
 
   const createdAt = fmt(record.created_at)
   const updatedAt = fmt(record.updated_at)

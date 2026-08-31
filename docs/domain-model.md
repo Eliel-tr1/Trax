@@ -55,12 +55,12 @@ identity/dedup check.
 | שם העסקה | text | auto-composed: customer name + journey name (needs a fallback in Wave 1, before מסע exists) | 1 |
 | לקוח | link → לקוח | required | 1 |
 | יחידה עסקית | select | TRAX, Xcon | 1 |
-| שלב מכירה | select | ליד חדש → נוצר קשר על ידי AI → שיחת מכירה עם נציג אנושי → הצעה נשלחה → ממתין להחלטה → נסגר בהצלחה / נסגר באי הצלחה | 1 |
+| שלב מכירה | select | ליד חדש → נוצר קשר על ידי AI → שיחת מכירה עם נציג אנושי → הצעה נשלחה → ממתין להחלטה → נסגר בהצלחה / עסקה הופסדה | 1 |
 | ערוץ פנייה | select | וואטסאפ, טופס אתר, דף נחיתה, טלפון | 1 |
 | מקור הגעה | select | **must match לקוח's value list exactly** | 1 |
 | קמפיין | text | | 1 |
 | בעלים | user | | 1 |
-| סיבת אי סגירה | select | מחיר, תאריכים לא מתאימים, לא ענה, בחר מתחרה, נסגר בחוסר מקום לחזור בעתיד, לא רלוונטי, אחר — **required when stage = נסגר באי הצלחה** | 1 |
+| סיבת אי סגירה | select | מחיר, תאריכים לא מתאימים, לא ענה, בחר מתחרה, נסגר בחוסר מקום לחזור בעתיד, לא רלוונטי, אחר — **required when stage = עסקה הופסדה** | 1 |
 | מסע מבוקש | link → מסע | | 2 |
 | מספר משתתפים | number | NOT the same as registration count — never derive one from the other | 2 |
 | שווי צפוי | currency | | 2 |

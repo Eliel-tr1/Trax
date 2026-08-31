@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { loadOptions } from '../lib/api'
 import { toast } from '../components/Toaster'
 import { MEETING_TYPES, enumOpts } from '../lib/constants'
+import { formatDateTime } from '../lib/format'
 import { useBusinessUnitStore } from '../stores/businessUnitStore'
 import ResourceList from '../components/ResourceList'
 import { BulkDeleteButton } from '../components/admin/bulk-delete-button'
@@ -27,7 +28,7 @@ export default function Meetings() {
     { source: 'related_id', label: 'משויך ל', sortable: false, csv: r => r.related_id,
       render: r => <RelatedLink relatedType={r.related_type} relatedId={r.related_id} /> },
     { source: 'start_at', label: 'תאריך ושעה', csv: r => r.start_at,
-      render: r => <span className="small">{r.start_at ? new Date(r.start_at).toLocaleString('he-IL') : '-'}</span> },
+      render: r => <span className="small">{formatDateTime(r.start_at)}</span> },
     { source: 'duration_minutes', label: 'משך (דקות)', hidden: true, csv: r => r.duration_minutes,
       render: r => r.duration_minutes ?? '-' },
     { source: 'type', label: 'סוג', csv: r => r.type,

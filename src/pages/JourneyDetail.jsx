@@ -7,9 +7,11 @@ import {
 } from '../lib/constants'
 import RecordLayout from '../components/RecordLayout'
 import EditField from '../components/EditField'
+import { PhoneDisplay } from '../components/PhoneInput'
 import Icon from '../components/Icon'
 import { toast } from '../components/Toaster'
 import { exportJourneyPdf } from '../lib/pdf'
+import { formatDate, formatCurrency } from '../lib/format'
 import { JOURNEY_STATUS_BADGE } from './Journeys'
 import { REGISTRATION_STATUS_BADGE } from './Registrations'
 
@@ -70,7 +72,7 @@ export default function JourneyDetail() {
       listColumns: [
         { source: 'registration_name', label: 'הרשמה', render: r => r.registration_name || '-' },
         { source: 'status', label: 'סטטוס', render: r => <span className={`badge ${REGISTRATION_STATUS_BADGE[r.status] || 'gray'}`}>{r.status}</span> },
-        { source: 'amount_paid', label: 'שולם', render: r => r.amount_paid != null ? `${r.amount_paid} ${r.currency || ''}` : '-' },
+        { source: 'amount_paid', label: 'שולם', render: r => formatCurrency(r.amount_paid, r.currency) },
       ],
       columns: [
         { label: 'הרשמה', get: r => r.registration_name || '-' },
@@ -95,14 +97,14 @@ export default function JourneyDetail() {
           <EditField label="שם היציאה" value={j.name} onSave={v => save('name', v)} />
           <EditField label="יחידה עסקית" value={j.business_unit} readOnly readOnlyReason="נקבע בעת יצירת המסע ולא ניתן לשינוי" />
           <EditField label="יעד" value={j.destination} type="select" options={enumOpts(JOURNEY_DESTINATIONS)} onSave={v => save('destination', v)} />
-          <EditField label="תאריך יציאה" value={j.departure_date} type="date" onSave={v => save('departure_date', v)} />
-          <EditField label="תאריך חזרה" value={j.return_date} type="date" onSave={v => save('return_date', v)} />
+          <EditField label="תאריך יציאה" value={j.departure_date} display={formatDate(j.departure_date)} type="date" onSave={v => save('departure_date', v)} />
+          <EditField label="תאריך חזרה" value={j.return_date} display={formatDate(j.return_date)} type="date" onSave={v => save('return_date', v)} />
           <EditField label="סטטוס יציאה" value={j.status} type="select" options={enumOpts(JOURNEY_STATUSES)} onSave={v => save('status', v)} />
           <EditField label="מספר מקומות" value={j.seats_total} type="number" onSave={v => save('seats_total', v)} />
           <EditField label="מינימום להוצאה לדרך" value={j.min_seats} type="number" onSave={v => save('min_seats', v)} />
-          <EditField label="מקומות שנמכרו" value={j.seats_sold} readOnly readOnlyReason="שדה מחושב אוטומטית — ספירת ההרשמות הפעילות למסע זה" />
-          <EditField label="מקומות פנויים" value={j.seats_available} readOnly readOnlyReason="שדה מחושב אוטומטית — מספר מקומות פחות מקומות שנמכרו" />
-          <EditField label="מחיר לאדם" value={j.price_per_person} type="number" onSave={v => save('price_per_person', v)} />
+          <EditField label="מקומות שנמכרו" value={j.seats_sold} readOnly readOnlyReason="שדה מחושב אוטומטית, ספירת ההרשמות הפעילות למסע זה" />
+          <EditField label="מקומות פנויים" value={j.seats_available} readOnly readOnlyReason="שדה מחושב אוטומטית, מספר מקומות פחות מקומות שנמכרו" />
+          <EditField label="מחיר לאדם" value={j.price_per_person} display={formatCurrency(j.price_per_person, j.currency)} type="number" onSave={v => save('price_per_person', v)} />
           <EditField label="מטבע" value={j.currency} type="select" options={CURRENCIES} onSave={v => save('currency', v)} />
           <EditField label="כולל טיסות" value={j.includes_flights} type="checkbox" onSave={v => save('includes_flights', v)} />
           <EditField label="קישור לעמוד המסע" value={j.page_url} ltr type="link" onSave={v => save('page_url', v)} />
@@ -144,7 +146,7 @@ export default function JourneyDetail() {
                       <tr key={p.id}>
                         {i === 0 && <td rowSpan={passengers.length} style={{ fontWeight: 600, verticalAlign: 'top' }}>{r.registration_name || '-'}</td>}
                         <td>{p.is_primary && <span className="badge mp" style={{ marginInlineEnd: 6 }}>לקוח</span>}{p.full_name}</td>
-                        <td dir="ltr">{p.phone || '-'}</td>
+                        <td><PhoneDisplay value={p.phone} /></td>
                         <td dir="ltr">{p.email || '-'}</td>
                         <td>{p.age ?? '-'}</td>
                         <td>{p.gender || '-'}</td>
@@ -170,7 +172,7 @@ export default function JourneyDetail() {
                         {passengers.map(p => (
                           <div key={p.id} className="card" style={{ padding: 12 }}>
                             <div style={{ fontWeight: 600, marginBottom: 4 }}>{p.is_primary && <span className="badge mp" style={{ marginInlineEnd: 6 }}>לקוח</span>}{p.full_name}</div>
-                            <div className="ef"><span className="ef-label">טלפון</span><span className="ef-val" dir="ltr">{p.phone || '-'}</span></div>
+                            <div className="ef"><span className="ef-label">טלפון</span><span className="ef-val"><PhoneDisplay value={p.phone} /></span></div>
                             <div className="ef"><span className="ef-label">אימייל</span><span className="ef-val" dir="ltr">{p.email || '-'}</span></div>
                             <div className="ef"><span className="ef-label">גיל</span><span className="ef-val">{p.age ?? '-'}</span></div>
                             <div className="ef"><span className="ef-label">מין</span><span className="ef-val">{p.gender || '-'}</span></div>

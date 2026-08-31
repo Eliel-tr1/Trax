@@ -80,9 +80,9 @@ export default function RegistrationPassengers({ registrationId, onCountChange }
               <tbody>
                 {rows.map(row => (
                   <tr key={row.id}>
-                    <td>{row.is_primary && <span className="badge mp" title="הנוסע העיקרי — נוצר אוטומטית מפרטי הלקוח">★ לקוח</span>}</td>
+                    <td>{row.is_primary && <span className="badge mp" title="הנוסע העיקרי, נוצר אוטומטית מפרטי הלקוח">★ לקוח</span>}</td>
                     <td><EditableCell row={row} field="full_name" table="registration_passengers" onSaved={load} /></td>
-                    <td dir="ltr"><EditableCell row={row} field="phone" table="registration_passengers" onSaved={load} /></td>
+                    <td><EditableCell row={row} field="phone" mode="phone" table="registration_passengers" onSaved={load} /></td>
                     <td dir="ltr"><EditableCell row={row} field="email" table="registration_passengers" onSaved={load} /></td>
                     <td><EditableCell row={row} field="age" table="registration_passengers" type="number" onSaved={load} /></td>
                     <td><EditableCell row={row} field="gender" table="registration_passengers" mode="select" options={genderOpts} onSaved={load} /></td>
@@ -105,11 +105,11 @@ export default function RegistrationPassengers({ registrationId, onCountChange }
                 <div className="row" style={{ justifyContent: 'space-between', marginBottom: 4 }}>
                   <div className="row" style={{ gap: 6 }}>
                     <strong style={{ fontSize: '0.95rem' }}><EditableCell row={row} field="full_name" table="registration_passengers" onSaved={load} /></strong>
-                    {row.is_primary && <span className="badge mp" title="הנוסע העיקרי — נוצר אוטומטית מפרטי הלקוח">★ לקוח</span>}
+                    {row.is_primary && <span className="badge mp" title="הנוסע העיקרי, נוצר אוטומטית מפרטי הלקוח">★ לקוח</span>}
                   </div>
                   <button className="btn subtle sm" style={{ color: 'var(--err)', padding: '2px 6px', minHeight: 32, minWidth: 32 }} onClick={() => removePassenger(row)} title="הסרת נוסע"><Icon name="x" size={14} /></button>
                 </div>
-                <div className="ef"><span className="ef-label">טלפון</span><span className="ef-val" dir="ltr"><EditableCell row={row} field="phone" table="registration_passengers" onSaved={load} /></span></div>
+                <div className="ef"><span className="ef-label">טלפון</span><span className="ef-val"><EditableCell row={row} field="phone" mode="phone" table="registration_passengers" onSaved={load} /></span></div>
                 <div className="ef"><span className="ef-label">אימייל</span><span className="ef-val" dir="ltr"><EditableCell row={row} field="email" table="registration_passengers" onSaved={load} /></span></div>
                 <div className="ef"><span className="ef-label">גיל</span><span className="ef-val"><EditableCell row={row} field="age" table="registration_passengers" type="number" onSaved={load} /></span></div>
                 <div className="ef"><span className="ef-label">מין</span><span className="ef-val"><EditableCell row={row} field="gender" table="registration_passengers" mode="select" options={genderOpts} onSaved={load} /></span></div>

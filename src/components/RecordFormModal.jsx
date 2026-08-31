@@ -4,6 +4,7 @@ import { loadOptions } from '../lib/api'
 import { SCHEMA, fieldOptions } from '../lib/schema'
 import { toast } from './Toaster'
 import Modal from './Modal'
+import PhoneInput from './PhoneInput'
 
 // Ported from bina-crm, unchanged mechanism — generic schema-driven create
 // form. Fill fields -> save -> insert -> onCreated(row).
@@ -94,6 +95,11 @@ function Field({ f, value, onChange, opts }) {
   if (f.type === 'textarea') {
     return <div className="field" style={{ gridColumn: '1 / -1' }}>{label}
       <textarea value={value ?? ''} onChange={e => onChange(e.target.value)} style={{ minHeight: 64 }} />
+    </div>
+  }
+  if (f.type === 'phone') {
+    return <div className="field">{label}
+      <PhoneInput value={value} onChange={onChange} />
     </div>
   }
   return <div className="field">{label}

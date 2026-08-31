@@ -95,11 +95,11 @@ begin
   insert into sales (customer_id,business_unit,stage,channel,lead_source,owner_id,journey_id,participants_count,expected_value,currency,qualification_rating)
   values (c5,'TRAX','נסגר בהצלחה','טלפון','המלצה',goldi_id,j2,1,5000,'EUR','עומד בקריטריונים');
   insert into sales (customer_id,business_unit,stage,channel,lead_source,campaign,owner_id,loss_reason)
-  values (c6,'TRAX','נסגר באי הצלחה','וואטסאפ','פייסבוק','montenegro-oct',goldi_id,'מחיר');
+  values (c6,'TRAX','עסקה הופסדה','וואטסאפ','פייסבוק','montenegro-oct',goldi_id,'מחיר');
   insert into sales (customer_id,business_unit,stage,channel,lead_source,owner_id)
   values (c7,'TRAX','ליד חדש','דף נחיתה','דף נחיתה',goldi_id);
   insert into sales (customer_id,business_unit,stage,channel,lead_source,owner_id,loss_reason)
-  values (c8,'TRAX','נסגר באי הצלחה','וואטסאפ','אינסטגרם',goldi_id,'לא ענה');
+  values (c8,'TRAX','עסקה הופסדה','וואטסאפ','אינסטגרם',goldi_id,'לא ענה');
   insert into sales (customer_id,business_unit,stage,channel,lead_source,owner_id,journey_id,participants_count,expected_value,currency,qualification_rating)
   values (c9,'TRAX','נסגר בהצלחה','טלפון','המלצה',goldi_id,j6,1,5200,'USD','עומד בקריטריונים');
   insert into sales (customer_id,business_unit,stage,channel,lead_source,campaign,owner_id,journey_id,expected_value,currency,qualification_rating,next_call_at)
@@ -109,11 +109,11 @@ begin
   insert into sales (customer_id,business_unit,stage,channel,lead_source,owner_id)
   values (c12,'TRAX','ליד חדש','טופס אתר','אתר TRAX',goldi_id);
   insert into sales (customer_id,business_unit,stage,channel,lead_source,owner_id,loss_reason)
-  values (c13,'TRAX','נסגר באי הצלחה','טופס אתר','אינסטגרם',goldi_id,'אחר');
+  values (c13,'TRAX','עסקה הופסדה','טופס אתר','אינסטגרם',goldi_id,'אחר');
   insert into sales (customer_id,business_unit,stage,channel,lead_source,owner_id,journey_id,participants_count,expected_value,currency,qualification_rating,next_call_at)
   values (c14,'TRAX','ממתין להחלטה','טלפון','המלצה',goldi_id,j5,2,10000,'EUR','עומד בקריטריונים', now() - interval '1 day'); -- overdue, tests "ממתין לי" view
   insert into sales (customer_id,business_unit,stage,channel,lead_source,owner_id,loss_reason)
-  values (c15,'TRAX','נסגר באי הצלחה','וואטסאפ','פייסבוק',goldi_id,'לא רלוונטי');
+  values (c15,'TRAX','עסקה הופסדה','וואטסאפ','פייסבוק',goldi_id,'לא רלוונטי');
 
   -- Xcon sales (their own stage vocabulary reuses the same field per spec — using generic stages)
   insert into sales (customer_id,business_unit,stage,channel,owner_id,interest_area)

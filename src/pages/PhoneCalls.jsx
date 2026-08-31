@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useRefresh } from 'ra-core'
 import { CALL_DIRECTIONS, CALL_RESULTS, enumOpts } from '../lib/constants'
 import { extraHiddenColumns } from '../lib/schema'
+import { formatDateTime } from '../lib/format'
 import { useBusinessUnitStore } from '../stores/businessUnitStore'
 import { loadOptions } from '../lib/api'
 import ResourceList from '../components/ResourceList'
@@ -32,7 +33,7 @@ export default function PhoneCalls() {
     { source: 'direction', label: 'כיוון', csv: r => r.direction,
       render: r => <span className={`badge ${r.direction === 'נכנסת' ? 'mp' : 'gray'}`}>{r.direction}</span> },
     { source: 'occurred_at', label: 'תאריך ושעה', csv: r => r.occurred_at,
-      render: r => <span className="small">{r.occurred_at ? new Date(r.occurred_at).toLocaleString('he-IL') : '-'}</span> },
+      render: r => <span className="small">{formatDateTime(r.occurred_at)}</span> },
     { source: 'duration_seconds', label: 'משך (שניות)', csv: r => r.duration_seconds,
       render: r => r.duration_seconds != null ? `${r.duration_seconds} שנ׳` : '-' },
     { source: 'result', label: 'תוצאה', csv: r => r.result,

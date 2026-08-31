@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { updateField } from '../lib/api'
+import PhoneInput, { PhoneDisplay } from './PhoneInput'
 
 // Ported verbatim from bina-crm — generic inline-editable table cell.
 // mode: 'select' | 'text'. options: [{ value, label }] for select.
@@ -41,6 +42,14 @@ export default function EditableCell({ row, field, table = 'customers', mode = '
     )
   }
 
+  if (editing && (type === 'phone' || mode === 'phone')) {
+    return (
+      <span onClick={e => e.stopPropagation()}>
+        <PhoneEditCell value={value} onSave={save} onCancel={() => setEditing(false)} />
+      </span>
+    )
+  }
+
   if (editing) {
     return (
       <input
@@ -52,11 +61,23 @@ export default function EditableCell({ row, field, table = 'customers', mode = '
     )
   }
 
-  const shown = display ? display(value) : (value || <span className="cell-empty">{placeholder || '-'}</span>)
+  const shown = display ? display(value) : (type === 'phone' || mode === 'phone')
+    ? <PhoneDisplay value={value} />
+    : (value || <span className="cell-empty">{placeholder || '-'}</span>)
   return (
     <span className="cell-edit" style={{ opacity: saving ? 0.5 : 1 }}
       onClick={e => { e.stopPropagation(); setEditing(true) }} title="לחצו לעריכה">
       {shown}
     </span>
+  )
+}
+
+// Local value while editing, same reasoning as EditField's PhoneEditControl
+// (PhoneInput fires onChange per keystroke; commit only on blur).
+function PhoneEditCell({ value, onSave, onCancel }) {
+  const [v, setV] = useState(value || '')
+  return (
+    <PhoneInput autoFocus value={v} onChange={setV}
+      onBlur={() => setTimeout(() => { if (document.activeElement?.closest('.phone-input, .phone-country-popover')) return; onSave(v) }, 150)} />
   )
 }

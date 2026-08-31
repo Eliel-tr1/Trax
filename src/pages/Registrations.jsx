@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useRefresh } from 'ra-core'
 import { REGISTRATION_STATUSES, enumOpts } from '../lib/constants'
 import { extraHiddenColumns } from '../lib/schema'
+import { formatCurrency } from '../lib/format'
 import { useBusinessUnitStore } from '../stores/businessUnitStore'
 import ResourceList from '../components/ResourceList'
 import { BulkDeleteButton } from '../components/admin/bulk-delete-button'
@@ -32,7 +33,7 @@ export default function Registrations() {
       render: r => <Cell row={r} field="status" mode="select" options={statusOpts}
         display={v => <span className={`badge ${REGISTRATION_STATUS_BADGE[v] || 'gray'}`}>{v}</span>} /> },
     { source: 'amount_paid', label: 'סכום ששולם', csv: r => r.amount_paid,
-      render: r => <span className="small">{r.amount_paid != null ? `${r.amount_paid} ${r.currency || ''}` : '-'}</span> },
+      render: r => <span className="small">{formatCurrency(r.amount_paid, r.currency)}</span> },
     ...extraHiddenColumns('registration', ['registration_name', 'customer_id', 'journey_id', 'status', 'amount_paid']),
   ]
 

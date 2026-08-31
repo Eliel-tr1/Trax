@@ -115,7 +115,13 @@ disposable once the branch merges (delete it in the merge commit).
 - If a session needs a secret to act, it reads it from `.env` at runtime, it
   is never pasted into a commit, a doc, or a decision record.
 
-## 6. Commits and PRs
+## 6. UI copy
+
+- No em-dashes (—) in user-facing Hebrew text — client flagged this
+  explicitly. Use a comma, period, or plain hyphen instead. Code comments are
+  exempt.
+
+## 7. Commits and PRs
 
 - Commit message states *why*, not just *what* (the diff already shows what).
 - One logical change per commit — don't bundle an unrelated doc fix into a

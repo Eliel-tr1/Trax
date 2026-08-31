@@ -21,10 +21,10 @@ export const SALE_STAGES = [
   'הצעה נשלחה',
   'ממתין להחלטה',
   'נסגר בהצלחה',
-  'נסגר באי הצלחה',
+  'עסקה הופסדה',
 ]
 // Stages that count as "closed" — excluded from the "עסקאות פתוחות" preset.
-export const SALE_STAGES_CLOSED = ['נסגר בהצלחה', 'נסגר באי הצלחה']
+export const SALE_STAGES_CLOSED = ['נסגר בהצלחה', 'עסקה הופסדה']
 
 export const SALE_CHANNELS = ['וואטסאפ', 'טופס אתר', 'דף נחיתה', 'טלפון']
 

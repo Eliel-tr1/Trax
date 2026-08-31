@@ -9,6 +9,7 @@ import RecordLayout from '../components/RecordLayout'
 import EditField from '../components/EditField'
 import RegistrationPassengers from '../components/RegistrationPassengers'
 import { REGISTRATION_STATUS_BADGE } from './Registrations'
+import { formatDate, formatCurrency } from '../lib/format'
 
 const SECTIONS = ['פרטים', 'נוסעים', 'תשלום ומסמכים']
 
@@ -42,7 +43,7 @@ export default function RegistrationDetail() {
     <RecordLayout
       title={r.registration_name || 'הרשמה חדשה'}
       subtitle={[
-        r.journey ? `${r.journey.name}${r.journey.departure_date ? ' · ' + new Date(r.journey.departure_date).toLocaleDateString('he-IL') : ''}` : null,
+        r.journey ? `${r.journey.name}${r.journey.departure_date ? ' · ' + formatDate(r.journey.departure_date) : ''}` : null,
         passengerCount != null ? `${passengerCount} נוסעים` : null,
       ].filter(Boolean).join(' · ') || undefined}
       backTo="/registrations"
@@ -53,22 +54,22 @@ export default function RegistrationDetail() {
       <div className="card">
         <div className="sections-tabs">{SECTIONS.map(s => <div key={s} className={`sec-tab ${sec === s ? 'active' : ''}`} onClick={() => setSec(s)}>{s}</div>)}</div>
         {sec === 'פרטים' && <div className="field-grid">
-          <EditField label="לקוח" value={r.customer_id} readOnly readOnlyReason="קישור ללקוח — נערך רק בעת יצירת ההרשמה"
+          <EditField label="לקוח" value={r.customer_id} readOnly readOnlyReason="קישור ללקוח, נערך רק בעת יצירת ההרשמה"
             display={r.customer ? <Link to={`/customers/${r.customer_id}`} style={{ color: 'var(--mp)', fontWeight: 600 }}>{r.customer.first_name} {r.customer.last_name}</Link> : null} />
-          <EditField label="מסע" value={r.journey_id} readOnly readOnlyReason="קישור למסע — נערך רק בעת יצירת ההרשמה"
+          <EditField label="מסע" value={r.journey_id} readOnly readOnlyReason="קישור למסע, נערך רק בעת יצירת ההרשמה"
             display={r.journey ? <Link to={`/journeys/${r.journey_id}`} style={{ color: 'var(--mp)', fontWeight: 600 }}>{r.journey.name}</Link> : null} />
-          <EditField label="מכירה" value={r.sale_id} readOnly readOnlyReason="קישור למכירה — נערך רק בעת יצירת ההרשמה"
+          <EditField label="מכירה" value={r.sale_id} readOnly readOnlyReason="קישור למכירה, נערך רק בעת יצירת ההרשמה"
             display={r.sale ? <Link to={`/sales/${r.sale_id}`} style={{ color: 'var(--mp)', fontWeight: 600 }}>{r.sale.deal_name || 'עסקה'}</Link> : null} />
           <EditField label="סטטוס הרשמה" value={r.status} type="select" options={enumOpts(REGISTRATION_STATUSES)} onSave={v => save('status', v)} />
           <EditField label="כולל טיסה למשתתף זה" value={r.includes_flight_for_participant} type="checkbox" onSave={v => save('includes_flight_for_participant', v)} />
           <EditField label="איש קשר לחירום" value={r.emergency_contact} onSave={v => save('emergency_contact', v)} />
-          <EditField label="תאריך הרשמה" value={r.registered_at?.slice(0, 10)} readOnly readOnlyReason="נחתם אוטומטית ביצירת ההרשמה" />
+          <EditField label="תאריך הרשמה" value={r.registered_at} display={formatDate(r.registered_at)} readOnly readOnlyReason="נחתם אוטומטית ביצירת ההרשמה" />
         </div>}
         {sec === 'נוסעים' && <RegistrationPassengers registrationId={id} onCountChange={setPassengerCount} />}
         {sec === 'תשלום ומסמכים' && <div className="field-grid">
-          <EditField label="סכום ששולם" value={r.amount_paid} type="number" onSave={v => save('amount_paid', v)} />
+          <EditField label="סכום ששולם" value={r.amount_paid} display={formatCurrency(r.amount_paid, r.currency)} type="number" onSave={v => save('amount_paid', v)} />
           <EditField label="מטבע" value={r.currency} type="select" options={CURRENCIES} onSave={v => save('currency', v)} />
-          <EditField label="תאריך תשלום אחרון" value={r.last_payment_date} type="date" onSave={v => save('last_payment_date', v)} />
+          <EditField label="תאריך תשלום אחרון" value={r.last_payment_date} display={formatDate(r.last_payment_date)} type="date" onSave={v => save('last_payment_date', v)} />
           <EditField label="אמצעי תשלום" value={r.payment_method} type="select" options={enumOpts(PAYMENT_METHODS)} onSave={v => save('payment_method', v)} />
           <EditField label="מספר חשבונית" value={r.invoice_number} onSave={v => save('invoice_number', v)} />
           <EditField label="דרכון בתוקף" value={r.passport_valid} type="checkbox" onSave={v => save('passport_valid', v)} />

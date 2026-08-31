@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { loadOptions, updateField } from '../lib/api'
 import { MEETING_TYPES, enumOpts } from '../lib/constants'
+import { formatDateTime } from '../lib/format'
 import RecordLayout from '../components/RecordLayout'
 import EditField from '../components/EditField'
 import RelatedLink from '../components/RelatedLink'
@@ -47,7 +48,7 @@ export default function MeetingDetail() {
             <span className="ef-label">משויך ל</span>
             <span className="ef-val"><RelatedLink relatedType={m.related_type} relatedId={m.related_id} /></span>
           </div>
-          <EditField label="תאריך ושעה" value={m.start_at?.slice(0, 16)} type="datetime" onSave={v => save('start_at', v)} />
+          <EditField label="תאריך ושעה" value={m.start_at?.slice(0, 16)} display={formatDateTime(m.start_at)} type="datetime" onSave={v => save('start_at', v)} />
           <EditField label="משך (דקות)" value={m.duration_minutes} type="number" onSave={v => save('duration_minutes', v)} />
           <EditField label="סוג" value={m.type} type="select" options={enumOpts(MEETING_TYPES)} onSave={v => save('type', v)} />
           <EditField label="יחידה עסקית" value={m.business_unit} readOnly readOnlyReason="נקבע בעת יצירת הפגישה ולא ניתן לשינוי" />

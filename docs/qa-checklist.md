@@ -26,7 +26,7 @@ against real data (empty systems always look fine).
       explanation, not cascade silently.
 - [ ] Duplicate a value that should be unique (TRAX phone, Xcon work email)
       — must reject (409), not create a duplicate.
-- [ ] Closing a sale as "נסגר באי הצלחה" without a loss reason — blocked at
+- [ ] Closing a sale as "עסקה הופסדה" without a loss reason — blocked at
       both UI and DB level.
 
 ## 4. Automation engine

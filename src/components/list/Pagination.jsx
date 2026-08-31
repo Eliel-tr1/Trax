@@ -3,6 +3,7 @@ import { ChevronRight, ChevronLeft, ChevronsRight, ChevronsLeft } from 'lucide-r
 import { Button } from '../ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { getPageNumbers } from '../../lib/utils'
+import { formatNumber } from '../../lib/format'
 
 /* Paginator modelled on satnaing/shadcn-admin (MIT), wired to ra-core's list
    context instead of TanStack Table.
@@ -57,7 +58,7 @@ export default function Pagination() {
       </div>
 
       <div className="text-muted-foreground text-sm">
-        {total.toLocaleString('he-IL')} רשומות · עמוד {page} מתוך {pages}
+        {formatNumber(total)} רשומות · עמוד {page} מתוך {pages}
       </div>
     </div>
   )

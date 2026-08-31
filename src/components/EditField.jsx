@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import PhoneInput, { PhoneDisplay } from './PhoneInput'
 
 // Ported verbatim from bina-crm — generic inline-editable field
 // (Fireberry-style: click value -> edit -> save on blur/enter).
@@ -23,6 +24,7 @@ export default function EditField({ label, value, display, type = 'text', option
     ? <span className="muted" style={{ fontWeight: 400 }}>-</span>
     : type === 'link' ? <a href={value} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} dir="ltr">{shown}</a>
     : type === 'checkbox' ? <span className={`badge ${value ? 'ok' : 'gray'}`}>{value ? '✓ כן' : '✗ לא'}</span>
+    : type === 'phone' ? <PhoneDisplay value={value} />
     : shown
 
   const row = (control) => (
@@ -59,6 +61,10 @@ export default function EditField({ label, value, display, type = 'text', option
     return row(<span className="ef-val cell-edit" style={{ direction: ltr ? 'ltr' : undefined, opacity: saving ? 0.5 : 1 }} onClick={() => setEdit(true)} title="לחצו לעריכה">{shownEl}</span>)
   }
 
+  if (type === 'phone') {
+    return row(<PhoneEditControl value={value} saving={saving} onCommit={commit} onCancel={() => setEdit(false)} />)
+  }
+
   if (type === 'select') {
     return row(
       <select className="input" autoFocus defaultValue={value ?? ''} disabled={saving}
@@ -75,5 +81,19 @@ export default function EditField({ label, value, display, type = 'text', option
     <input className="input" autoFocus type={type === 'datetime' ? 'datetime-local' : type} dir={ltr ? 'ltr' : undefined} defaultValue={value ?? ''} disabled={saving} placeholder={placeholder}
       onBlur={e => commit(type === 'number' ? (e.target.value === '' ? null : parseFloat(e.target.value)) : e.target.value.trim())}
       onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') setEdit(false) }} />
+  )
+}
+
+// Holds the phone value locally while editing (PhoneInput fires onChange on
+// every keystroke, unlike a plain <input>'s onBlur-commit pattern used
+// above) and commits once on blur — including a blur caused by opening the
+// country popover, which is deferred a tick so it doesn't close mid-pick.
+function PhoneEditControl({ value, saving, onCommit, onCancel }) {
+  const [v, setV] = useState(value || '')
+  return (
+    <PhoneInput autoFocus value={v} disabled={saving}
+      onChange={setV}
+      onBlur={() => setTimeout(() => { if (document.activeElement?.closest('.phone-input, .phone-country-popover')) return; onCommit(v) }, 150)}
+    />
   )
 }

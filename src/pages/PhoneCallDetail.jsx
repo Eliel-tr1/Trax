@@ -7,6 +7,7 @@ import RecordLayout from '../components/RecordLayout'
 import EditField from '../components/EditField'
 import RelatedLink from '../components/RelatedLink'
 import UserAvatar from '../components/UserAvatar'
+import { formatDateTime } from '../lib/format'
 
 // Detail-only screen — phone calls are never created by hand (auto-created
 // from Voicenter/Max, see schema.js's comment on `phone_call`). Everything
@@ -36,7 +37,7 @@ export default function PhoneCallDetail() {
   return (
     <RecordLayout
       title={`שיחה ${c.direction || ''}`}
-      subtitle={c.occurred_at ? new Date(c.occurred_at).toLocaleString('he-IL') : undefined}
+      subtitle={c.occurred_at ? formatDateTime(c.occurred_at) : undefined}
       backTo="/phone-calls"
       recordType="phone_call" recordId={id} record={c}
       feed={false}
@@ -48,7 +49,7 @@ export default function PhoneCallDetail() {
             <span className="ef-val"><RelatedLink relatedType={c.related_type} relatedId={c.related_id} showType={false} /></span>
           </div>
           <EditField label="כיוון" value={c.direction} readOnly readOnlyReason="מגיע אוטומטית מהטלפוניה (Voicenter/Max)" />
-          <EditField label="תאריך ושעה" value={c.occurred_at ? new Date(c.occurred_at).toLocaleString('he-IL') : null} readOnly readOnlyReason="מגיע אוטומטית מהטלפוניה" />
+          <EditField label="תאריך ושעה" value={formatDateTime(c.occurred_at)} readOnly readOnlyReason="מגיע אוטומטית מהטלפוניה" />
           <EditField label="משך (שניות)" value={c.duration_seconds} readOnly readOnlyReason="מגיע אוטומטית מהטלפוניה" />
           <EditField label="תוצאה" value={c.result} type="select" options={enumOpts(CALL_RESULTS)} onSave={v => save('result', v)} />
           <EditField label="הקלטה" value={c.recording_url} type="link" readOnly readOnlyReason="מגיע אוטומטית מהטלפוניה" />

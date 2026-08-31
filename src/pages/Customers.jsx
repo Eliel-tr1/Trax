@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useRefresh } from 'ra-core'
 import { CUSTOMER_STATUSES, LEAD_SOURCES, enumOpts } from '../lib/constants'
 import { extraHiddenColumns } from '../lib/schema'
+import { formatDate } from '../lib/format'
 import { useBusinessUnitStore } from '../stores/businessUnitStore'
 import ResourceList from '../components/ResourceList'
 import { BulkDeleteButton } from '../components/admin/bulk-delete-button'
@@ -27,7 +28,7 @@ export default function Customers() {
     { source: 'first_name', label: 'שם', csv: r => `${r.first_name} ${r.last_name}`,
       render: r => <span style={{ fontWeight: 600, color: 'var(--mp)' }}>{r.first_name} {r.last_name}</span> },
     { source: 'mobile_phone', label: 'טלפון', csv: r => r.mobile_phone,
-      render: r => <Cell row={r} field="mobile_phone" display={v => <span className="small" dir="ltr">{v || '-'}</span>} /> },
+      render: r => <Cell row={r} field="mobile_phone" mode="phone" /> },
     { source: 'email', label: 'אימייל', csv: r => r.email,
       render: r => <Cell row={r} field="email" display={v => <span className="small" dir="ltr">{v || '-'}</span>} /> },
     { source: 'lead_source', label: 'מקור הגעה', csv: r => r.lead_source,
@@ -37,7 +38,7 @@ export default function Customers() {
       render: r => <Cell row={r} field="status" mode="select" options={statusOpts}
         display={v => <span className={`badge ${STATUS_BADGE[v] || 'gray'}`}>{v}</span>} /> },
     { source: 'first_contact_at', label: 'פנייה ראשונה', csv: r => r.first_contact_at,
-      render: r => <span className="small">{r.first_contact_at ? new Date(r.first_contact_at).toLocaleDateString('he-IL') : '-'}</span> },
+      render: r => <span className="small">{formatDate(r.first_contact_at)}</span> },
     // Every remaining customer schema field, hidden by default — makes the
     // columns picker offer the full field set, not just this curated view.
     ...extraHiddenColumns('customer', ['first_name', 'mobile_phone', 'email', 'lead_source', 'campaign', 'status', 'first_contact_at']),

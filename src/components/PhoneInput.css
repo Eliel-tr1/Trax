@@ -1,0 +1,48 @@
+/* PhoneInput.jsx — styled to sit inside the app's normal .input chrome,
+   with a flag-button country picker to the (logical) start of the field. */
+.phone-input {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--rs);
+  background: var(--surface);
+  min-height: 36px;
+  padding: 0 8px 0 4px;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.phone-input:focus-within {
+  border-color: var(--mp2);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mp2), transparent 65%);
+}
+.phone-input .phone-input-number.input {
+  border: none !important;
+  background: transparent !important;
+  min-height: 30px;
+  padding: 0;
+  box-shadow: none !important;
+  flex: 1;
+}
+.phone-country-trigger {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.phone-country-trigger:hover { background: var(--surface-2, color-mix(in srgb, var(--text), transparent 92%)); }
+.phone-country-trigger img,
+.phone-country-trigger svg { width: 18px; height: 13px; border-radius: 2px; display: block; }
+.phone-flag-placeholder { width: 18px; height: 13px; border-radius: 2px; background: var(--border); display: block; }
+.phone-country-caret { font-size: 9px; color: var(--text-3); }
+
+.phone-country-popover [data-slot="command"] { max-width: 100%; }
+.phone-country-popover [cmdk-item] svg,
+.phone-country-popover [cmdk-item] img { width: 18px; height: 13px; border-radius: 2px; }
+
+/* PhoneDisplay flag chip */
+.phone-input-number { direction: ltr; }

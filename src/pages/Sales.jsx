@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useRefresh } from 'ra-core'
 import { SALE_STAGES, SALE_STAGES_CLOSED, LOSS_REASONS, enumOpts } from '../lib/constants'
 import { extraHiddenColumns } from '../lib/schema'
+import { formatDate } from '../lib/format'
 import { useBusinessUnitStore } from '../stores/businessUnitStore'
 import { useAuthStore } from '../stores/authStore'
 import ResourceList from '../components/ResourceList'
@@ -15,7 +16,7 @@ const stageOpts = enumOpts(SALE_STAGES)
 const OPEN_STAGES = SALE_STAGES.filter(s => !SALE_STAGES_CLOSED.includes(s))
 const STAGE_BADGE = {
   'ליד חדש': 'mp', 'נוצר קשר על ידי AI': 'mp', 'שיחת מכירה עם נציג אנושי': 'warn',
-  'הצעה נשלחה': 'warn', 'ממתין להחלטה': 'warn', 'נסגר בהצלחה': 'ok', 'נסגר באי הצלחה': 'gray',
+  'הצעה נשלחה': 'warn', 'ממתין להחלטה': 'warn', 'נסגר בהצלחה': 'ok', 'עסקה הופסדה': 'gray',
 }
 
 export default function Sales() {
@@ -36,7 +37,7 @@ export default function Sales() {
     { source: 'lead_source', label: 'מקור הגעה', hidden: true, csv: r => r.lead_source, render: r => r.lead_source || '-' },
     { source: 'loss_reason', label: 'סיבת אי סגירה', hidden: true, csv: r => r.loss_reason, render: r => r.loss_reason || '-' },
     { source: 'created_at', label: 'נוצר', csv: r => r.created_at,
-      render: r => <span className="small">{new Date(r.created_at).toLocaleDateString('he-IL')}</span> },
+      render: r => <span className="small">{formatDate(r.created_at)}</span> },
     ...extraHiddenColumns('sale', ['deal_name', 'customer_id', 'stage', 'channel', 'lead_source', 'loss_reason']),
   ]
 
