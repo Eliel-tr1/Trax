@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useListContext, useStore } from 'ra-core'
-import { Bookmark, Check, Save, Trash2 } from 'lucide-react'
+import { Bookmark, BookmarkPlus, Check, Save, Trash2 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../stores/authStore'
 import { toast } from '../Toaster'
@@ -30,8 +30,11 @@ export default function SavedViews({ resource, datatableStoreKey }) {
   const user = useAuthStore(s => s.user)
   const [views, setViews] = useState([])
   const [open, setOpen] = useState(false)
+  const [createOpen, setCreateOpen] = useState(false)
   const [nameInput, setNameInput] = useState('')
+  const [createNameInput, setCreateNameInput] = useState('')
   const [saving, setSaving] = useState(false)
+  const hasActiveFilters = filterValues && Object.keys(filterValues).length > 0
 
   const [columnRanks, setColumnRanks] = useStore(`${datatableStoreKey}_columnRanks`)
   const [columnWidths, setColumnWidths] = useStore(`${datatableStoreKey}_columnWidths`, EMPTY_COLUMN_WIDTHS)
@@ -47,8 +50,8 @@ export default function SavedViews({ resource, datatableStoreKey }) {
 
   const activeViewId = views.find(v => same(v.filters, filterValues))?.id
 
-  const saveView = async () => {
-    const name = nameInput.trim()
+  const saveView = async (rawName) => {
+    const name = (rawName ?? nameInput).trim()
     if (!name || !user) return
     setSaving(true)
     const columns = {
@@ -60,10 +63,12 @@ export default function SavedViews({ resource, datatableStoreKey }) {
       user_id: user.id, resource, name, filters: filterValues || {}, columns,
     })
     setSaving(false)
-    if (error) { toast('שמירת התצוגה נכשלה', 'err'); return }
+    if (error) { toast('שמירת התצוגה נכשלה', 'err'); return null }
     setNameInput('')
+    setCreateNameInput('')
     toast('התצוגה נשמרה')
     load()
+    return true
   }
 
   const applyView = (view) => {
@@ -84,6 +89,35 @@ export default function SavedViews({ resource, datatableStoreKey }) {
   }
 
   return (
+    <div className="flex items-center gap-1.5">
+      {hasActiveFilters && (
+        <Popover open={createOpen} onOpenChange={(o) => { setCreateOpen(o); if (!o) setCreateNameInput('') }}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="h-9">
+              <BookmarkPlus className="size-4" /> הפוך לתצוגה שמורה
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-72 p-3" align="start">
+            <div className="flex flex-col gap-2">
+              <div className="text-sm font-medium">שם לתצוגה החדשה</div>
+              <div className="flex items-center gap-1.5">
+                <Input value={createNameInput} onChange={e => setCreateNameInput(e.target.value)}
+                  placeholder="לדוגמה: לידים חמים החודש" autoFocus
+                  onKeyDown={async e => {
+                    if (e.key === 'Enter' && createNameInput.trim()) {
+                      if (await saveView(createNameInput)) setCreateOpen(false)
+                    }
+                  }}
+                  className="h-8" />
+                <Button size="sm" className="h-8 shrink-0" disabled={!createNameInput.trim() || saving}
+                  onClick={async () => { if (await saveView(createNameInput)) setCreateOpen(false) }}>
+                  <Save className="size-3.5" /> שמירה
+                </Button>
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
+      )}
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className="h-9">
@@ -116,7 +150,7 @@ export default function SavedViews({ resource, datatableStoreKey }) {
                 placeholder="שם לתצוגה החדשה"
                 onKeyDown={e => { if (e.key === 'Enter' && nameInput.trim()) saveView() }}
                 className="h-8" />
-              <Button size="sm" className="h-8 shrink-0" disabled={!nameInput.trim() || saving} onClick={saveView}>
+              <Button size="sm" className="h-8 shrink-0" disabled={!nameInput.trim() || saving} onClick={() => saveView()}>
                 <Save className="size-3.5" /> שמירה
               </Button>
             </div>
@@ -124,5 +158,6 @@ export default function SavedViews({ resource, datatableStoreKey }) {
         </Command>
       </PopoverContent>
     </Popover>
+    </div>
   )
 }
