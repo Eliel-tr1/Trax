@@ -181,10 +181,31 @@ export function DvizStyles() {
         --cat-5: #d55181; --cat-6: #008300; --cat-7: #9085e9; --cat-8: #e66767;
       }
 
-      .dviz-tile { display: flex; flex-direction: column; gap: 4px; }
+      .dviz-tile {
+        display: flex; flex-direction: column; gap: 4px;
+        padding: 12px 14px; border-radius: var(--rs);
+        background: linear-gradient(155deg, var(--surface) 0%, var(--surface-2) 130%);
+        border: 1px solid var(--border-soft);
+        transition: transform 0.18s ease, box-shadow 0.18s ease;
+      }
+      .dviz-tile:hover { transform: translateY(-1px); box-shadow: var(--sh1); }
       .dviz-tile-label { font-size: 0.8rem; color: var(--text-2); font-weight: 600; }
       .dviz-tile-value { font-size: 1.7rem; font-weight: 900; color: var(--heading); font-variant-numeric: normal; line-height: 1.15; }
       .dviz-tile-sub { font-size: 0.74rem; color: var(--text-3); }
+
+      .dviz-rank-row {
+        display: flex; align-items: center; gap: 10px;
+        padding: 8px 10px; border-radius: var(--rx);
+        background: var(--surface-2);
+      }
+      .dviz-rank-badge {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 22px; height: 22px; flex-shrink: 0; border-radius: 50%;
+        background: linear-gradient(155deg, var(--seq-400), var(--seq-500));
+        color: #fff; font-size: 0.74rem; font-weight: 800;
+      }
+      .dviz-rank-label { flex: 1; font-size: 0.86rem; font-weight: 600; color: var(--text); }
+      .dviz-rank-value { font-size: 0.82rem; color: var(--text-2); font-variant-numeric: tabular-nums; }
 
       .dviz-empty { text-align: center; padding: 24px; color: var(--text-3); font-size: 0.85rem; }
 

@@ -7,7 +7,6 @@ import { loadOptions } from '../lib/api'
 import { SALE_STAGES, SALE_STAGES_CLOSED, LEAD_SOURCES, CUSTOMER_STATUSES } from '../lib/constants'
 import { formatCurrency, formatDate } from '../lib/format'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
-import { Button } from '../components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip'
@@ -31,6 +30,13 @@ const TABS = [
   { key: 'marketing', label: 'שיווק' },
   { key: 'journeys', label: 'מסעות' },
 ]
+
+// מסעות (journeys) are a TRAX-only concept (docs/domain-model.md) — Xcon has
+// no departures at all, so the tab and its filter are dropped entirely
+// rather than shown disabled.
+function tabsForUnit(unit) {
+  return unit === 'Xcon' ? TABS.filter(t => t.key !== 'journeys') : TABS
+}
 
 const RANGE_PRESETS = [
   { key: 'today', label: 'היום' },
@@ -113,7 +119,9 @@ export default function Dashboard() {
   const unit = useBusinessUnitStore(s => s.unit)
   const [params, setParams] = useSearchParams()
 
-  const tab = params.get('tab') || 'sales'
+  const tabs = useMemo(() => tabsForUnit(unit), [unit])
+  const requestedTab = params.get('tab') || 'sales'
+  const tab = tabs.some(t => t.key === requestedTab) ? requestedTab : 'sales'
   const range = params.get('range') || 'month'
   const from = params.get('from') || ''
   const to = params.get('to') || ''
@@ -175,12 +183,12 @@ export default function Dashboard() {
           source={source} onSource={(v) => setParam('source', v)}
           campaign={campaign} onCampaign={(v) => setParam('campaign', v)} campaignOpts={campaignOpts}
           utm={utm} onUtm={(v) => setParam('utm', v)} utmOpts={utmOpts}
-          tab={tab}
+          tab={tab} isXcon={unit === 'Xcon'}
         />
 
         <Tabs value={tab} onValueChange={(v) => setParam('tab', v)}>
           <TabsList className="mb-4">
-            {TABS.map(t => <TabsTrigger key={t.key} value={t.key}>{t.label}</TabsTrigger>)}
+            {tabs.map(t => <TabsTrigger key={t.key} value={t.key}>{t.label}</TabsTrigger>)}
           </TabsList>
 
           <TabsContent value="sales">
@@ -189,26 +197,29 @@ export default function Dashboard() {
           <TabsContent value="marketing">
             <MarketingTab unit={unit} rangeFrom={rangeFrom} rangeTo={rangeTo} ownerId={ownerId} journeyId={journeyId} source={source} campaign={campaign} utm={utm} animKey={`marketing-${tab}`} />
           </TabsContent>
-          <TabsContent value="journeys">
-            <JourneysTab unit={unit} rangeFrom={rangeFrom} rangeTo={rangeTo} journeyId={journeyId} animKey={`journeys-${tab}`} />
-          </TabsContent>
+          {unit !== 'Xcon' && (
+            <TabsContent value="journeys">
+              <JourneysTab unit={unit} rangeFrom={rangeFrom} rangeTo={rangeTo} journeyId={journeyId} animKey={`journeys-${tab}`} />
+            </TabsContent>
+          )}
         </Tabs>
       </div>
     </div>
   )
 }
 
-function FilterBar({ range, from, to, onRange, onFrom, onTo, ownerId, onOwner, reps, journeyId, onJourney, journeys, source, onSource, campaign, onCampaign, campaignOpts, utm, onUtm, utmOpts, tab }) {
+function FilterBar({ range, from, to, onRange, onFrom, onTo, ownerId, onOwner, reps, journeyId, onJourney, journeys, source, onSource, campaign, onCampaign, campaignOpts, utm, onUtm, utmOpts, tab, isXcon }) {
   const repsApply = tab !== 'journeys'
   const sourceApply = tab !== 'journeys'
   return (
     <div className="row flex-wrap" style={{ gap: 8, marginBottom: 14, alignItems: 'center' }}>
       <span className="muted small">טווח תאריכים:</span>
-      {RANGE_PRESETS.map(p => (
-        <Button key={p.key} size="sm" variant={range === p.key ? 'default' : 'outline'} className="h-8" onClick={() => onRange(p.key)}>
-          {p.label}
-        </Button>
-      ))}
+      <Select value={range} onValueChange={onRange}>
+        <SelectTrigger className="h-8 w-32"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          {RANGE_PRESETS.map(p => <SelectItem key={p.key} value={p.key}>{p.label}</SelectItem>)}
+        </SelectContent>
+      </Select>
       {range === 'custom' && (
         <span className="row" style={{ gap: 6 }}>
           <input type="date" className="input" style={{ minHeight: 32, padding: '4px 8px', width: 140 }} value={from} onChange={e => onFrom(e.target.value)} />
@@ -217,45 +228,43 @@ function FilterBar({ range, from, to, onRange, onFrom, onTo, ownerId, onOwner, r
         </span>
       )}
 
-      <span className="muted small" style={{ marginInlineStart: 12 }}>נציג:</span>
       <Select value={ownerId || '__all__'} onValueChange={v => onOwner(v === '__all__' ? '' : v)} disabled={!repsApply}>
-        <SelectTrigger className="h-8 w-40"><SelectValue placeholder="כל הנציגים" /></SelectTrigger>
+        <SelectTrigger className="h-8 w-36" style={{ marginInlineStart: 12 }}><SelectValue placeholder="כל הנציגים" /></SelectTrigger>
         <SelectContent>
           <SelectItem value="__all__">כל הנציגים</SelectItem>
           {reps.map(r => <SelectItem key={r.id} value={r.id}>{r.full_name}</SelectItem>)}
         </SelectContent>
       </Select>
 
-      <span className="muted small">מסע:</span>
-      <Select value={journeyId || '__all__'} onValueChange={v => onJourney(v === '__all__' ? '' : v)}>
-        <SelectTrigger className="h-8 w-40"><SelectValue placeholder="כל המסעות" /></SelectTrigger>
-        <SelectContent>
-          <SelectItem value="__all__">כל המסעות</SelectItem>
-          {journeys.map(j => <SelectItem key={j.id} value={j.id}>{j.name}</SelectItem>)}
-        </SelectContent>
-      </Select>
+      {!isXcon && (
+        <Select value={journeyId || '__all__'} onValueChange={v => onJourney(v === '__all__' ? '' : v)}>
+          <SelectTrigger className="h-8 w-36"><SelectValue placeholder="כל המסעות" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__all__">כל המסעות</SelectItem>
+            {journeys.map(j => <SelectItem key={j.id} value={j.id}>{j.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      )}
 
-      <span className="muted small">מקור:</span>
       <Select value={source || '__all__'} onValueChange={v => onSource(v === '__all__' ? '' : v)} disabled={!sourceApply}>
-        <SelectTrigger className="h-8 w-32"><SelectValue placeholder="כל המקורות" /></SelectTrigger>
+        <SelectTrigger className="h-8 w-28"><SelectValue placeholder="כל המקורות" /></SelectTrigger>
         <SelectContent>
           <SelectItem value="__all__">כל המקורות</SelectItem>
           {LEAD_SOURCES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
         </SelectContent>
       </Select>
 
-      <span className="muted small">קמפיין:</span>
       <Select value={campaign || '__all__'} onValueChange={v => onCampaign(v === '__all__' ? '' : v)} disabled={!sourceApply}>
-        <SelectTrigger className="h-8 w-32"><SelectValue placeholder="כל הקמפיינים" /></SelectTrigger>
+        <SelectTrigger className="h-8 w-28"><SelectValue placeholder="כל הקמפיינים" /></SelectTrigger>
         <SelectContent>
           <SelectItem value="__all__">כל הקמפיינים</SelectItem>
           {campaignOpts.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
         </SelectContent>
       </Select>
 
-      <span className="muted small">UTM Source:</span>
+      <span className="muted small">UTM:</span>
       <Select value={utm || '__all__'} onValueChange={v => onUtm(v === '__all__' ? '' : v)} disabled={!sourceApply}>
-        <SelectTrigger className="h-8 w-32"><SelectValue placeholder="כל ה-UTM" /></SelectTrigger>
+        <SelectTrigger className="h-8 w-28"><SelectValue placeholder="כל ה-UTM" /></SelectTrigger>
         <SelectContent>
           <SelectItem value="__all__">כל ה-UTM</SelectItem>
           {utmOpts.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
@@ -294,6 +303,8 @@ function SalesTab({ unit, rangeFrom, rangeTo, ownerId, journeyId, source, campai
 
   const won = sales.filter(s => s.stage === 'נסגר בהצלחה')
   const lost = sales.filter(s => s.stage === 'עסקה הופסדה')
+  const inProgress = sales.filter(s => s.stage !== 'נסגר בהצלחה' && s.stage !== 'עסקה הופסדה')
+  const pipelineByCurrency = sumByCurrency(inProgress, 'expected_value')
   const winRate = (won.length + lost.length) ? Math.round((won.length / (won.length + lost.length)) * 1000) / 10 : 0
   const revenueByCurrency = sumByCurrency(won, 'expected_value')
   const avgDealByCurrency = {}
@@ -341,6 +352,8 @@ function SalesTab({ unit, rangeFrom, rangeTo, ownerId, journeyId, source, campai
           <StatTile label="יחס סגירה" value={`${winRate}%`} tooltip={`${won.length} מתוך ${won.length + lost.length} עסקאות שנסגרו`} />
           <StatTile label="גודל עסקה ממוצע" value={<CurrencyBreakdown byCurrency={avgDealByCurrency} label="גודל עסקה ממוצע לפי מטבע" />} />
           <StatTile label="אורך מחזור מכירה ממוצע" value={`${avgCycle} ימים`} tooltip="מבוסס על הפרש בין תאריך יצירה לעדכון אחרון בעסקאות שנסגרו בהצלחה, קירוב, אין שדה תאריך סגירה ייעודי" />
+          <StatTile label="עסקאות בתהליך" value={inProgress.length} tooltip="עסקאות שעדיין לא נסגרו ולא הופסדו, בכל שלבי המשפך" />
+          <StatTile label="ערך צנרת פתוחה" value={<CurrencyBreakdown byCurrency={pipelineByCurrency} label="סך שווי העסקאות הפתוחות לפי מטבע" />} tooltip="סכום השווי הצפוי של כל העסקאות בתהליך, לפני סגירה" />
         </div>
 
         <div className="grid gap-4 lg:grid-cols-2">
@@ -433,6 +446,11 @@ function MarketingTab({ unit, rangeFrom, rangeTo, ownerId, journeyId, source, ca
 
   const statusFunnel = CUSTOMER_STATUSES.map(st => ({ label: st, value: customers.filter(c => c.status === st).length }))
 
+  // Top-3 lead sources by raw volume — a quick "where do our leads actually
+  // come from" readout, separate from the source×campaign combo chart above.
+  const leadsBySource = groupCount(customers, 'lead_source')
+  const topSources = leadsBySource.slice(0, 3)
+
   return (
     <DvizRoot className="dviz-fade-in">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -453,10 +471,29 @@ function MarketingTab({ unit, rangeFrom, rangeTo, ownerId, journeyId, source, ca
           </Card>
         </div>
 
-        <Card>
-          <CardHeader><CardTitle className="text-sm">משפך סטטוס לקוח</CardTitle></CardHeader>
-          <CardContent><FunnelChart stages={statusFunnel} animate={animate} /></CardContent>
-        </Card>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card>
+            <CardHeader><CardTitle className="text-sm">משפך סטטוס לקוח</CardTitle></CardHeader>
+            <CardContent><FunnelChart stages={statusFunnel} animate={animate} /></CardContent>
+          </Card>
+          <Card>
+            <CardHeader><CardTitle className="text-sm">שלושת המקורות המובילים</CardTitle></CardHeader>
+            <CardContent>
+              {topSources.length === 0 ? <div className="dviz-empty">אין נתונים</div> : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {topSources.map((s, i) => (
+                    <div key={s.label} className="dviz-rank-row">
+                      <span className="dviz-rank-badge">{i + 1}</span>
+                      <span className="dviz-rank-label">{s.label}</span>
+                      <span className="dviz-rank-value">{s.value} לידים</span>
+                      <span className="muted small">{customers.length ? Math.round((s.value / customers.length) * 100) : 0}%</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </DvizRoot>
   )
@@ -502,9 +539,36 @@ function JourneysTab({ unit, journeyId, animKey }) {
   const upcoming = journeys.filter(j => j.departure_date && j.departure_date >= today)
   const past = journeys.filter(j => !j.departure_date || j.departure_date < today)
 
+  // Average occupancy across upcoming departures — a single "how full is the
+  // pipeline overall" number, complementing the per-journey progress bars.
+  const withCapacity = upcoming.filter(j => j.seats_total)
+  const avgFillRate = withCapacity.length
+    ? Math.round((withCapacity.reduce((a, j) => a + (j.seats_sold || 0) / j.seats_total, 0) / withCapacity.length) * 1000) / 10
+    : 0
+
+  // Departures still below their minimum seat count — the collected revenue
+  // on those is at risk of a refund if the trip doesn't reach minimum and
+  // gets cancelled.
+  const atRisk = upcoming.filter(j => (j.min_seats || 0) > 0 && (j.seats_sold || 0) < j.min_seats)
+  const revenueAtRiskByCurrency = {}
+  for (const j of atRisk) {
+    for (const [cur, total] of Object.entries(revenueByJourney[j.id] || {})) {
+      revenueAtRiskByCurrency[cur] = (revenueAtRiskByCurrency[cur] || 0) + total
+    }
+  }
+
   return (
     <DvizRoot className="dviz-fade-in">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <StatTile label="מסעות עתידיים" value={upcoming.length} />
+          <StatTile label="ממוצע תפוסה עתידית" value={`${avgFillRate}%`} tooltip="ממוצע אחוז המקומות שנמכרו על פני כל המסעות העתידיים עם קיבולת מוגדרת" />
+          <StatTile
+            label="הכנסה בסיכון"
+            value={Object.keys(revenueAtRiskByCurrency).length ? <CurrencyBreakdown byCurrency={revenueAtRiskByCurrency} label="הכנסה שנגבתה עבור מסעות שטרם הגיעו למינימום נוסעים" /> : '0'}
+            tooltip={`${atRisk.length} מסעות מתחת למינימום הנוסעים הנדרש — הכנסה שנגבתה עבורם עלולה לחזור אם המסע יבוטל`}
+          />
+        </div>
         <JourneyGroup title="עתידיים" journeys={upcoming} revenueByJourney={revenueByJourney} animate={animate} />
         <JourneyGroup title="שהתקיימו" journeys={past} revenueByJourney={revenueByJourney} animate={animate} />
       </div>
