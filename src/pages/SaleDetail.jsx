@@ -13,7 +13,7 @@ import UserPicker from '../components/UserPicker'
 import EntityPicker from '../components/EntityPicker'
 import FieldTabs from '../components/FieldTabs'
 import SystemFieldsTab from '../components/SystemFieldsTab'
-import { MeetingFormModal } from './Meetings'
+import { MeetingFormModal, meetingsColumns } from './Meetings'
 import CardcomChargeModal from '../components/CardcomChargeModal'
 import { formatCurrency, formatDateTime } from '../lib/format'
 import StatusBadge, { badgeClassFor } from '../components/StatusBadge'
@@ -75,13 +75,12 @@ export default function SaleDetail() {
     // Resource-mode chip (paginated, links to the standalone MeetingDetail
     // screen) instead of a static inline table — see the same comment on
     // CustomerDetail.jsx's identical `meetings` entry.
+    // listColumns reuses Meetings.jsx's own column builder (meetingsColumns)
+    // instead of a hardcoded 3-field subset — see the comment on
+    // CustomerDetail.jsx's `related` array for why.
     { key: 'meetings', label: 'פגישות', count: meetings.length, onOpen: r => `/meetings/${r.id}`,
       resource: 'meetings', filter: { related_type: 'sale', related_id: id },
-      listColumns: [
-        { source: 'subject', label: 'נושא', render: r => r.subject },
-        { source: 'start_at', label: 'תאריך ושעה', render: r => formatDateTime(r.start_at) },
-        { source: 'type', label: 'סוג', render: r => r.type || '-' },
-      ] },
+      listColumns: meetingsColumns() },
   ]
 
   return (
@@ -102,7 +101,7 @@ export default function SaleDetail() {
       <div className="card">
         <div className="field-grid">
           <EditField label="לקוח" value={s.customer ? `${s.customer.first_name} ${s.customer.last_name}` : ''} linkTo={s.customer_id ? `/customers/${s.customer_id}` : undefined} />
-          <EditField label="שלב מכירה" value={s.stage} type="select" options={enumOpts(SALE_STAGES)}
+          <EditField label="שלב מכירה" value={s.stage} type="select" options={enumOpts(SALE_STAGES)} required
             display={<StatusBadge value={s.stage} field="stage" resource="sale" />} onSave={setStage} />
           <div className="ef">
             <span className="ef-label">נציג מכירות</span>
@@ -128,10 +127,7 @@ export default function SaleDetail() {
 
         <FieldTabs tabs={[
           {
-            key: 'system', label: 'נתוני מערכת', content: <>
-              <EditField label="יחידה עסקית" value={s.business_unit} readOnly readOnlyReason="נקבע בעת יצירת העסקה ולא ניתן לשינוי" />
-              <SystemFieldsTab record={s} users={opts.users} />
-            </>,
+            key: 'system', label: 'נתוני מערכת', content: <SystemFieldsTab record={s} users={opts.users} />,
           },
           {
             key: 'marketing', label: 'נתונים שיווקיים', content: <>

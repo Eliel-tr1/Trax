@@ -4,11 +4,14 @@ import { useRefresh } from 'ra-core'
 import { CUSTOMER_STATUSES, LEAD_SOURCES, enumOpts } from '../lib/constants'
 import { extraHiddenColumns } from '../lib/schema'
 import { formatDate } from '../lib/format'
+import { loadOptions } from '../lib/api'
 import { useBusinessUnitStore } from '../stores/businessUnitStore'
+import useSchemaFilterGroups from '../hooks/useSchemaFilterGroups'
 import ResourceList from '../components/ResourceList'
 import { BulkDeleteButton } from '../components/admin/bulk-delete-button'
 import BulkEditButton from '../components/list/BulkEditButton'
 import EditableCell from '../components/EditableCell'
+import UserEditableCell from '../components/UserEditableCell'
 import RecordFormModal from '../components/RecordFormModal'
 import Icon from '../components/Icon'
 import StatusBadge from '../components/StatusBadge'
@@ -24,6 +27,11 @@ export default function Customers() {
   const nav = useNavigate()
   const unit = useBusinessUnitStore(s => s.unit)
   const [showNew, setShowNew] = useState(false)
+  const [users, setUsers] = useState([])
+  const refresh = useRefresh()
+  const filterGroups = useSchemaFilterGroups('customer', ['business_unit'])
+
+  useEffect(() => { loadOptions().then(o => setUsers(o.users || [])) }, [])
 
   const columns = [
     { source: 'first_name', label: 'שם', csv: r => `${r.first_name} ${r.last_name}`,
@@ -36,13 +44,16 @@ export default function Customers() {
       render: r => <Cell row={r} field="lead_source" mode="select" options={sourceOpts} display={v => v || '-'} /> },
     { source: 'campaign', label: 'קמפיין', hidden: true, csv: r => r.campaign, render: r => r.campaign || '-' },
     { source: 'status', label: 'סטטוס', csv: r => r.status,
-      render: r => <Cell row={r} field="status" mode="select" options={statusOpts}
+      render: r => <Cell row={r} field="status" mode="select" options={statusOpts} required
         display={v => <StatusBadge value={v} field="status" resource="customer" />} /> },
     { source: 'first_contact_at', label: 'פנייה ראשונה', csv: r => r.first_contact_at,
       render: r => <span className="small">{formatDate(r.first_contact_at)}</span> },
+    { source: 'account_manager_id', label: 'מנהל לקוח', csv: r => users.find(u => u.id === r.account_manager_id)?.full_name || '',
+      render: r => <UserEditableCell row={r} table="customers" field="account_manager_id" users={users} placeholder="בחרו מנהל לקוח"
+        onSaved={() => refresh()} /> },
     // Every remaining customer schema field, hidden by default — makes the
     // columns picker offer the full field set, not just this curated view.
-    ...extraHiddenColumns('customer', ['first_name', 'mobile_phone', 'email', 'lead_source', 'campaign', 'status', 'first_contact_at']),
+    ...extraHiddenColumns('customer', ['first_name', 'mobile_phone', 'email', 'lead_source', 'campaign', 'status', 'first_contact_at', 'account_manager_id']),
   ]
 
   const presets = [
@@ -63,6 +74,7 @@ export default function Customers() {
           { field: 'status', title: 'סטטוס', options: statusOpts },
           { field: 'lead_source', title: 'מקור הגעה', options: sourceOpts },
         ]}
+        filters={filterGroups}
         rowPath={r => `/customers/${r.id}`}
         bulkActions={<><BulkEditButton resource="customer" table="customers" /><BulkDeleteButton /></>}
         actions={<button className="btn sm" data-tour="new-record" onClick={() => setShowNew(true)}><Icon name="plus" size={15} /> לקוח חדש</button>}
@@ -75,7 +87,7 @@ export default function Customers() {
   )
 }
 
-function Cell({ row, field, mode, options, display }) {
+function Cell({ row, field, mode, options, display, required }) {
   const refresh = useRefresh()
-  return <EditableCell row={row} table="customers" field={field} mode={mode} options={options} display={display} onSaved={() => refresh()} />
+  return <EditableCell row={row} table="customers" field={field} mode={mode} options={options} display={display} required={required} onSaved={() => refresh()} />
 }

@@ -6,12 +6,13 @@ import { formatDateTime } from '../lib/format'
 import { useBusinessUnitStore } from '../stores/businessUnitStore'
 import { useAuthStore } from '../stores/authStore'
 import { loadOptions } from '../lib/api'
+import useSchemaFilterGroups from '../hooks/useSchemaFilterGroups'
 import ResourceList from '../components/ResourceList'
 import { BulkDeleteButton } from '../components/admin/bulk-delete-button'
 import EditableCell from '../components/EditableCell'
+import UserEditableCell from '../components/UserEditableCell'
 import RecordFormModal from '../components/RecordFormModal'
 import Icon from '../components/Icon'
-import UserAvatar from '../components/UserAvatar'
 
 const statusOpts = enumOpts(TASK_STATUSES)
 const STATUS_BADGE = { 'פתוחה': 'warn', 'בוצעה': 'ok', 'בוטלה': 'gray' }
@@ -25,10 +26,11 @@ export default function Tasks() {
   const user = useAuthStore(s => s.user)
   const [showNew, setShowNew] = useState(false)
   const [users, setUsers] = useState([])
+  const refresh = useRefresh()
+  const filterGroups = useSchemaFilterGroups('task', ['business_unit'])
 
   useEffect(() => { loadOptions().then(o => setUsers(o.users || [])) }, [])
   const nameFor = (id) => users.find(u => u.id === id)?.full_name || '-'
-  const userFor = (id) => users.find(u => u.id === id)
 
   const columns = [
     { source: 'subject', label: 'נושא', csv: r => r.subject,
@@ -39,13 +41,14 @@ export default function Tasks() {
         return path ? <a href={`#${path}`} className="small" style={{ color: 'var(--mp)' }}>{RELATED_LABEL[r.related_type]}</a> : (RELATED_LABEL[r.related_type] || '-')
       } },
     { source: 'assignee_id', label: 'אחראי', csv: r => nameFor(r.assignee_id),
-      render: r => <UserAvatar user={userFor(r.assignee_id)} /> },
+      render: r => <UserEditableCell row={r} table="tasks" field="assignee_id" users={users} placeholder="בחרו אחראי"
+        onSaved={() => refresh()} /> },
     { source: 'due_at', label: 'תאריך יעד', csv: r => r.due_at,
       render: r => <span className="small">{formatDateTime(r.due_at)}</span> },
     { source: 'priority', label: 'עדיפות', csv: r => r.priority,
       render: r => <span className="badge" style={{ background: TASK_PRIORITY_COLOR[r.priority], color: '#fff' }}>{r.priority}</span> },
     { source: 'status', label: 'סטטוס', csv: r => r.status,
-      render: r => <Cell row={r} field="status" mode="select" options={statusOpts}
+      render: r => <Cell row={r} field="status" mode="select" options={statusOpts} required
         display={v => <span className={`badge ${STATUS_BADGE[v] || 'gray'}`}>{v}</span>} /> },
     ...extraHiddenColumns('task', ['subject', 'related_type', 'assignee_id', 'due_at', 'priority', 'status']),
   ]
@@ -69,6 +72,7 @@ export default function Tasks() {
           { field: 'status', title: 'סטטוס', options: statusOpts },
           { field: 'priority', title: 'עדיפות', options: enumOpts(TASK_PRIORITIES) },
         ]}
+        filters={filterGroups}
         bulkActions={<BulkDeleteButton />}
         actions={<button className="btn sm" onClick={() => setShowNew(true)}><Icon name="plus" size={15} /> משימה חדשה</button>}
       />
@@ -79,7 +83,7 @@ export default function Tasks() {
   )
 }
 
-function Cell({ row, field, mode, options, display }) {
+function Cell({ row, field, mode, options, display, required }) {
   const refresh = useRefresh()
-  return <EditableCell row={row} table="tasks" field={field} mode={mode} options={options} display={display} onSaved={() => refresh()} />
+  return <EditableCell row={row} table="tasks" field={field} mode={mode} options={options} display={display} required={required} onSaved={() => refresh()} />
 }

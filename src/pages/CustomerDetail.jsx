@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
+import { useRefresh } from 'ra-core'
 import { supabase } from '../lib/supabase'
 import { updateField, loadOptions } from '../lib/api'
 import {
@@ -11,7 +12,11 @@ import EditField from '../components/EditField'
 import UserPicker from '../components/UserPicker'
 import { PhoneDisplay } from '../components/PhoneInput'
 import { MeetingFormModal } from './Meetings'
-import { formatDate, formatDateTime } from '../lib/format'
+import { salesColumns } from './Sales'
+import { registrationColumns } from './Registrations'
+import { meetingsColumns } from './Meetings'
+import { phoneCallsColumns } from './PhoneCalls'
+import { formatDate } from '../lib/format'
 import StatusBadge, { badgeClassFor } from '../components/StatusBadge'
 import FieldTabs from '../components/FieldTabs'
 import SystemFieldsTab from '../components/SystemFieldsTab'
@@ -20,6 +25,7 @@ const SECTIONS = ['פרטים', 'מועדון']
 
 export default function CustomerDetail() {
   const { id } = useParams()
+  const refresh = useRefresh()
   const [c, setC] = useState(null)
   const [sales, setSales] = useState([])
   const [contacts, setContacts] = useState([])
@@ -55,21 +61,23 @@ export default function CustomerDetail() {
 
   const isXcon = c.business_unit === 'Xcon'
 
+  // listColumns for the resource-mode chips below reuse the exact same
+  // column builders as the standalone Sales/Registrations/Meetings/
+  // PhoneCalls screens (see the comment on registrationColumns() in
+  // Registrations.jsx) — before this, each chip declared its own hardcoded
+  // 2-3 column subset, so the columns picker on a nested list could only
+  // ever HIDE those 2-3 columns, never add any of the entity's real
+  // columns. Reusing the same builder also keeps column order/defaults/
+  // saved layout in sync with the main list screen (both write the same
+  // app_users.prefs.columnLayout.<resource> key, keyed by `resource`, not
+  // by this chip's own storeKey).
   const related = [
     { key: 'sales', label: 'מכירות', count: sales.length, rows: sales, onOpen: r => `/sales/${r.id}`,
       resource: 'sales', fk: 'customer_id', recordId: id,
-      listColumns: [
-        { source: 'deal_name', label: 'עסקה', render: r => r.deal_name || '-' },
-        { source: 'stage', label: 'שלב', render: r => <StatusBadge value={r.stage} field="stage" resource="sale" /> },
-      ],
-      columns: [{ label: 'עסקה', get: r => r.deal_name || '-' }, { label: 'שלב', get: r => <StatusBadge value={r.stage} field="stage" resource="sale" /> }] },
+      listColumns: salesColumns(users, refresh) },
     { key: 'registrations', label: 'הרשמות', count: registrations.length, rows: registrations, onOpen: r => `/registrations/${r.id}`,
       resource: 'registrations', fk: 'customer_id', recordId: id,
-      listColumns: [
-        { source: 'registration_name', label: 'הרשמה', render: r => r.registration_name || '-' },
-        { source: 'status', label: 'סטטוס', render: r => <StatusBadge value={r.status} field="status" resource="registration" /> },
-      ],
-      columns: [{ label: 'הרשמה', get: r => r.registration_name || '-' }, { label: 'סטטוס', get: r => <StatusBadge value={r.status} field="status" resource="registration" /> }] },
+      listColumns: registrationColumns() },
     { key: 'contacts', label: 'אנשי קשר', count: contacts.length, rows: contacts,
       columns: [{ label: 'שם', get: r => r.name }, { label: 'טלפון', get: r => <PhoneDisplay value={r.phone} /> }, { label: 'תפקיד', get: r => r.role || '-' }] },
     // Resource-mode chips (paginated, sortable, exportable — the same
@@ -81,18 +89,10 @@ export default function CustomerDetail() {
     // (related_type + related_id, not a single FK column).
     { key: 'meetings', label: 'פגישות', count: meetings.length, onOpen: r => `/meetings/${r.id}`,
       resource: 'meetings', filter: { related_type: 'customer', related_id: id },
-      listColumns: [
-        { source: 'subject', label: 'נושא', render: r => r.subject },
-        { source: 'start_at', label: 'תאריך ושעה', render: r => formatDateTime(r.start_at) },
-        { source: 'type', label: 'סוג', render: r => r.type || '-' },
-      ] },
+      listColumns: meetingsColumns() },
     { key: 'calls', label: 'שיחות', count: calls.length, onOpen: r => `/phone-calls/${r.id}`,
       resource: 'phone_calls', filter: { related_type: 'customer', related_id: id },
-      listColumns: [
-        { source: 'direction', label: 'כיוון', render: r => r.direction },
-        { source: 'occurred_at', label: 'תאריך', render: r => formatDateTime(r.occurred_at) },
-        { source: 'result', label: 'תוצאה', render: r => r.result || '-' },
-      ] },
+      listColumns: phoneCallsColumns(users) },
   ]
 
   // mobile_phone is stored E.164 (e.g. "+972501234567") via PhoneInput —
@@ -125,9 +125,7 @@ export default function CustomerDetail() {
           <EditField label="טלפון נייד" value={c.mobile_phone} type="phone" onSave={v => save('mobile_phone', v)} />
           <EditField label="אימייל" value={c.email} ltr onSave={v => save('email', v)} />
           <EditField label="יחידה עסקית" value={c.business_unit} readOnly readOnlyReason="נקבע בעת יצירת הלקוח ולא ניתן לשינוי" />
-          <EditField label="מקור הגעה" value={c.lead_source} type="select" options={enumOpts(LEAD_SOURCES)} onSave={v => save('lead_source', v)} />
-          <EditField label="קמפיין" value={c.campaign} onSave={v => save('campaign', v)} />
-          <EditField label="סטטוס לקוח" value={c.status} type="select" options={enumOpts(CUSTOMER_STATUSES)}
+          <EditField label="סטטוס לקוח" value={c.status} type="select" options={enumOpts(CUSTOMER_STATUSES)} required
             display={<StatusBadge value={c.status} field="status" resource="customer" />} onSave={v => save('status', v)} />
           <EditField label="תאריך פנייה ראשונה" value={c.first_contact_at} display={formatDate(c.first_contact_at)} readOnly readOnlyReason="נחתם אוטומטית ביצירת הרשומה" />
           <div className="ef">
@@ -151,6 +149,15 @@ export default function CustomerDetail() {
         <FieldTabs tabs={[
           {
             key: 'system', label: 'שדות מערכת', content: <SystemFieldsTab record={c} users={users} />,
+          },
+          // Same "נתונים שיווקיים" tab pattern SaleDetail.jsx uses for its
+          // marketing fields — customers only carry lead_source/campaign
+          // (no channel field, unlike sales, per schema.js/domain-model.md).
+          {
+            key: 'marketing', label: 'נתונים שיווקיים', content: <>
+              <EditField label="מקור הגעה" value={c.lead_source} type="select" options={enumOpts(LEAD_SOURCES)} onSave={v => save('lead_source', v)} />
+              <EditField label="קמפיין" value={c.campaign} onSave={v => save('campaign', v)} />
+            </>,
           },
         ]} />
       </div>
