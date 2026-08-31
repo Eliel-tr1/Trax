@@ -18,6 +18,7 @@ import { supabase } from '../lib/supabase'
    kept in sync with the sidebar nav (layout/nav-data.js). */
 export const RESOURCES = [
   { key: 'dashboard', label: 'לוח בקרה' },
+  { key: 'my_desk', label: 'מסך ראשי לנציג' },
   { key: 'customers', label: 'לקוחות' },
   { key: 'sales', label: 'מכירות' },
   { key: 'journeys', label: 'מסעות' },

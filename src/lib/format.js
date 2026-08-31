@@ -33,6 +33,19 @@ export function formatNumber(value) {
   return n.toLocaleString('en-US', { maximumFractionDigits: 2 })
 }
 
+// Seconds -> a short readable Hebrew duration.
+// Under an hour: 'N דקות' (or 'פחות מדקה'). An hour or more: 'H:MM שעות'.
+export function formatDuration(totalSeconds) {
+  if (totalSeconds === null || totalSeconds === undefined || totalSeconds === '') return '-'
+  const s = Number(totalSeconds)
+  if (isNaN(s) || s < 0) return '-'
+  const minutes = Math.round(s / 60)
+  if (minutes < 60) return minutes < 1 ? 'פחות מדקה' : `${minutes} דקות`
+  const hours = Math.floor(minutes / 60)
+  const mins = minutes % 60
+  return `${hours}:${pad2(mins)} שעות`
+}
+
 const CURRENCY_SYMBOLS = { ILS: '₪', USD: '$', EUR: '€' }
 
 // Appends the right symbol next to the formatted number. ILS reads with the

@@ -105,8 +105,8 @@ export default function SaleDetail() {
           <EditField label="שלב מכירה" value={s.stage} type="select" options={enumOpts(SALE_STAGES)}
             display={<StatusBadge value={s.stage} field="stage" resource="sale" />} onSave={setStage} />
           <div className="ef">
-            <span className="ef-label">בעלים</span>
-            <UserPicker users={opts.users} value={s.owner_id} onChange={v => save('owner_id', v)} placeholder="בחרו בעלים" />
+            <span className="ef-label">נציג מכירות</span>
+            <UserPicker users={opts.users} value={s.owner_id} onChange={v => save('owner_id', v)} placeholder="בחרו נציג מכירות" />
           </div>
           {/* Only rendered at all when the deal is in the lost stage — not
               just greyed out, per the client's spec for this field. */}

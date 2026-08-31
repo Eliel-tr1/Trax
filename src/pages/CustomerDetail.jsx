@@ -8,6 +8,7 @@ import {
 } from '../lib/constants'
 import RecordLayout from '../components/RecordLayout'
 import EditField from '../components/EditField'
+import UserPicker from '../components/UserPicker'
 import { PhoneDisplay } from '../components/PhoneInput'
 import { MeetingFormModal } from './Meetings'
 import { formatDate, formatDateTime } from '../lib/format'
@@ -129,6 +130,10 @@ export default function CustomerDetail() {
           <EditField label="סטטוס לקוח" value={c.status} type="select" options={enumOpts(CUSTOMER_STATUSES)}
             display={<StatusBadge value={c.status} field="status" resource="customer" />} onSave={v => save('status', v)} />
           <EditField label="תאריך פנייה ראשונה" value={c.first_contact_at} display={formatDate(c.first_contact_at)} readOnly readOnlyReason="נחתם אוטומטית ביצירת הרשומה" />
+          <div className="ef">
+            <span className="ef-label">מנהל לקוח</span>
+            <UserPicker users={users} value={c.account_manager_id} onChange={v => save('account_manager_id', v)} placeholder="בחרו מנהל לקוח" />
+          </div>
           {isXcon && <EditField label="חברה" value={c.company} onSave={v => save('company', v)} />}
           {isXcon && <EditField label="תפקיד" value={c.job_title} onSave={v => save('job_title', v)} />}
           {isXcon && <EditField label="מייל עבודה" value={c.work_email} ltr onSave={v => save('work_email', v)} />}

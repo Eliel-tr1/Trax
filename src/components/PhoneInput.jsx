@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import PhoneInputBase, { getCountries, getCountryCallingCode } from 'react-phone-number-input'
+import PhoneInputBase, { getCountries, getCountryCallingCode, formatPhoneNumber, formatPhoneNumberIntl } from 'react-phone-number-input'
 import en from 'react-phone-number-input/locale/en.json'
 import flags from 'react-phone-number-input/flags'
 import 'react-phone-number-input/style.css'

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/authStore'
 import { useBusinessUnitStore } from '../stores/businessUnitStore'
-import { formatCurrency, formatDate, formatDateTime } from '../lib/format'
+import { formatCurrency, formatDate, formatDateTime, formatDuration } from '../lib/format'
 import { SALE_STAGES_CLOSED } from '../lib/constants'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
@@ -107,10 +107,12 @@ function MetricsRow({ userId, unit, refreshKey }) {
       const todayTo = endOfDayIso()
       const monthFrom = startOfMonthIso()
 
-      const [openLeads, callsToday, dealsClosed, openDeals] = await Promise.all([
+      const [openLeads, callsToday, callsTodayDuration, dealsClosed, openDeals] = await Promise.all([
         supabase.from('customers').select('id', { count: 'exact', head: true })
           .eq('owner_id', userId).eq('business_unit', unit).eq('status', NEW_LEAD).is('deleted_at', null),
         supabase.from('phone_calls').select('id', { count: 'exact', head: true })
+          .eq('assigned_user_id', userId).eq('business_unit', unit).gte('occurred_at', todayFrom).lte('occurred_at', todayTo),
+        supabase.from('phone_calls').select('duration_seconds')
           .eq('assigned_user_id', userId).eq('business_unit', unit).gte('occurred_at', todayFrom).lte('occurred_at', todayTo),
         supabase.from('sales').select('id', { count: 'exact', head: true })
           .eq('owner_id', userId).eq('business_unit', unit).eq('stage', WON_STAGE).is('deleted_at', null).gte('updated_at', monthFrom),
@@ -122,9 +124,11 @@ function MetricsRow({ userId, unit, refreshKey }) {
       // PostgREST filter string — Hebrew stage labels need careful quoting
       // in that raw syntax and this rep's own row count is always small.
       const openDealRows = (openDeals.data || []).filter(s => !SALE_STAGES_CLOSED.includes(s.stage))
+      const totalCallSeconds = (callsTodayDuration.data || []).reduce((sum, r) => sum + (r.duration_seconds || 0), 0)
       setData({
         openLeads: openLeads.count || 0,
         callsToday: callsToday.count || 0,
+        callDurationToday: totalCallSeconds,
         dealsClosed: dealsClosed.count || 0,
         openDealsValue: sumByCurrency(openDealRows, 'expected_value'),
       })
@@ -134,9 +138,10 @@ function MetricsRow({ userId, unit, refreshKey }) {
 
   return (
     <DvizRoot>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatTile label="לידים פתוחים" value={data ? data.openLeads : <span className="spinner" style={{ width: 16, height: 16 }} />} tooltip="לקוחות בבעלותך בסטטוס ליד חדש" />
-        <StatTile label="שיחות היום" value={data ? data.callsToday : <span className="spinner" style={{ width: 16, height: 16 }} />} tooltip="שיחות טלפון משויכות אליך שבוצעו היום" />
+        <StatTile label="שיחות שהוצאתי היום" value={data ? data.callsToday : <span className="spinner" style={{ width: 16, height: 16 }} />} tooltip="שיחות טלפון משויכות אליך שבוצעו היום" />
+        <StatTile label="סך זמן שיחה היום" value={data ? formatDuration(data.callDurationToday) : <span className="spinner" style={{ width: 16, height: 16 }} />} tooltip="סך משך השיחות המשויכות אליך שבוצעו היום" />
         <StatTile label="עסקאות שנסגרו החודש" value={data ? data.dealsClosed : <span className="spinner" style={{ width: 16, height: 16 }} />} tooltip="עסקאות בבעלותך בשלב נסגר בהצלחה, שעודכנו החודש" />
         <StatTile label="שווי עסקאות פתוחות" value={data ? <CurrencyBreakdown byCurrency={data.openDealsValue} /> : <span className="spinner" style={{ width: 16, height: 16 }} />} tooltip="סכום שווי צפוי של עסקאות פתוחות בבעלותך, לפי מטבע" />
       </div>

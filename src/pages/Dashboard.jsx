@@ -289,7 +289,7 @@ function applyCommonFilters(q, { ownerId, journeyId, source, campaign, utm, rang
 
 function SalesTab({ unit, rangeFrom, rangeTo, ownerId, journeyId, source, campaign, utm, reps, animKey }) {
   const [sales, setSales] = useState(null)
-  const animate = useEntrance(animKey)
+  const animate = useEntrance(animKey, !!sales)
 
   useEffect(() => {
     setSales(null)
@@ -353,7 +353,7 @@ function SalesTab({ unit, rangeFrom, rangeTo, ownerId, journeyId, source, campai
           <StatTile label="גודל עסקה ממוצע" value={<CurrencyBreakdown byCurrency={avgDealByCurrency} label="גודל עסקה ממוצע לפי מטבע" />} />
           <StatTile label="אורך מחזור מכירה ממוצע" value={`${avgCycle} ימים`} tooltip="מבוסס על הפרש בין תאריך יצירה לעדכון אחרון בעסקאות שנסגרו בהצלחה, קירוב, אין שדה תאריך סגירה ייעודי" />
           <StatTile label="עסקאות בתהליך" value={inProgress.length} tooltip="עסקאות שעדיין לא נסגרו ולא הופסדו, בכל שלבי המשפך" />
-          <StatTile label="ערך צנרת פתוחה" value={<CurrencyBreakdown byCurrency={pipelineByCurrency} label="סך שווי העסקאות הפתוחות לפי מטבע" />} tooltip="סכום השווי הצפוי של כל העסקאות בתהליך, לפני סגירה" />
+          <StatTile label="שווי עסקאות פתוחות" value={<CurrencyBreakdown byCurrency={pipelineByCurrency} label="סך שווי העסקאות הפתוחות לפי מטבע" />} tooltip="סכום השווי הצפוי של כל העסקאות בתהליך, לפני סגירה" />
         </div>
 
         <div className="grid gap-4 lg:grid-cols-2">
@@ -400,7 +400,7 @@ function SalesTab({ unit, rangeFrom, rangeTo, ownerId, journeyId, source, campai
 function MarketingTab({ unit, rangeFrom, rangeTo, ownerId, journeyId, source, campaign, utm, animKey }) {
   const [customers, setCustomers] = useState(null)
   const [sales, setSales] = useState(null)
-  const animate = useEntrance(animKey)
+  const animate = useEntrance(animKey, !!customers && !!sales)
 
   useEffect(() => {
     setCustomers(null); setSales(null)
@@ -506,7 +506,7 @@ const JOURNEY_TONE = { 'מלא': 'good', 'כמעט מלא': 'warning', 'בוטל
 function JourneysTab({ unit, journeyId, animKey }) {
   const [journeys, setJourneys] = useState(null)
   const [revenueByJourney, setRevenueByJourney] = useState({})
-  const animate = useEntrance(animKey)
+  const animate = useEntrance(animKey, !!journeys)
 
   useEffect(() => {
     setJourneys(null)

@@ -66,7 +66,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<AppLayout />}>
               <Route index element={<RequirePermission resource="dashboard"><Dashboard /></RequirePermission>} />
-              <Route path="my-desk" element={<RequirePermission resource="dashboard"><MyDesk /></RequirePermission>} />
+              <Route path="my-desk" element={<RequirePermission resource="my_desk"><MyDesk /></RequirePermission>} />
               <Route path="customers" element={<RequirePermission resource="customers"><Customers /></RequirePermission>} />
               <Route path="customers/:id" element={<RequirePermission resource="customers"><CustomerDetail /></RequirePermission>} />
               <Route path="sales" element={<RequirePermission resource="sales"><Sales /></RequirePermission>} />

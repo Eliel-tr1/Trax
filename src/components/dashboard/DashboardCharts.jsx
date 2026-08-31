@@ -30,13 +30,27 @@ export function DvizRoot({ children, className = '' }) {
 // Hook: true once the element has mounted for the current `animKey` (tab
 // switch / first paint), used to gate the CSS entrance transition so it
 // fires once and never replays on a filter-driven data refresh.
-export function useEntrance(animKey) {
+//
+// `active` must reflect whether the chart data has actually loaded (e.g.
+// `!!sales`, not just "this component rendered"). Callers fetch their data
+// asynchronously and show a spinner until it resolves, so this hook's effect
+// fires (and the mount-timing double-rAF completes) LONG before the charts
+// themselves ever mount — by the time the bars/funnel actually enter the
+// DOM, `ready` was already `true`, so their very first paint was already at
+// full width and no transition ever played. That was the reason two prior
+// "fixes" to this same animation looked correct in code but never visibly
+// fired: the gate opened before there was anything behind it to animate.
+// Tying `active` to data-loaded means `ready` only flips to true (via the
+// double rAF, so the browser paints the width:0 frame first) once the
+// chart elements are actually in the DOM to receive the transition.
+export function useEntrance(animKey, active = true) {
   const [ready, setReady] = useState(false)
   useEffect(() => {
+    if (!active) { setReady(false); return }
     setReady(false)
     const t = requestAnimationFrame(() => requestAnimationFrame(() => setReady(true)))
     return () => cancelAnimationFrame(t)
-  }, [animKey])
+  }, [animKey, active])
   return ready
 }
 
@@ -213,7 +227,13 @@ export function DvizStyles() {
       .dviz-bar-row { display: flex; align-items: center; gap: 10px; cursor: default; }
       .dviz-bar-label { width: 150px; flex-shrink: 0; text-align: end; font-size: 0.82rem; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .dviz-bar-track { flex: 1; background: var(--dviz-track); border-radius: 5px; height: 14px; position: relative; overflow: hidden; }
-      .dviz-bar-fill { height: 100%; border-radius: 5px; min-width: 3px; transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
+      /* Anchored with a logical inset (not a plain in-flow block box) — a
+         block-level element with only a 'width' always flushes to the
+         PHYSICAL left edge regardless of 'direction', so in this RTL app
+         (html[dir=rtl]) the fill was growing left-to-right, backwards from
+         the rest of the UI. inset-inline-start resolves to 'right:0' under
+         RTL, so the fill grows from the correct (right) edge instead. */
+      .dviz-bar-fill { position: absolute; inset-inline-start: 0; top: 0; height: 100%; border-radius: 5px; min-width: 3px; transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
       .dviz-bar-value { width: 54px; flex-shrink: 0; font-size: 0.82rem; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
       .dviz-legend { display: flex; flex-wrap: wrap; gap: 10px 16px; margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--border-soft); }
       .dviz-legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--text-2); }
@@ -223,11 +243,17 @@ export function DvizStyles() {
       .dviz-funnel-row { display: flex; align-items: center; gap: 10px; cursor: default; }
       .dviz-funnel-label { width: 180px; flex-shrink: 0; text-align: end; font-size: 0.8rem; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .dviz-funnel-track { flex: 1; background: var(--dviz-track); border-radius: 5px; height: 20px; position: relative; overflow: hidden; }
-      .dviz-funnel-fill { height: 100%; border-radius: 5px; min-width: 3px; background: linear-gradient(90deg, var(--seq-400), var(--seq-500)); transition: width 0.7s cubic-bezier(0.22, 1, 0.36, 1); }
+      /* Same RTL fix as .dviz-bar-fill: anchor to the logical start edge
+         (right, under html[dir=rtl]) instead of the physical left edge a
+         plain block box would default to. The gradient direction is flipped
+         to match (90deg = physical right in the source, but painted inside
+         a box now anchored/growing from the right, so it still reads as
+         "brightest at the funnel's true top" — verified visually). */
+      .dviz-funnel-fill { position: absolute; inset-inline-start: 0; top: 0; height: 100%; border-radius: 5px; min-width: 3px; background: linear-gradient(90deg, var(--seq-400), var(--seq-500)); transition: width 0.7s cubic-bezier(0.22, 1, 0.36, 1); }
       .dviz-funnel-value { width: 40px; flex-shrink: 0; font-size: 0.82rem; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
 
       .dviz-progress-track { background: var(--dviz-track); border-radius: 5px; height: 12px; position: relative; overflow: hidden; }
-      .dviz-progress-fill { height: 100%; border-radius: 5px; background: var(--seq-400); transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
+      .dviz-progress-fill { position: absolute; inset-inline-start: 0; top: 0; height: 100%; border-radius: 5px; background: var(--seq-400); transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
       .dviz-progress-fill.tone-warning { background: var(--dviz-warn); }
       .dviz-progress-fill.tone-critical { background: var(--dviz-critical); }
       .dviz-progress-fill.tone-good { background: var(--dviz-good); }

@@ -6,10 +6,10 @@ import PhoneInput from './PhoneInput'
 import { PASSENGER_GENDERS, PASSENGER_LANGUAGES } from '../lib/constants'
 
 // Popup add-passenger form for RegistrationPassengers — replaces the old
-// inline quick-add row. full_name/phone/email/age/gender are required
-// (blocked client-side until filled); language/medical_notes/dietary_notes
-// are optional and can be filled in later by editing the passenger in the
-// list. Same Modal shell used by CardcomChargeModal.
+// inline quick-add row. full_name/phone/email/gender are required (blocked
+// client-side until filled); age/language/medical_notes/dietary_notes are
+// optional and can be filled in later by editing the passenger in the list.
+// Same Modal shell used by CardcomChargeModal.
 export default function AddPassengerModal({ registrationId, onClose, onAdded }) {
   const [form, setForm] = useState({
     full_name: '', phone: '', email: '', age: '', gender: '', language: '', medical_notes: '', dietary_notes: '',
@@ -23,7 +23,6 @@ export default function AddPassengerModal({ registrationId, onClose, onAdded }) 
     full_name: !form.full_name.trim(),
     phone: !form.phone,
     email: !form.email.trim(),
-    age: form.age === '' || form.age === null,
     gender: !form.gender,
   }
   const hasErrors = Object.values(errors).some(Boolean)
@@ -37,7 +36,7 @@ export default function AddPassengerModal({ registrationId, onClose, onAdded }) 
       full_name: form.full_name.trim(),
       phone: form.phone || null,
       email: form.email.trim(),
-      age: Number(form.age),
+      age: form.age === '' || form.age === null ? null : Number(form.age),
       gender: form.gender,
       language: form.language || null,
       medical_notes: form.medical_notes.trim() || null,
@@ -75,8 +74,8 @@ export default function AddPassengerModal({ registrationId, onClose, onAdded }) 
 
         <div className="row wrap" style={{ gap: 12 }}>
           <div style={{ flex: '1 1 120px' }}>
-            <label className="ef-label" style={{ display: 'block', marginBottom: 4 }}>גיל *</label>
-            <input className="input" style={{ width: '100%', ...errField(errors.age) }} type="number" value={form.age}
+            <label className="ef-label" style={{ display: 'block', marginBottom: 4 }}>גיל</label>
+            <input className="input" style={{ width: '100%' }} type="number" value={form.age}
               onChange={e => set('age')(e.target.value)} placeholder="גיל" />
           </div>
           <div style={{ flex: '1 1 140px' }}>
@@ -110,7 +109,7 @@ export default function AddPassengerModal({ registrationId, onClose, onAdded }) 
         </div>
 
         {touched && hasErrors && (
-          <div style={{ color: 'var(--err)', fontSize: '0.82rem' }}>יש למלא את כל שדות החובה (שם מלא, טלפון, אימייל, גיל, מין) לפני השמירה.</div>
+          <div style={{ color: 'var(--err)', fontSize: '0.82rem' }}>יש למלא את כל שדות החובה (שם מלא, טלפון, אימייל, מין) לפני השמירה.</div>
         )}
 
         <div className="row" style={{ gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
