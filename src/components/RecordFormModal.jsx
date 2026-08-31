@@ -5,6 +5,7 @@ import { SCHEMA, fieldOptions } from '../lib/schema'
 import { toast } from './Toaster'
 import Modal from './Modal'
 import PhoneInput from './PhoneInput'
+import EntityPicker from './EntityPicker'
 
 // Ported from bina-crm, unchanged mechanism — generic schema-driven create
 // form. Fill fields -> save -> insert -> onCreated(row).
@@ -84,6 +85,14 @@ function Field({ f, value, onChange, opts }) {
     </div>
   }
   if (f.type === 'select') {
+    // Entity-reference fields (optionsFrom: a loadOptions() resource key —
+    // customers/journeys/sales/users) get the searchable EntityPicker
+    // instead of a plain <select> that forces scrolling a long list.
+    if (f.optionsFrom) {
+      return <div className="field">{label}
+        <EntityPicker resource={f.optionsFrom} value={value || null} onChange={onChange} placeholder="בחירה…" />
+      </div>
+    }
     const options = fieldOptions(f, opts)
     return <div className="field">{label}
       <select value={value ?? ''} onChange={e => onChange(e.target.value)}>

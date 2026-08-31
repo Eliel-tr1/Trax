@@ -126,7 +126,7 @@ export default function RecordLayout({ title, subtitle, status, backTo, actions 
           {children}
           {record && <AuditFooter record={record} />}
         </div>
-        {feed && <ActivityFeed objectType={objectType} recordId={recordId} {...feedProps} />}
+        {feed && <ActivityFeed objectType={objectType} recordId={recordId} record={record} {...feedProps} />}
       </div>
 
       {createRel && (

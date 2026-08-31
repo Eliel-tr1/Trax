@@ -2,17 +2,18 @@ import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { loadOptions } from '../lib/api'
 import { useAuthStore } from '../stores/authStore'
-import { TASK_PRIORITIES, TASK_PRIORITY_COLOR } from '../lib/constants'
+import { useBusinessUnitStore } from '../stores/businessUnitStore'
+import { TASK_PRIORITIES, TASK_PRIORITY_COLOR, MEETING_TYPES } from '../lib/constants'
 import { formatDateTime } from '../lib/format'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
 import { Button } from './ui/button'
 import { Textarea } from './ui/textarea'
 import { Input } from './ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { toast } from './Toaster'
 import Icon from './Icon'
 import { confirmDialog } from './Dialogs'
 import UserAvatar from './UserAvatar'
+import UserPicker, { MultiUserPicker } from './UserPicker'
 import Attachment from './Attachment'
 
 /* TRAX rewrite of bina-crm's ActivityFeed.jsx.
@@ -28,12 +29,59 @@ import Attachment from './Attachment'
    this schema (documents is its own table) — this feed only posts notes
    and tasks, no reply threads, no attachments. That's a deliberate scope
    cut for Wave 1, not an oversight. */
+
+// Which field on the *current* record holds its "owner"/assignee — used to
+// default a quick-created meeting/task's linked user. Only customers and
+// sales have an owner_id column (data/001_init_schema.sql); journeys and
+// registrations don't, so those fall back to the logged-in rep.
+const OWNER_FIELD = { customer: 'owner_id', sale: 'owner_id' }
+function recordOwnerId(objectType, record) {
+  const f = OWNER_FIELD[objectType]
+  return (f && record?.[f]) || null
+}
+
+// Best-effort display name for "the current record's own customer" — used
+// to compose the meeting subject. customer pages ARE the customer; sale
+// (and registration) pages carry a joined `customer` relation when their
+// detail-page query selects it (SaleDetail/RegistrationDetail both do).
+function customerNameFor(objectType, record) {
+  if (!record) return ''
+  const c = objectType === 'customer' ? record : record.customer
+  if (!c) return ''
+  return `${c.first_name || ''} ${c.last_name || ''}`.trim()
+}
+
+// meetings.related_type only allows 'customer'/'sale' (DB CHECK constraint)
+// — journeys/registrations can't be linked to a meeting at all, so the
+// "פגישה" tab is hidden there regardless of allowTasks.
+const MEETING_OBJECT_TYPES = ['customer', 'sale']
+
+// Tomorrow, pushed to the coming Sunday if tomorrow lands on Friday/Saturday
+// (Israel's work week — Fri=5, Sat=6 per Date#getDay()).
+function nextWorkDate() {
+  const d = new Date()
+  d.setDate(d.getDate() + 1)
+  const day = d.getDay()
+  if (day === 5) d.setDate(d.getDate() + 2)
+  else if (day === 6) d.setDate(d.getDate() + 1)
+  d.setHours(9, 0, 0, 0)
+  return d
+}
+function toDatetimeLocal(d) {
+  const pad = n => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
 // allowTasks: false hides the "משימה" mode — used for objectType='journey',
 // which isn't in tasks.related_type's CHECK constraint (see
 // data/001_init_schema.sql), so inserting a task there would just fail.
-export default function ActivityFeed({ objectType, recordId, allowTasks = true }) {
+// record: the full current record row (customer/sale/journey/registration),
+// passed by RecordLayout — used to compute meeting/task defaults (owner,
+// linked customer name, business_unit).
+export default function ActivityFeed({ objectType, recordId, record, allowTasks = true }) {
   const user = useAuthStore(s => s.user)
   const rep = useAuthStore(s => s.rep)
+  const unit = useBusinessUnitStore(s => s.unit)
   const [notes, setNotes] = useState([])
   const [tasks, setTasks] = useState([])
   const [users, setUsers] = useState([])
@@ -46,6 +94,18 @@ export default function ActivityFeed({ objectType, recordId, allowTasks = true }
   const [busy, setBusy] = useState(false)
   const fileRef = useRef()
 
+  // Meeting-mode fields — meetings have no assignee_id column, only a
+  // participants uuid[], so "linked user" here means "seeded into
+  // participants", not a dedicated FK (see MultiUserPicker below).
+  const [meetStart, setMeetStart] = useState('')
+  const [meetDuration, setMeetDuration] = useState('60')
+  const [meetType, setMeetType] = useState('זום')
+  const [meetParticipants, setMeetParticipants] = useState([])
+  const [meetSummary, setMeetSummary] = useState('')
+
+  const allowMeetings = MEETING_OBJECT_TYPES.includes(objectType)
+  const businessUnit = record?.business_unit || unit
+
   // notes.created_by / tasks.assignee_id reference auth.users(id), not
   // app_users — there is no FK PostgREST can embed across (see the same
   // note in lib/ra/providers.js), so author/assignee names are resolved
@@ -55,8 +115,10 @@ export default function ActivityFeed({ objectType, recordId, allowTasks = true }
     const [{ data: n }, { data: t }, o] = await Promise.all([
       supabase.from('notes').select('*')
         .eq('related_type', objectType).eq('related_id', recordId).order('created_at', { ascending: false }),
-      supabase.from('tasks').select('*')
-        .eq('related_type', objectType).eq('related_id', recordId).order('created_at', { ascending: false }),
+      allowTasks
+        ? supabase.from('tasks').select('*')
+          .eq('related_type', objectType).eq('related_id', recordId).order('created_at', { ascending: false })
+        : Promise.resolve({ data: [] }),
       loadOptions(),
     ])
     const userList = o.users || []
@@ -64,9 +126,35 @@ export default function ActivityFeed({ objectType, recordId, allowTasks = true }
     setNotes((n || []).map(x => withUser(x, 'created_by', 'created_by_user')))
     setTasks((t || []).map(x => withUser(x, 'assignee_id', 'assignee_user')))
     setUsers(userList)
-    if (!assignee && user?.id) setAssignee(user.id)
   }
   useEffect(() => { load() }, [objectType, recordId])
+
+  // Recompute the composer's defaults whenever the mode (or the loaded
+  // users list) changes — each mode has its own set of starting values,
+  // per the "quick-create meeting/task" spec: real names, real dates,
+  // still fully editable before saving.
+  const switchMode = (m) => {
+    setMode(m)
+    const ownerId = recordOwnerId(objectType, record) || user?.id || ''
+    if (m === 'task') {
+      setText('')
+      setAssignee(ownerId)
+      setDue(toDatetimeLocal(nextWorkDate()))
+      setPriority('רגילה')
+    } else if (m === 'meeting') {
+      const custName = customerNameFor(objectType, record)
+      const ownerName = users.find(u => u.id === ownerId)?.full_name || (ownerId === user?.id ? rep?.full_name : '') || ''
+      const who = [custName, ownerName].filter(Boolean)
+      setText(who.length ? `פגישה - ${who.join(' ו')}` : 'פגישה')
+      setMeetStart('')
+      setMeetDuration('60')
+      setMeetType('זום')
+      setMeetParticipants(ownerId ? [ownerId] : [])
+      setMeetSummary('')
+    } else {
+      setText('')
+    }
+  }
 
   const addNote = async () => {
     if (!text.trim() && !file) return
@@ -104,11 +192,37 @@ export default function ActivityFeed({ objectType, recordId, allowTasks = true }
     if (!text.trim()) return
     setBusy(true)
     const { data, error } = await supabase.from('tasks')
-      .insert({ related_type: objectType, related_id: recordId, subject: text.trim(), due_at: due || null, priority, assignee_id: assignee || user?.id })
+      .insert({
+        related_type: objectType, related_id: recordId, subject: text.trim(),
+        due_at: due ? new Date(due).toISOString() : null, priority,
+        assignee_id: assignee || user?.id, business_unit: businessUnit,
+      })
       .select('*').single()
     setBusy(false)
     if (error) { toast('יצירת המשימה נכשלה: ' + error.message, 'err'); return }
-    setTasks(x => [{ ...data, assignee_user: users.find(u => u.id === data.assignee_id) }, ...x]); setText(''); setDue(''); setPriority('רגילה')
+    setTasks(x => [{ ...data, assignee_user: users.find(u => u.id === data.assignee_id) }, ...x])
+    switchMode('task')
+    toast('המשימה נוצרה')
+  }
+
+  const addMeeting = async () => {
+    if (!text.trim() || !meetStart) return
+    setBusy(true)
+    const { error } = await supabase.from('meetings').insert({
+      subject: text.trim(),
+      related_type: objectType,
+      related_id: recordId,
+      start_at: new Date(meetStart).toISOString(),
+      duration_minutes: meetDuration === '' ? null : Number(meetDuration),
+      type: meetType || null,
+      summary: meetSummary.trim() || null,
+      business_unit: businessUnit,
+      participants: meetParticipants.length ? meetParticipants : null,
+    })
+    setBusy(false)
+    if (error) { toast('יצירת הפגישה נכשלה: ' + error.message, 'err'); return }
+    switchMode('meeting')
+    toast('הפגישה נוצרה — צפייה במסך הפגישות')
   }
 
   const toggleTask = async (t) => {
@@ -125,6 +239,12 @@ export default function ActivityFeed({ objectType, recordId, allowTasks = true }
   const openTasks = tasks.filter(t => t.status === 'פתוחה')
   const doneTasks = tasks.filter(t => t.status !== 'פתוחה')
 
+  const submit = mode === 'note' ? addNote : mode === 'task' ? addTask : addMeeting
+  const submitDisabled = busy
+    || (mode === 'note' && !text.trim() && !file)
+    || (mode === 'task' && !text.trim())
+    || (mode === 'meeting' && (!text.trim() || !meetStart))
+
   return (
     <Card className="gap-3" data-tour="rec-feed">
       <CardHeader className="pb-0">
@@ -132,12 +252,16 @@ export default function ActivityFeed({ objectType, recordId, allowTasks = true }
       </CardHeader>
       <CardContent>
         <div className="mb-3 flex items-center gap-2">
-          <Button size="sm" variant={mode === 'note' ? 'default' : 'outline'} onClick={() => setMode('note')}><Icon name="edit" size={13} /> הערה</Button>
-          {allowTasks && <Button size="sm" variant={mode === 'task' ? 'default' : 'outline'} onClick={() => setMode('task')}><Icon name="calendar" size={13} /> משימה</Button>}
+          <Button size="sm" variant={mode === 'note' ? 'default' : 'outline'} onClick={() => switchMode('note')}><Icon name="edit" size={13} /> הערה</Button>
+          {allowMeetings && <Button size="sm" variant={mode === 'meeting' ? 'default' : 'outline'} onClick={() => switchMode('meeting')}><Icon name="calendar" size={13} /> פגישה</Button>}
+          {allowTasks && <Button size="sm" variant={mode === 'task' ? 'default' : 'outline'} onClick={() => switchMode('task')}><Icon name="tag" size={13} /> משימה</Button>}
         </div>
 
         <div data-tour="rec-composer" className="bg-card focus-within:border-ring mb-4 rounded-lg border p-3 transition-colors">
-          <Textarea className="min-h-24 resize-y" value={text} onChange={e => setText(e.target.value)} placeholder={mode === 'note' ? 'הוסיפו הערה…' : 'נושא המשימה…'} />
+          {mode === 'note'
+            ? <Textarea className="min-h-24 resize-y" value={text} onChange={e => setText(e.target.value)} placeholder="הוסיפו הערה…" />
+            : <Input value={text} onChange={e => setText(e.target.value)} placeholder={mode === 'task' ? 'נושא המשימה…' : 'נושא הפגישה…'} />}
+
           {allowTasks && mode === 'task' && (
             <>
               <div className="mt-3 flex flex-wrap items-center gap-1.5">
@@ -149,22 +273,37 @@ export default function ActivityFeed({ objectType, recordId, allowTasks = true }
                   <Button key={p} size="sm" variant="outline" className="h-7 px-2.5 text-xs" onClick={() => setPriority(p)}
                     style={priority === p ? { background: TASK_PRIORITY_COLOR[p], color: '#fff', borderColor: TASK_PRIORITY_COLOR[p] } : { color: TASK_PRIORITY_COLOR[p] }}>{p}</Button>
                 ))}
-                <Select value={assignee || '__none__'} onValueChange={v => setAssignee(v === '__none__' ? '' : v)}>
-                  <SelectTrigger className="h-7 w-40 text-xs"><SelectValue placeholder="אחראי…" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">ללא אחראי</SelectItem>
-                    {users.map(u => (
-                      <SelectItem key={u.id} value={u.id}>
-                        <span className="flex items-center gap-2"><UserAvatar user={u} size="sm" />{u.full_name}</span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <span className="text-muted-foreground text-xs">אחראי:</span>
+                <UserPicker users={users} value={assignee} onChange={v => setAssignee(v || '')} placeholder="בחרו אחראי" allowEmpty={false} className="w-44" />
               </div>
             </>
           )}
+
+          {allowMeetings && mode === 'meeting' && (
+            <>
+              <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                <span className="text-muted-foreground text-xs">תאריך ושעה:</span>
+                <Input className="h-7 w-48 text-xs" type="datetime-local" dir="ltr" value={meetStart} onChange={e => setMeetStart(e.target.value)} />
+                <span className="text-muted-foreground text-xs">משך (דקות):</span>
+                <Input className="h-7 w-20 text-xs" type="number" value={meetDuration} onChange={e => setMeetDuration(e.target.value)} />
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <span className="text-muted-foreground text-xs">סוג:</span>
+                {MEETING_TYPES.map(t => (
+                  <Button key={t} size="sm" variant="outline" className="h-7 px-2.5 text-xs" onClick={() => setMeetType(t)}
+                    style={meetType === t ? { background: 'var(--mp)', color: '#fff', borderColor: 'var(--mp)' } : undefined}>{t}</Button>
+                ))}
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <span className="text-muted-foreground text-xs">משתתפים:</span>
+                <MultiUserPicker users={users} value={meetParticipants} onChange={setMeetParticipants} />
+              </div>
+              <Textarea className="mt-2 min-h-16 resize-y text-xs" value={meetSummary} onChange={e => setMeetSummary(e.target.value)} placeholder="סיכום (אופציונלי)…" />
+            </>
+          )}
+
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <Button size="sm" onClick={mode === 'note' ? addNote : addTask} disabled={busy || (!text.trim() && !(mode === 'note' && file))}>
+            <Button size="sm" onClick={submit} disabled={submitDisabled}>
               {busy ? <span className="spinner light" style={{ width: 14, height: 14 }} /> : 'פרסם'}
             </Button>
             {mode === 'note' && (
