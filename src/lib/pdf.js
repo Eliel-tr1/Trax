@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf'
 import html2canvas from 'html2canvas'
 import { formatDate, formatDateTime, formatNumber } from './format'
+import logoHeader from '../assets/logo-header.png'
 
 // Journey PDF export (JourneyDetail's "ייצא PDF" button).
 //
@@ -43,44 +44,59 @@ function buildHtml(journey, groups) {
     return regHeader + passengerRows
   }).join('')
 
+  // Brand palette (docs/branding.md): rgb(214, 90, 31) burnt orange as the
+  // accent, with the same darker/AA-adjusted primary the app UI uses for
+  // solid fills (--mp) so this reads as one system with the rest of TRAX,
+  // not a generic export.
+  const PRIMARY = '#b64d1a'
+  const ACCENT = '#d65a1f'
+  const ACCENT_TINT = '#fbeee7'
+
   return `
-    <div style="direction:rtl; font-family: Arial, 'Segoe UI', sans-serif; width: 740px; padding: 24px; color:#1a1a1a; background:#fff;">
-      <div style="font-size:20px; font-weight:700; margin-bottom:4px;">${esc(journey.name)}</div>
-      <div style="font-size:12px; color:#555; margin-bottom:16px;">דוח מסע, הופק ב-${fmtDateTime(new Date())}</div>
+    <div style="direction:rtl; font-family: Arial, 'Segoe UI', sans-serif; width: 740px; padding: 0 0 24px; color:#1a1a1a; background:#fff;">
+      <div style="display:flex; align-items:center; gap:14px; padding:22px 24px; background:${PRIMARY}; background:linear-gradient(135deg, ${PRIMARY} 0%, ${ACCENT} 100%);">
+        <img src="${logoHeader}" width="52" height="52" style="display:block; border-radius:50%; background:#fff;" />
+        <div style="flex:1; color:#fff;">
+          <div style="font-size:21px; font-weight:800;">${esc(journey.name)}</div>
+          <div style="font-size:12px; opacity:0.9; margin-top:2px;">דוח מסע, הופק ב-${fmtDateTime(new Date())}</div>
+        </div>
+      </div>
 
-      <table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:20px;">
-        <tbody>
-          <tr><td style="padding:4px 8px; font-weight:700; width:130px;">יעד</td><td style="padding:4px 8px;">${esc(journey.destination)}</td>
-              <td style="padding:4px 8px; font-weight:700; width:130px;">יחידה עסקית</td><td style="padding:4px 8px;">${esc(journey.business_unit)}</td></tr>
-          <tr><td style="padding:4px 8px; font-weight:700;">תאריך יציאה</td><td style="padding:4px 8px;">${fmtDate(journey.departure_date)}</td>
-              <td style="padding:4px 8px; font-weight:700;">תאריך חזרה</td><td style="padding:4px 8px;">${fmtDate(journey.return_date)}</td></tr>
-          <tr><td style="padding:4px 8px; font-weight:700;">סטטוס יציאה</td><td style="padding:4px 8px;">${esc(journey.status)}</td>
-              <td style="padding:4px 8px; font-weight:700;">מספר מקומות</td><td style="padding:4px 8px;">${esc(journey.seats_total)}</td></tr>
-          <tr><td style="padding:4px 8px; font-weight:700;">מחיר לאדם</td><td style="padding:4px 8px;">${journey.price_per_person != null ? esc(journey.price_per_person) + ' ' + (CURRENCY_LABEL[journey.currency] || journey.currency || '') : '-'}</td>
-              <td style="padding:4px 8px; font-weight:700;">נוסעים סה"כ</td><td style="padding:4px 8px;">${totalPassengers}</td></tr>
-        </tbody>
-      </table>
+      <div style="padding:20px 24px 0;">
+        <table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:20px;">
+          <tbody>
+            <tr><td style="padding:4px 8px; font-weight:700; width:130px; color:${PRIMARY};">יעד</td><td style="padding:4px 8px;">${esc(journey.destination)}</td>
+                <td style="padding:4px 8px; font-weight:700; width:130px; color:${PRIMARY};">יחידה עסקית</td><td style="padding:4px 8px;">${esc(journey.business_unit)}</td></tr>
+            <tr><td style="padding:4px 8px; font-weight:700; color:${PRIMARY};">תאריך יציאה</td><td style="padding:4px 8px;">${fmtDate(journey.departure_date)}</td>
+                <td style="padding:4px 8px; font-weight:700; color:${PRIMARY};">תאריך חזרה</td><td style="padding:4px 8px;">${fmtDate(journey.return_date)}</td></tr>
+            <tr><td style="padding:4px 8px; font-weight:700; color:${PRIMARY};">סטטוס יציאה</td><td style="padding:4px 8px;">${esc(journey.status)}</td>
+                <td style="padding:4px 8px; font-weight:700; color:${PRIMARY};">מספר מקומות</td><td style="padding:4px 8px;">${esc(journey.seats_total)}</td></tr>
+            <tr><td style="padding:4px 8px; font-weight:700; color:${PRIMARY};">מחיר לאדם</td><td style="padding:4px 8px;">${journey.price_per_person != null ? esc(journey.price_per_person) + ' ' + (CURRENCY_LABEL[journey.currency] || journey.currency || '') : '-'}</td>
+                <td style="padding:4px 8px; font-weight:700; color:${PRIMARY};">נוסעים סה"כ</td><td style="padding:4px 8px;">${totalPassengers}</td></tr>
+          </tbody>
+        </table>
 
-      <div style="font-size:15px; font-weight:700; margin-bottom:8px;">נוסעים לפי הרשמה</div>
-      <table style="width:100%; border-collapse:collapse; font-size:11.5px;">
-        <thead>
-          <tr style="background:#f0f0f0;">
-            <th style="text-align:right; padding:6px 8px; border-bottom:1px solid #ccc;">שם מלא</th>
-            <th style="text-align:right; padding:6px 8px; border-bottom:1px solid #ccc;">טלפון</th>
-            <th style="text-align:right; padding:6px 8px; border-bottom:1px solid #ccc;">אימייל</th>
-            <th style="text-align:right; padding:6px 8px; border-bottom:1px solid #ccc;">גיל</th>
-            <th style="text-align:right; padding:6px 8px; border-bottom:1px solid #ccc;">מין</th>
-            <th style="text-align:right; padding:6px 8px; border-bottom:1px solid #ccc;">מגבלות רפואיות/פיזיות</th>
-            <th style="text-align:right; padding:6px 8px; border-bottom:1px solid #ccc;">העדפות תזונה</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
+        <div style="font-size:15px; font-weight:800; margin-bottom:8px; color:${PRIMARY};">נוסעים לפי הרשמה</div>
+        <table style="width:100%; border-collapse:collapse; font-size:11.5px;">
+          <thead>
+            <tr style="background:${ACCENT};">
+              <th style="text-align:right; padding:7px 8px; color:#fff; font-weight:700;">שם מלא</th>
+              <th style="text-align:right; padding:7px 8px; color:#fff; font-weight:700;">טלפון</th>
+              <th style="text-align:right; padding:7px 8px; color:#fff; font-weight:700;">אימייל</th>
+              <th style="text-align:right; padding:7px 8px; color:#fff; font-weight:700;">גיל</th>
+              <th style="text-align:right; padding:7px 8px; color:#fff; font-weight:700;">מין</th>
+              <th style="text-align:right; padding:7px 8px; color:#fff; font-weight:700;">מגבלות רפואיות/פיזיות</th>
+              <th style="text-align:right; padding:7px 8px; color:#fff; font-weight:700;">העדפות תזונה</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
 
       <style>
-        .reg-row td { padding:10px 8px 4px; font-weight:700; background:#fafafa; border-top:1px solid #ddd; }
+        .reg-row td { padding:10px 8px 4px; font-weight:700; background:${ACCENT_TINT}; border-top:1px solid #e8c8b4; color:${PRIMARY}; }
         td { padding:6px 8px; border-bottom:1px solid #eee; vertical-align:top; }
-        .tag { display:inline-block; background:#e8dfff; color:#5b2ea6; border-radius:4px; padding:1px 6px; font-size:10.5px; font-weight:700; }
+        .tag { display:inline-block; background:${ACCENT_TINT}; color:${PRIMARY}; border-radius:4px; padding:1px 6px; font-size:10.5px; font-weight:700; }
         .muted { color:#999; padding:8px; }
       </style>
     </div>`

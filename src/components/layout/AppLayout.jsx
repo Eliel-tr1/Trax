@@ -10,6 +10,7 @@ import BusinessUnitSwitcher from './BusinessUnitSwitcher'
 import ThemeToggle from '../ThemeToggle'
 import ImpersonationBar from './ImpersonationBar'
 import Onboarding from '../Onboarding'
+import MaxAssistant from '../MaxAssistant'
 import { titleForPath } from './nav-data'
 
 export default function AppLayout() {
@@ -38,6 +39,7 @@ export default function AppLayout() {
         <Toaster />
         <DialogHost />
         <Onboarding />
+        <MaxAssistant />
       </SidebarInset>
     </SidebarProvider>
   )

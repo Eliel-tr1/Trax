@@ -8,10 +8,11 @@ import {
 import RecordLayout from '../components/RecordLayout'
 import EditField from '../components/EditField'
 import RegistrationPassengers from '../components/RegistrationPassengers'
+import Icon from '../components/Icon'
 import { REGISTRATION_STATUS_BADGE } from './Registrations'
 import { formatDate, formatCurrency } from '../lib/format'
 
-const SECTIONS = ['פרטים', 'נוסעים', 'תשלום ומסמכים']
+const SECTIONS = ['פרטים', 'תשלום ומסמכים']
 
 export default function RegistrationDetail() {
   const { id } = useParams()
@@ -51,6 +52,11 @@ export default function RegistrationDetail() {
       objectType="registration" recordId={id}
       recordType="registration" record={r} onRelatedCreated={() => load()}
     >
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-title"><Icon name="users" /> נוסעים{passengerCount != null ? ` (${passengerCount})` : ''}</div>
+        <RegistrationPassengers registrationId={id} onCountChange={setPassengerCount} />
+      </div>
+
       <div className="card">
         <div className="sections-tabs">{SECTIONS.map(s => <div key={s} className={`sec-tab ${sec === s ? 'active' : ''}`} onClick={() => setSec(s)}>{s}</div>)}</div>
         {sec === 'פרטים' && <div className="field-grid">
@@ -65,7 +71,6 @@ export default function RegistrationDetail() {
           <EditField label="איש קשר לחירום" value={r.emergency_contact} onSave={v => save('emergency_contact', v)} />
           <EditField label="תאריך הרשמה" value={r.registered_at} display={formatDate(r.registered_at)} readOnly readOnlyReason="נחתם אוטומטית ביצירת ההרשמה" />
         </div>}
-        {sec === 'נוסעים' && <RegistrationPassengers registrationId={id} onCountChange={setPassengerCount} />}
         {sec === 'תשלום ומסמכים' && <div className="field-grid">
           <EditField label="סכום ששולם" value={r.amount_paid} display={formatCurrency(r.amount_paid, r.currency)} type="number" onSave={v => save('amount_paid', v)} />
           <EditField label="מטבע" value={r.currency} type="select" options={CURRENCIES} onSave={v => save('currency', v)} />
