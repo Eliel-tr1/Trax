@@ -7,16 +7,14 @@ import { formatDate, formatCurrency } from '../lib/format'
 import { useBusinessUnitStore } from '../stores/businessUnitStore'
 import ResourceList from '../components/ResourceList'
 import { BulkDeleteButton } from '../components/admin/bulk-delete-button'
+import BulkEditButton from '../components/list/BulkEditButton'
 import EditableCell from '../components/EditableCell'
 import RecordFormModal from '../components/RecordFormModal'
 import Icon from '../components/Icon'
+import StatusBadge from '../components/StatusBadge'
 
 const statusOpts = enumOpts(JOURNEY_STATUSES)
 const destOpts = enumOpts(JOURNEY_DESTINATIONS)
-export const JOURNEY_STATUS_BADGE = {
-  'בתכנון': 'gray', 'פתוח להרשמה': 'mp', 'כמעט מלא': 'warn',
-  'מלא': 'err', 'יצא לדרך': 'ok', 'בוטל': 'gray',
-}
 
 function isoInMonths(n) {
   const d = new Date(); d.setMonth(d.getMonth() + n); return d.toISOString().slice(0, 10)
@@ -37,7 +35,7 @@ export default function Journeys() {
       render: r => <span className="small">{formatDate(r.departure_date)}</span> },
     { source: 'status', label: 'סטטוס', csv: r => r.status,
       render: r => <Cell row={r} field="status" mode="select" options={statusOpts}
-        display={v => <span className={`badge ${JOURNEY_STATUS_BADGE[v] || 'gray'}`}>{v}</span>} /> },
+        display={v => <StatusBadge value={v} field="status" resource="journey" />} /> },
     { source: 'seats_sold', label: 'מקומות שנמכרו', sortable: true, csv: r => r.seats_sold,
       render: r => <span className="small">{r.seats_sold} / {r.seats_total}</span> },
     { source: 'seats_available', label: 'מקומות פנויים', sortable: true, csv: r => r.seats_available,
@@ -66,7 +64,7 @@ export default function Journeys() {
           { field: 'destination', title: 'יעד', options: destOpts },
         ]}
         rowPath={r => `/journeys/${r.id}`}
-        bulkActions={<BulkDeleteButton />}
+        bulkActions={<><BulkEditButton resource="journey" table="journeys" /><BulkDeleteButton /></>}
         actions={<button className="btn sm" onClick={() => setShowNew(true)}><Icon name="plus" size={15} /> מסע חדש</button>}
       />
       {showNew && (

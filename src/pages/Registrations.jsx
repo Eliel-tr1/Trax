@@ -7,14 +7,13 @@ import { formatCurrency } from '../lib/format'
 import { useBusinessUnitStore } from '../stores/businessUnitStore'
 import ResourceList from '../components/ResourceList'
 import { BulkDeleteButton } from '../components/admin/bulk-delete-button'
+import BulkEditButton from '../components/list/BulkEditButton'
 import EditableCell from '../components/EditableCell'
 import RecordFormModal from '../components/RecordFormModal'
 import Icon from '../components/Icon'
+import StatusBadge from '../components/StatusBadge'
 
 const statusOpts = enumOpts(REGISTRATION_STATUSES)
-export const REGISTRATION_STATUS_BADGE = {
-  'משוריין': 'gray', 'שולמה מקדמה': 'warn', 'שולם במלואו': 'ok', 'בוטל': 'err',
-}
 const UNPAID_STATUSES = ['משוריין', 'שולמה מקדמה']
 
 export default function Registrations() {
@@ -31,7 +30,7 @@ export default function Registrations() {
       render: r => r.journey?.name || '-' },
     { source: 'status', label: 'סטטוס הרשמה', csv: r => r.status,
       render: r => <Cell row={r} field="status" mode="select" options={statusOpts}
-        display={v => <span className={`badge ${REGISTRATION_STATUS_BADGE[v] || 'gray'}`}>{v}</span>} /> },
+        display={v => <StatusBadge value={v} field="status" resource="registration" />} /> },
     { source: 'amount_paid', label: 'סכום ששולם', csv: r => r.amount_paid,
       render: r => <span className="small">{formatCurrency(r.amount_paid, r.currency)}</span> },
     ...extraHiddenColumns('registration', ['registration_name', 'customer_id', 'journey_id', 'status', 'amount_paid']),
@@ -53,7 +52,7 @@ export default function Registrations() {
         search="שם ההרשמה / מספר חשבונית"
         facets={[{ field: 'status', title: 'סטטוס הרשמה', options: statusOpts }]}
         rowPath={r => `/registrations/${r.id}`}
-        bulkActions={<BulkDeleteButton />}
+        bulkActions={<><BulkEditButton resource="registration" table="registrations" /><BulkDeleteButton /></>}
         actions={<button className="btn sm" onClick={() => setShowNew(true)}><Icon name="plus" size={15} /> הרשמה חדשה</button>}
       />
       {showNew && (

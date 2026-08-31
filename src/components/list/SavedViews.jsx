@@ -42,13 +42,20 @@ export default function SavedViews({ resource, datatableStoreKey }) {
 
   const load = async () => {
     if (!user) return
+    // Shared "תצוגות ייעודיות" presets (is_preset:true, user_id:null,
+    // seeded in data/011_status_tab_and_shared_views.sql) show for every
+    // user alongside their own saved views — the RLS select policy already
+    // allows both (`user_id = auth.uid() or is_preset`), this just widens
+    // the query from "my rows only" to match it.
     const { data, error } = await supabase.from('saved_views').select('*')
-      .eq('user_id', user.id).eq('resource', resource).order('created_at')
+      .or(`user_id.eq.${user.id},is_preset.eq.true`).eq('resource', resource).order('created_at')
     if (!error) setViews(data || [])
   }
   useEffect(() => { load() }, [user?.id, resource])
 
   const activeViewId = views.find(v => same(v.filters, filterValues))?.id
+  const presetViews = views.filter(v => v.is_preset)
+  const myViews = views.filter(v => !v.is_preset)
 
   const saveView = async (rawName) => {
     const name = (rawName ?? nameInput).trim()
@@ -128,9 +135,21 @@ export default function SavedViews({ resource, datatableStoreKey }) {
         <Command>
           <CommandList>
             <CommandEmpty>אין עדיין תצוגות שמורות</CommandEmpty>
-            {views.length > 0 && (
+            {presetViews.length > 0 && (
+              <CommandGroup heading="תצוגות ייעודיות">
+                {presetViews.map(v => (
+                  <CommandItem key={v.id} onSelect={() => applyView(v)} className="justify-between">
+                    <span className="flex items-center gap-2 truncate">
+                      {v.id === activeViewId && <Check className="size-3.5 shrink-0" />}
+                      <span className="truncate">{v.name}</span>
+                    </span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
+            {myViews.length > 0 && (
               <CommandGroup heading="התצוגות שלי">
-                {views.map(v => (
+                {myViews.map(v => (
                   <CommandItem key={v.id} onSelect={() => applyView(v)} className="justify-between">
                     <span className="flex items-center gap-2 truncate">
                       {v.id === activeViewId && <Check className="size-3.5 shrink-0" />}

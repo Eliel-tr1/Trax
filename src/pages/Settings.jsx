@@ -13,7 +13,8 @@ import { usePermissionStore, RESOURCES } from '../stores/permissionStore'
 import { startOnboarding } from '../components/Onboarding'
 import { applyTheme } from '../components/ThemeToggle'
 import ImageCropDialog from '../components/ImageCropDialog'
-import { PhoneDisplay } from '../components/PhoneInput'
+import AvatarUpload from '../components/AvatarUpload'
+import PhoneInput, { PhoneDisplay } from '../components/PhoneInput'
 import { formatDateTime } from '../lib/format'
 
 // Fixed dropdown values for the two new app_users columns (see MEMORY.md /
@@ -524,13 +525,20 @@ function UsersTab() {
   const [users, setUsers] = useState(null)
   const [roles, setRoles] = useState([])
   const [showInvite, setShowInvite] = useState(false)
+  const [editing, setEditing] = useState(null)
+  const [emails, setEmails] = useState({})
+  const canEdit = usePermissionStore(s => s.can('users', 'edit'))
 
   const load = async () => {
     const [{ data: u }, { data: r }] = await Promise.all([
-      supabase.from('app_users').select('id, full_name, is_active, avatar_url, department, permission_profile, roles(id,key,label)').order('full_name'),
+      supabase.from('app_users').select('id, full_name, is_active, avatar_url, phone, notes, department, permission_profile, roles(id,key,label)').order('full_name'),
       supabase.from('roles').select('id, key, label').order('label'),
     ])
     setUsers(u || []); setRoles(r || [])
+    // Emails live in auth.users, not app_users — fetched via the
+    // update-user Edge Function's list_emails action (service role only).
+    const { data, error } = await supabase.functions.invoke('update-user', { body: { action: 'list_emails' } })
+    if (!error && data?.emails) setEmails(data.emails)
   }
   useEffect(() => { load() }, [])
 
@@ -565,11 +573,12 @@ function UsersTab() {
       </div>
       <div className="table-wrap">
         <table className="grid">
-          <thead><tr><th>משתמש</th><th>פרופיל הרשאה</th><th>מחלקה</th><th>תפקיד (RBAC)</th><th>פעיל</th></tr></thead>
+          <thead><tr><th>משתמש</th><th>אימייל</th><th>פרופיל הרשאה</th><th>מחלקה</th><th>תפקיד</th><th>פעיל</th>{canEdit && <th></th>}</tr></thead>
           <tbody>
             {users.map(u => (
               <tr key={u.id}>
                 <td><UserAvatar user={u} showName size="sm" /></td>
+                <td className="small muted" dir="ltr">{emails[u.id] || '-'}</td>
                 <td>
                   <select className="input" style={{ minWidth: 130 }} value={u.permission_profile || ''} onChange={e => changeField(u, 'permission_profile', e.target.value || null)}>
                     <option value="">-</option>
@@ -588,18 +597,86 @@ function UsersTab() {
                   </select>
                 </td>
                 <td><Switch checked={u.is_active} onCheckedChange={() => toggleActive(u)} /></td>
+                {canEdit && <td><button className="btn subtle sm" onClick={() => setEditing(u)}><Icon name="edit" size={13} /> עריכה</button></td>}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
       <p className="muted small" style={{ marginTop: 6 }}>
-        "פרופיל הרשאה" הוא תווית פשוטה (מנהל מערכת / מנהל צוות / נציג) שנקבעת ביצירת המשתמש. "תפקיד (RBAC)"
-        הוא ה־role האמיתי שנאכף בפועל בהרשאות (טאב "תפקידים והרשאות" למטה), שינוי הפרופיל כאן לא משנה את
+        "פרופיל הרשאה" הוא תווית פשוטה (מנהל מערכת / מנהל צוות / נציג) שנקבעת ביצירת המשתמש. "תפקיד"
+        הוא זה שנאכף בפועל בהרשאות (טאב "תפקידים והרשאות" למטה), שינוי הפרופיל כאן לא משנה את
         התפקיד אוטומטית, לכך יש לבחור תפקיד בנפרד.
       </p>
       {showInvite && <InviteUserModal roles={roles} onClose={() => setShowInvite(false)} onInvited={() => { setShowInvite(false); load() }} />}
+      {editing && (
+        <UserEditModal
+          user={editing}
+          email={emails[editing.id] || ''}
+          onClose={() => setEditing(null)}
+          onSaved={() => { setEditing(null); load() }}
+        />
+      )}
     </div>
+  )
+}
+
+// ============================================================
+// User edit view — avatar, phone, email, and a free-text notes field
+// (app_users.notes, data/010_app_users_notes.sql). Avatar reuses
+// AvatarUpload (writes directly to app_users.avatar_url, same as
+// elsewhere in the app); phone/email/notes/full_name are saved together
+// through the update-user Edge Function (email lives in auth.users, so it
+// can only be changed with the service role — not directly from the
+// client, and not for another user without a permission check).
+// ============================================================
+function UserEditModal({ user, email: initialEmail, onClose, onSaved }) {
+  const [fullName, setFullName] = useState(user.full_name || '')
+  const [phone, setPhone] = useState(user.phone || '')
+  const [email, setEmail] = useState(initialEmail || '')
+  const [notes, setNotes] = useState(user.notes || '')
+  const [avatarUrl, setAvatarUrl] = useState(user.avatar_url || null)
+  const [busy, setBusy] = useState(false)
+
+  const save = async () => {
+    if (!fullName.trim()) { toast('שם מלא הוא שדה חובה', 'err'); return }
+    setBusy(true)
+    const { data, error } = await supabase.functions.invoke('update-user', {
+      body: { action: 'update', user_id: user.id, full_name: fullName.trim(), phone, notes, email: email.trim() || undefined },
+    })
+    setBusy(false)
+    if (error || data?.error) { toast('השמירה נכשלה: ' + (data?.error || error?.message || 'שגיאה לא ידועה'), 'err'); return }
+    toast('נשמר')
+    onSaved?.()
+  }
+
+  return (
+    <Modal title={`עריכת משתמש - ${user.full_name}`} icon="users" onClose={onClose} maxWidth={480}>
+      <div style={{ marginBottom: 16 }}>
+        <AvatarUpload user={{ ...user, avatar_url: avatarUrl }} onChange={setAvatarUrl} />
+      </div>
+      <div className="field-grid">
+        <div className="field"><label>שם מלא<span className="req"> *</span></label>
+          <input value={fullName} onChange={e => setFullName(e.target.value)} />
+        </div>
+        <div className="field"><label>אימייל</label>
+          <input type="email" dir="ltr" value={email} onChange={e => setEmail(e.target.value)} />
+        </div>
+        <div className="field"><label>טלפון</label>
+          <PhoneInput value={phone} onChange={setPhone} />
+        </div>
+      </div>
+      <div className="field" style={{ marginTop: 4 }}>
+        <label>הערות</label>
+        <textarea value={notes} onChange={e => setNotes(e.target.value)} style={{ minHeight: 80 }} placeholder="הערות פנימיות על המשתמש..." />
+      </div>
+      <div className="row" style={{ marginTop: 12 }}>
+        <button className="btn" disabled={busy} onClick={save}>
+          {busy ? <span className="spinner light" style={{ width: 15, height: 15 }} /> : 'שמירה'}
+        </button>
+        <button className="btn subtle" onClick={onClose}>ביטול</button>
+      </div>
+    </Modal>
   )
 }
 
@@ -719,7 +796,12 @@ function InviteUserModal({ roles, onClose, onInvited }) {
 }
 
 // ============================================================
-// תפקידים והרשאות — now a genuinely editable matrix (was read-only).
+// תפקידים והרשאות — genuinely editable matrix (was read-only), now
+// redesigned to show ONE role at a time: a dropdown at the top selects
+// the role, and only that role's resource-permission rows are shown/
+// editable below it. Data model (roles/permissions tables) is unchanged —
+// this is a UI reorganization only, the previous "all roles stacked at
+// once" layout was confusing with more than a couple of roles.
 // TRAX's model is role-only (app_users.role_id is a single FK — no per-user
 // scope/scope_key split like bina-crm has), and the permissions table only
 // has can_view/can_create/can_edit/can_delete/scope (no can_export/
@@ -735,10 +817,9 @@ function RolesTab() {
   const [roles, setRoles] = useState(null)
   const [permsByRole, setPermsByRole] = useState({})
   const [saving, setSaving] = useState(null)
+  const [selectedRoleId, setSelectedRoleId] = useState(null)
   const reload = usePermissionStore(s => s.load)
   const myUserId = usePermissionStore(s => s.userId)
-
-  const loadRoles = () => supabase.from('roles').select('id, key, label, description').order('label').then(({ data }) => setRoles(data || []))
 
   const load = async () => {
     const [{ data: r }, { data: p }] = await Promise.all([
@@ -749,6 +830,7 @@ function RolesTab() {
     const byRole = {}
     for (const row of p || []) { (byRole[row.role_id] = byRole[row.role_id] || []).push(row) }
     setPermsByRole(byRole)
+    setSelectedRoleId(prev => prev && (r || []).some(x => x.id === prev) ? prev : (r?.[0]?.id ?? null))
   }
   useEffect(() => { load() }, [])
 
@@ -756,9 +838,11 @@ function RolesTab() {
     const label = await promptDialog('שם התפקיד החדש:', { placeholder: 'לדוגמה: מנהל מכירות' })
     if (!label) return
     const key = 'role_' + Date.now().toString(36)
-    const { error } = await supabase.from('roles').insert({ key, label })
+    const { data, error } = await supabase.from('roles').insert({ key, label }).select().single()
     if (error) { toast('יצירת התפקיד נכשלה: ' + error.message, 'err'); return }
-    toast(`התפקיד "${label}" נוצר. סמנו לו הרשאות.`); load()
+    toast(`התפקיד "${label}" נוצר. סמנו לו הרשאות.`)
+    await load()
+    if (data?.id) setSelectedRoleId(data.id)
   }
 
   const deleteRole = async (role) => {
@@ -768,7 +852,7 @@ function RolesTab() {
     await supabase.from('permissions').delete().eq('role_id', role.id)
     const { error } = await supabase.from('roles').delete().eq('id', role.id)
     if (error) { toast('המחיקה נכשלה: ' + error.message, 'err'); return }
-    toast('התפקיד נמחק'); load()
+    toast('התפקיד נמחק'); setSelectedRoleId(null); load()
   }
 
   const upsertPerm = async (role, resource, patch) => {
@@ -783,69 +867,79 @@ function RolesTab() {
     if (error) { toast('השמירה נכשלה: ' + error.message, 'err'); return }
     setPermsByRole(m => ({ ...m, [role.id]: [...(m[role.id] || []).filter(p => p.resource !== resource), data] }))
     // If this changed the current user's own role, refresh their live permission set.
-    load().then(() => {}) // keep table fresh
     if (myUserId) reload(myUserId)
   }
 
   if (!roles) return <div className="empty"><span className="spinner" /></div>
 
+  const role = roles.find(r => r.id === selectedRoleId) || null
+  const perms = role ? (permsByRole[role.id] || []) : []
+  const rowFor = (resource) => perms.find(p => p.resource === resource)
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-      <div className="row">
+      <div className="row wrap" style={{ gap: 10, alignItems: 'center' }}>
+        <div className="field" style={{ margin: 0, minWidth: 220 }}>
+          <label>תפקיד</label>
+          <select value={selectedRoleId || ''} onChange={e => setSelectedRoleId(e.target.value)}>
+            {roles.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+          </select>
+        </div>
+        <div className="spacer" />
         <button className="btn sm" onClick={addRole}><Icon name="plus" size={14} /> תפקיד חדש</button>
       </div>
-      {roles.map(role => {
-        const perms = (permsByRole[role.id] || [])
-        const rowFor = (resource) => perms.find(p => p.resource === resource)
-        return (
-          <div key={role.id}>
-            <div className="row" style={{ alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
-              <span style={{ fontWeight: 700 }}>{role.label}</span>
-              {role.description && <span className="muted small">{role.description}</span>}
-              <div className="spacer" />
-              <button className="btn subtle sm" style={{ color: 'var(--err)' }} onClick={() => deleteRole(role)}><Icon name="trash" size={13} /> מחיקת תפקיד</button>
-            </div>
-            <div className="table-wrap">
-              <table className="grid">
-                <thead>
-                  <tr>
-                    <th>משאב</th>
-                    {ACTION_LABELS.map(([, l]) => <th key={l} style={{ textAlign: 'center' }}>{l}</th>)}
-                    <th>היקף</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {RESOURCES.map(res => {
-                    const row = rowFor(res.key)
-                    const cellSaving = saving === role.id + res.key
-                    return (
-                      <tr key={res.key}>
-                        <td style={{ fontWeight: 600 }}>{RESOURCE_LABELS[res.key] || res.key}</td>
-                        {ACTION_LABELS.map(([key]) => (
-                          <td key={key} style={{ textAlign: 'center' }}>
-                            {cellSaving ? <span className="spinner" style={{ width: 14, height: 14 }} /> : (
-                              <input type="checkbox" checked={!!row?.[key]} onChange={e => upsertPerm(role, res.key, { [key]: e.target.checked })} />
-                            )}
-                          </td>
-                        ))}
-                        <td>
-                          <select className="input" style={{ minWidth: 90 }} value={row?.scope || 'mine'} onChange={e => upsertPerm(role, res.key, { scope: e.target.value })}>
-                            <option value="mine">רק שלי</option>
-                            <option value="all">הכול</option>
-                          </select>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
+
+      {!roles.length && <div className="empty small">אין עדיין תפקידים</div>}
+
+      {role && (
+        <div>
+          <div className="row" style={{ alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
+            <span style={{ fontWeight: 700 }}>{role.label}</span>
+            {role.description && <span className="muted small">{role.description}</span>}
+            <div className="spacer" />
+            <button className="btn subtle sm" style={{ color: 'var(--err)' }} onClick={() => deleteRole(role)}><Icon name="trash" size={13} /> מחיקת תפקיד</button>
           </div>
-        )
-      })}
+          <div className="table-wrap">
+            <table className="grid">
+              <thead>
+                <tr>
+                  <th>משאב</th>
+                  {ACTION_LABELS.map(([, l]) => <th key={l} style={{ textAlign: 'center' }}>{l}</th>)}
+                  <th>היקף</th>
+                </tr>
+              </thead>
+              <tbody>
+                {RESOURCES.map(res => {
+                  const row = rowFor(res.key)
+                  const cellSaving = saving === role.id + res.key
+                  return (
+                    <tr key={res.key}>
+                      <td style={{ fontWeight: 600 }}>{RESOURCE_LABELS[res.key] || res.key}</td>
+                      {ACTION_LABELS.map(([key]) => (
+                        <td key={key} style={{ textAlign: 'center' }}>
+                          {cellSaving ? <span className="spinner" style={{ width: 14, height: 14 }} /> : (
+                            <input type="checkbox" checked={!!row?.[key]} onChange={e => upsertPerm(role, res.key, { [key]: e.target.checked })} />
+                          )}
+                        </td>
+                      ))}
+                      <td>
+                        <select className="input" style={{ minWidth: 90 }} value={row?.scope || 'mine'} onChange={e => upsertPerm(role, res.key, { scope: e.target.value })}>
+                          <option value="mine">רק שלי</option>
+                          <option value="all">הכול</option>
+                        </select>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
       <p className="muted small">
-        לחיצה על כל תא צפייה/יצירה/עריכה/מחיקה משנה אותו מיידית. "היקף" קובע אם בעלי התפקיד רואים את כל הרשומות
-        או רק רשומות ששייכות להם. שינוי בתפקיד של המשתמש המחובר מתעדכן מיד גם בממשק שלו.
+        בחרו תפקיד מהרשימה למעלה כדי לצפות ולערוך את ההרשאות שלו. לחיצה על כל תא צפייה/יצירה/עריכה/מחיקה משנה
+        אותו מיידית. "היקף" קובע אם בעלי התפקיד רואים את כל הרשומות או רק רשומות ששייכות להם. שינוי בתפקיד של
+        המשתמש המחובר מתעדכן מיד גם בממשק שלו.
       </p>
     </div>
   )

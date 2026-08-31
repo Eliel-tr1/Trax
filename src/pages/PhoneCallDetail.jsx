@@ -8,6 +8,9 @@ import EditField from '../components/EditField'
 import RelatedLink from '../components/RelatedLink'
 import UserAvatar from '../components/UserAvatar'
 import { formatDateTime } from '../lib/format'
+import StatusBadge from '../components/StatusBadge'
+import FieldTabs from '../components/FieldTabs'
+import SystemFieldsTab from '../components/SystemFieldsTab'
 
 // Detail-only screen — phone calls are never created by hand (auto-created
 // from Voicenter/Max, see schema.js's comment on `phone_call`). Everything
@@ -51,7 +54,9 @@ export default function PhoneCallDetail() {
           <EditField label="כיוון" value={c.direction} readOnly readOnlyReason="מגיע אוטומטית מהטלפוניה (Voicenter/Max)" />
           <EditField label="תאריך ושעה" value={formatDateTime(c.occurred_at)} readOnly readOnlyReason="מגיע אוטומטית מהטלפוניה" />
           <EditField label="משך (שניות)" value={c.duration_seconds} readOnly readOnlyReason="מגיע אוטומטית מהטלפוניה" />
-          <EditField label="תוצאה" value={c.result} type="select" options={enumOpts(CALL_RESULTS)} onSave={v => save('result', v)} />
+          <EditField label="תוצאה" value={c.result} type="select" options={enumOpts(CALL_RESULTS)}
+            display={<StatusBadge value={c.result} field="result" resource="phone_call" />}
+            onSave={v => save('result', v)} />
           <EditField label="הקלטה" value={c.recording_url} type="link" readOnly readOnlyReason="מגיע אוטומטית מהטלפוניה" />
           <div className="ef">
             <span className="ef-label">נציג משויך</span>

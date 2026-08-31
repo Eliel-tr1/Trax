@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { updateField } from '../lib/api'
+import { updateField, loadOptions } from '../lib/api'
 import {
   CUSTOMER_STATUSES, LEAD_SOURCES, LEAD_RATINGS, EXPERIENCE_LEVELS,
   PREFERRED_LANGUAGES, enumOpts,
@@ -10,10 +10,11 @@ import RecordLayout from '../components/RecordLayout'
 import EditField from '../components/EditField'
 import { PhoneDisplay } from '../components/PhoneInput'
 import { MeetingFormModal } from './Meetings'
-import { REGISTRATION_STATUS_BADGE } from './Registrations'
 import { formatDate, formatDateTime } from '../lib/format'
+import StatusBadge, { badgeClassFor } from '../components/StatusBadge'
+import FieldTabs from '../components/FieldTabs'
+import SystemFieldsTab from '../components/SystemFieldsTab'
 
-const STATUS_BADGE = { 'ליד חדש': 'mp', 'בטיפול': 'warn', 'לקוח פעיל': 'ok', 'לקוח עבר': 'gray', 'לא רלוונטי': 'gray' }
 const SECTIONS = ['פרטים', 'מועדון']
 
 export default function CustomerDetail() {
@@ -27,11 +28,13 @@ export default function CustomerDetail() {
   const [sec, setSec] = useState('פרטים')
   const [showNewMeeting, setShowNewMeeting] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [users, setUsers] = useState([])
 
   const load = async () => {
     setLoading(true)
     const { data } = await supabase.from('customers').select('*').eq('id', id).single()
     setC(data)
+    loadOptions().then(o => setUsers(o.users || []))
     const [{ data: s }, { data: ct }, { data: reg }, { data: mt }, { data: pc }] = await Promise.all([
       supabase.from('sales').select('id, deal_name, stage').eq('customer_id', id).is('deleted_at', null).order('created_at', { ascending: false }),
       supabase.from('contacts').select('*').eq('customer_id', id).order('created_at', { ascending: false }),
@@ -56,16 +59,16 @@ export default function CustomerDetail() {
       resource: 'sales', fk: 'customer_id', recordId: id,
       listColumns: [
         { source: 'deal_name', label: 'עסקה', render: r => r.deal_name || '-' },
-        { source: 'stage', label: 'שלב', render: r => <span className="badge mp">{r.stage}</span> },
+        { source: 'stage', label: 'שלב', render: r => <StatusBadge value={r.stage} field="stage" resource="sale" /> },
       ],
-      columns: [{ label: 'עסקה', get: r => r.deal_name || '-' }, { label: 'שלב', get: r => <span className="badge mp">{r.stage}</span> }] },
+      columns: [{ label: 'עסקה', get: r => r.deal_name || '-' }, { label: 'שלב', get: r => <StatusBadge value={r.stage} field="stage" resource="sale" /> }] },
     { key: 'registrations', label: 'הרשמות', count: registrations.length, rows: registrations, onOpen: r => `/registrations/${r.id}`,
       resource: 'registrations', fk: 'customer_id', recordId: id,
       listColumns: [
         { source: 'registration_name', label: 'הרשמה', render: r => r.registration_name || '-' },
-        { source: 'status', label: 'סטטוס', render: r => <span className={`badge ${REGISTRATION_STATUS_BADGE[r.status] || 'gray'}`}>{r.status}</span> },
+        { source: 'status', label: 'סטטוס', render: r => <StatusBadge value={r.status} field="status" resource="registration" /> },
       ],
-      columns: [{ label: 'הרשמה', get: r => r.registration_name || '-' }, { label: 'סטטוס', get: r => <span className={`badge ${REGISTRATION_STATUS_BADGE[r.status] || 'gray'}`}>{r.status}</span> }] },
+      columns: [{ label: 'הרשמה', get: r => r.registration_name || '-' }, { label: 'סטטוס', get: r => <StatusBadge value={r.status} field="status" resource="registration" /> }] },
     { key: 'contacts', label: 'אנשי קשר', count: contacts.length, rows: contacts,
       columns: [{ label: 'שם', get: r => r.name }, { label: 'טלפון', get: r => <PhoneDisplay value={r.phone} /> }, { label: 'תפקיד', get: r => r.role || '-' }] },
     // Resource-mode chips (paginated, sortable, exportable — the same
@@ -107,7 +110,7 @@ export default function CustomerDetail() {
       title={`${c.first_name} ${c.last_name}`}
       subtitle={c.business_unit}
       backTo="/customers"
-      status={{ label: c.status, badge: STATUS_BADGE[c.status] || 'gray' }}
+      status={{ label: c.status, badge: badgeClassFor('customer', 'status', c.status) }}
       actions={actions}
       objectType="customer" recordId={id}
       recordType="customer" record={c} onRelatedCreated={() => load()}
@@ -123,7 +126,8 @@ export default function CustomerDetail() {
           <EditField label="יחידה עסקית" value={c.business_unit} readOnly readOnlyReason="נקבע בעת יצירת הלקוח ולא ניתן לשינוי" />
           <EditField label="מקור הגעה" value={c.lead_source} type="select" options={enumOpts(LEAD_SOURCES)} onSave={v => save('lead_source', v)} />
           <EditField label="קמפיין" value={c.campaign} onSave={v => save('campaign', v)} />
-          <EditField label="סטטוס לקוח" value={c.status} type="select" options={enumOpts(CUSTOMER_STATUSES)} onSave={v => save('status', v)} />
+          <EditField label="סטטוס לקוח" value={c.status} type="select" options={enumOpts(CUSTOMER_STATUSES)}
+            display={<StatusBadge value={c.status} field="status" resource="customer" />} onSave={v => save('status', v)} />
           <EditField label="תאריך פנייה ראשונה" value={c.first_contact_at} display={formatDate(c.first_contact_at)} readOnly readOnlyReason="נחתם אוטומטית ביצירת הרשומה" />
           {isXcon && <EditField label="חברה" value={c.company} onSave={v => save('company', v)} />}
           {isXcon && <EditField label="תפקיד" value={c.job_title} onSave={v => save('job_title', v)} />}
@@ -138,6 +142,12 @@ export default function CustomerDetail() {
           <EditField label="שפה מועדפת" value={c.preferred_language} type="select" options={enumOpts(PREFERRED_LANGUAGES)} onSave={v => save('preferred_language', v)} />
         </div>}
         <div style={{ marginTop: 10 }}><EditField label="הערות" value={c.notes} type="textarea" onSave={v => save('notes', v)} /></div>
+
+        <FieldTabs tabs={[
+          {
+            key: 'system', label: 'שדות מערכת', content: <SystemFieldsTab record={c} users={users} />,
+          },
+        ]} />
       </div>
       {showNewMeeting && (
         <MeetingFormModal defaultRelatedType="customer" defaultRelatedId={id} defaultUnit={c.business_unit}

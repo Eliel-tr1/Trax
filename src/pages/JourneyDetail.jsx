@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { updateField } from '../lib/api'
+import { updateField, loadOptions } from '../lib/api'
 import {
   JOURNEY_DESTINATIONS, JOURNEY_STATUSES, CURRENCIES, enumOpts,
 } from '../lib/constants'
@@ -12,8 +12,9 @@ import Icon from '../components/Icon'
 import { toast } from '../components/Toaster'
 import { exportJourneyPdf } from '../lib/pdf'
 import { formatDate, formatCurrency } from '../lib/format'
-import { JOURNEY_STATUS_BADGE } from './Journeys'
-import { REGISTRATION_STATUS_BADGE } from './Registrations'
+import StatusBadge, { badgeClassFor } from '../components/StatusBadge'
+import FieldTabs from '../components/FieldTabs'
+import SystemFieldsTab from '../components/SystemFieldsTab'
 
 export default function JourneyDetail() {
   const { id } = useParams()
@@ -22,11 +23,13 @@ export default function JourneyDetail() {
   const [passengersByReg, setPassengersByReg] = useState({})
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
+  const [users, setUsers] = useState([])
 
   const load = async () => {
     setLoading(true)
     const { data } = await supabase.from('journeys').select('*').eq('id', id).single()
     setJ(data)
+    loadOptions().then(o => setUsers(o.users || []))
     const { data: r } = await supabase.from('registrations')
       .select('id, registration_name, status, amount_paid, currency')
       .eq('journey_id', id).is('deleted_at', null).order('created_at', { ascending: false })
@@ -71,12 +74,12 @@ export default function JourneyDetail() {
       resource: 'registrations', fk: 'journey_id', recordId: id,
       listColumns: [
         { source: 'registration_name', label: 'הרשמה', render: r => r.registration_name || '-' },
-        { source: 'status', label: 'סטטוס', render: r => <span className={`badge ${REGISTRATION_STATUS_BADGE[r.status] || 'gray'}`}>{r.status}</span> },
+        { source: 'status', label: 'סטטוס', render: r => <StatusBadge value={r.status} field="status" resource="registration" /> },
         { source: 'amount_paid', label: 'שולם', render: r => formatCurrency(r.amount_paid, r.currency) },
       ],
       columns: [
         { label: 'הרשמה', get: r => r.registration_name || '-' },
-        { label: 'סטטוס', get: r => <span className={`badge ${REGISTRATION_STATUS_BADGE[r.status] || 'gray'}`}>{r.status}</span> },
+        { label: 'סטטוס', get: r => <StatusBadge value={r.status} field="status" resource="registration" /> },
       ] },
   ]
 
@@ -85,7 +88,7 @@ export default function JourneyDetail() {
       title={j.name}
       subtitle={`${j.destination || ''} · ${j.business_unit}${totalPassengers ? ` · ${totalPassengers} נוסעים` : ''}`}
       backTo="/journeys"
-      status={{ label: j.status, badge: JOURNEY_STATUS_BADGE[j.status] || 'gray' }}
+      status={{ label: j.status, badge: badgeClassFor('journey', 'status', j.status) }}
       actions={[{ icon: 'file', title: exporting ? 'מייצא…' : 'ייצוא PDF', onClick: exporting ? undefined : doExport }]}
       objectType="journey" recordId={id}
       recordType="journey" record={j} onRelatedCreated={() => load()}
@@ -99,7 +102,8 @@ export default function JourneyDetail() {
           <EditField label="יעד" value={j.destination} type="select" options={enumOpts(JOURNEY_DESTINATIONS)} onSave={v => save('destination', v)} />
           <EditField label="תאריך יציאה" value={j.departure_date} display={formatDate(j.departure_date)} type="date" onSave={v => save('departure_date', v)} />
           <EditField label="תאריך חזרה" value={j.return_date} display={formatDate(j.return_date)} type="date" onSave={v => save('return_date', v)} />
-          <EditField label="סטטוס יציאה" value={j.status} type="select" options={enumOpts(JOURNEY_STATUSES)} onSave={v => save('status', v)} />
+          <EditField label="סטטוס יציאה" value={j.status} type="select" options={enumOpts(JOURNEY_STATUSES)}
+            display={<StatusBadge value={j.status} field="status" resource="journey" />} onSave={v => save('status', v)} />
           <EditField label="מספר מקומות" value={j.seats_total} type="number" onSave={v => save('seats_total', v)} />
           <EditField label="מינימום להוצאה לדרך" value={j.min_seats} type="number" onSave={v => save('min_seats', v)} />
           <EditField label="מקומות שנמכרו" value={j.seats_sold} readOnly readOnlyReason="שדה מחושב אוטומטית, ספירת ההרשמות הפעילות למסע זה" />
@@ -111,6 +115,12 @@ export default function JourneyDetail() {
         </div>
         <div style={{ marginTop: 10 }}><EditField label="תיאור קצר" value={j.short_description} type="textarea" onSave={v => save('short_description', v)} /></div>
         <div style={{ marginTop: 10 }}><EditField label="הערות תפעול" value={j.operations_notes} type="textarea" onSave={v => save('operations_notes', v)} /></div>
+
+        <FieldTabs tabs={[
+          {
+            key: 'system', label: 'שדות מערכת', content: <SystemFieldsTab record={j} users={users} />,
+          },
+        ]} />
       </div>
 
       <div className="card" style={{ marginTop: 16 }}>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { updateField } from '../lib/api'
+import { updateField, loadOptions } from '../lib/api'
 import {
   REGISTRATION_STATUSES, CURRENCIES, PAYMENT_METHODS, enumOpts,
 } from '../lib/constants'
@@ -9,8 +9,10 @@ import RecordLayout from '../components/RecordLayout'
 import EditField from '../components/EditField'
 import RegistrationPassengers from '../components/RegistrationPassengers'
 import Icon from '../components/Icon'
-import { REGISTRATION_STATUS_BADGE } from './Registrations'
 import { formatDate, formatCurrency } from '../lib/format'
+import StatusBadge, { badgeClassFor } from '../components/StatusBadge'
+import FieldTabs from '../components/FieldTabs'
+import SystemFieldsTab from '../components/SystemFieldsTab'
 
 const SECTIONS = ['פרטים', 'תשלום ומסמכים']
 
@@ -20,6 +22,7 @@ export default function RegistrationDetail() {
   const [sec, setSec] = useState('פרטים')
   const [passengerCount, setPassengerCount] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [users, setUsers] = useState([])
 
   const load = async () => {
     setLoading(true)
@@ -32,6 +35,7 @@ export default function RegistrationDetail() {
     setR(data)
     setPassengerCount(count ?? 0)
     setLoading(false)
+    loadOptions().then(o => setUsers(o.users || []))
   }
   useEffect(() => { load() }, [id])
 
@@ -48,7 +52,7 @@ export default function RegistrationDetail() {
         passengerCount != null ? `${passengerCount} נוסעים` : null,
       ].filter(Boolean).join(' · ') || undefined}
       backTo="/registrations"
-      status={{ label: r.status, badge: REGISTRATION_STATUS_BADGE[r.status] || 'gray' }}
+      status={{ label: r.status, badge: badgeClassFor('registration', 'status', r.status) }}
       objectType="registration" recordId={id}
       recordType="registration" record={r} onRelatedCreated={() => load()}
     >
@@ -66,7 +70,8 @@ export default function RegistrationDetail() {
             display={r.journey ? <Link to={`/journeys/${r.journey_id}`} style={{ color: 'var(--mp)', fontWeight: 600 }}>{r.journey.name}</Link> : null} />
           <EditField label="מכירה" value={r.sale_id} readOnly readOnlyReason="קישור למכירה, נערך רק בעת יצירת ההרשמה"
             display={r.sale ? <Link to={`/sales/${r.sale_id}`} style={{ color: 'var(--mp)', fontWeight: 600 }}>{r.sale.deal_name || 'עסקה'}</Link> : null} />
-          <EditField label="סטטוס הרשמה" value={r.status} type="select" options={enumOpts(REGISTRATION_STATUSES)} onSave={v => save('status', v)} />
+          <EditField label="סטטוס הרשמה" value={r.status} type="select" options={enumOpts(REGISTRATION_STATUSES)}
+            display={<StatusBadge value={r.status} field="status" resource="registration" />} onSave={v => save('status', v)} />
           <EditField label="כולל טיסה למשתתף זה" value={r.includes_flight_for_participant} type="checkbox" onSave={v => save('includes_flight_for_participant', v)} />
           <EditField label="איש קשר לחירום" value={r.emergency_contact} onSave={v => save('emergency_contact', v)} />
           <EditField label="תאריך הרשמה" value={r.registered_at} display={formatDate(r.registered_at)} readOnly readOnlyReason="נחתם אוטומטית ביצירת ההרשמה" />
@@ -83,6 +88,12 @@ export default function RegistrationDetail() {
         {sec === 'תשלום ומסמכים' && <div style={{ marginTop: 10 }}>
           <EditField label="הערות רפואיות או תזונתיות" value={r.medical_dietary_notes} type="textarea" onSave={v => save('medical_dietary_notes', v)} />
         </div>}
+
+        <FieldTabs tabs={[
+          {
+            key: 'system', label: 'שדות מערכת', content: <SystemFieldsTab record={r} users={users} />,
+          },
+        ]} />
       </div>
     </RecordLayout>
   )

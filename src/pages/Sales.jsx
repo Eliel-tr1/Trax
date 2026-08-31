@@ -8,16 +8,14 @@ import { useBusinessUnitStore } from '../stores/businessUnitStore'
 import { useAuthStore } from '../stores/authStore'
 import ResourceList from '../components/ResourceList'
 import { BulkDeleteButton } from '../components/admin/bulk-delete-button'
+import BulkEditButton from '../components/list/BulkEditButton'
 import EditableCell from '../components/EditableCell'
 import RecordFormModal from '../components/RecordFormModal'
 import Icon from '../components/Icon'
+import StatusBadge from '../components/StatusBadge'
 
 const stageOpts = enumOpts(SALE_STAGES)
 const OPEN_STAGES = SALE_STAGES.filter(s => !SALE_STAGES_CLOSED.includes(s))
-const STAGE_BADGE = {
-  'ליד חדש': 'mp', 'נוצר קשר על ידי AI': 'mp', 'שיחת מכירה עם נציג אנושי': 'warn',
-  'הצעה נשלחה': 'warn', 'ממתין להחלטה': 'warn', 'נסגר בהצלחה': 'ok', 'עסקה הופסדה': 'gray',
-}
 
 export default function Sales() {
   const nav = useNavigate()
@@ -32,7 +30,7 @@ export default function Sales() {
       render: r => r.customer ? `${r.customer.first_name} ${r.customer.last_name}` : '-' },
     { source: 'stage', label: 'שלב מכירה', csv: r => r.stage,
       render: r => <Cell row={r} field="stage" mode="select" options={stageOpts}
-        display={v => <span className={`badge ${STAGE_BADGE[v] || 'gray'}`}>{v}</span>} /> },
+        display={v => <StatusBadge value={v} field="stage" resource="sale" />} /> },
     { source: 'channel', label: 'ערוץ פנייה', csv: r => r.channel, render: r => r.channel || '-' },
     { source: 'lead_source', label: 'מקור הגעה', hidden: true, csv: r => r.lead_source, render: r => r.lead_source || '-' },
     { source: 'loss_reason', label: 'סיבת אי סגירה', hidden: true, csv: r => r.loss_reason, render: r => r.loss_reason || '-' },
@@ -61,7 +59,7 @@ export default function Sales() {
           { field: 'loss_reason', title: 'סיבת אי סגירה', options: enumOpts(LOSS_REASONS) },
         ]}
         rowPath={r => `/sales/${r.id}`}
-        bulkActions={<BulkDeleteButton />}
+        bulkActions={<><BulkEditButton resource="sale" table="sales" /><BulkDeleteButton /></>}
         actions={<button className="btn sm" onClick={() => setShowNew(true)}><Icon name="plus" size={15} /> מכירה חדשה</button>}
       />
       {showNew && (

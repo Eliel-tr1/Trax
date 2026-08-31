@@ -6,13 +6,15 @@ import { formatDateTime } from '../lib/format'
 import { useBusinessUnitStore } from '../stores/businessUnitStore'
 import { loadOptions } from '../lib/api'
 import ResourceList from '../components/ResourceList'
+import { BulkDeleteButton } from '../components/admin/bulk-delete-button'
+import BulkEditButton from '../components/list/BulkEditButton'
 import EditableCell from '../components/EditableCell'
 import RelatedLink from '../components/RelatedLink'
 import UserAvatar from '../components/UserAvatar'
+import StatusBadge from '../components/StatusBadge'
 
 const directionOpts = enumOpts(CALL_DIRECTIONS)
 const resultOpts = enumOpts(CALL_RESULTS)
-const RESULT_BADGE = { 'נענתה': 'ok', 'לא נענתה': 'err', 'תפוס': 'warn', 'השאיר הודעה': 'gray' }
 
 // List + detail only, no create button — phone calls are auto-created from
 // Voicenter/Max voice integrations (docs/domain-model.md). The table has 0
@@ -31,14 +33,14 @@ export default function PhoneCalls() {
     { source: 'related_id', label: 'לקוח', sortable: false, csv: r => r.related_id,
       render: r => <RelatedLink relatedType={r.related_type} relatedId={r.related_id} showType={false} /> },
     { source: 'direction', label: 'כיוון', csv: r => r.direction,
-      render: r => <span className={`badge ${r.direction === 'נכנסת' ? 'mp' : 'gray'}`}>{r.direction}</span> },
+      render: r => <StatusBadge value={r.direction} field="direction" resource="phone_call" /> },
     { source: 'occurred_at', label: 'תאריך ושעה', csv: r => r.occurred_at,
       render: r => <span className="small">{formatDateTime(r.occurred_at)}</span> },
     { source: 'duration_seconds', label: 'משך (שניות)', csv: r => r.duration_seconds,
       render: r => r.duration_seconds != null ? `${r.duration_seconds} שנ׳` : '-' },
     { source: 'result', label: 'תוצאה', csv: r => r.result,
       render: r => <Cell row={r} field="result" mode="select" options={resultOpts}
-        display={v => v ? <span className={`badge ${RESULT_BADGE[v] || 'gray'}`}>{v}</span> : '-'} /> },
+        display={v => <StatusBadge value={v} field="result" resource="phone_call" />} /> },
     { source: 'assigned_user_id', label: 'נציג משויך', sortable: false, csv: r => nameFor(r.assigned_user_id),
       render: r => r.assigned_user_id ? <UserAvatar user={userFor(r.assigned_user_id)} /> : <span className="muted">לא שויך</span> },
     { source: 'recording_url', label: 'הקלטה', hidden: true, sortable: false, csv: r => r.recording_url,
@@ -62,6 +64,7 @@ export default function PhoneCalls() {
         { field: 'result', title: 'תוצאה', options: resultOpts },
       ]}
       rowPath={r => `/phone-calls/${r.id}`}
+      bulkActions={<><BulkEditButton resource="phone_call" table="phone_calls" /><BulkDeleteButton /></>}
     />
   )
 }

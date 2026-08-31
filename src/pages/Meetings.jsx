@@ -9,11 +9,13 @@ import { formatDateTime } from '../lib/format'
 import { useBusinessUnitStore } from '../stores/businessUnitStore'
 import ResourceList from '../components/ResourceList'
 import { BulkDeleteButton } from '../components/admin/bulk-delete-button'
+import BulkEditButton from '../components/list/BulkEditButton'
 import EditableCell from '../components/EditableCell'
 import RelatedLink from '../components/RelatedLink'
 import Modal from '../components/Modal'
 import Icon from '../components/Icon'
 import { MultiUserPicker } from '../components/UserPicker'
+import EntityPicker from '../components/EntityPicker'
 
 const typeOpts = enumOpts(MEETING_TYPES)
 
@@ -48,7 +50,7 @@ export default function Meetings() {
         search="נושא"
         facets={[{ field: 'type', title: 'סוג', options: typeOpts }]}
         rowPath={r => `/meetings/${r.id}`}
-        bulkActions={<BulkDeleteButton />}
+        bulkActions={<><BulkEditButton resource="meeting" table="meetings" /><BulkDeleteButton /></>}
         actions={<button className="btn sm" onClick={() => setShowNew(true)}><Icon name="plus" size={15} /> פגישה חדשה</button>}
       />
       {showNew && (
@@ -126,10 +128,9 @@ export function MeetingFormModal({ defaultUnit, defaultRelatedType, defaultRelat
           </select>
         </div>
         <div className="field"><label>{relatedType === 'customer' ? 'לקוח' : 'מכירה'}<span className="req"> *</span></label>
-          <select value={relatedId} onChange={e => setRelatedId(e.target.value)} disabled={!opts}>
-            <option value="">-</option>
-            {relatedOptions.map(o => <option key={o.id} value={o.id}>{o.name || o.deal_name || '(ללא שם)'}</option>)}
-          </select>
+          <EntityPicker items={relatedOptions} value={relatedId || null} onChange={setRelatedId} disabled={!opts}
+            allowEmpty={false} labelField={o => o.name || o.deal_name || '(ללא שם)'}
+            placeholder={relatedType === 'customer' ? 'בחרו לקוח' : 'בחרו מכירה'} />
         </div>
         <div className="field"><label>נושא<span className="req"> *</span></label>
           <input value={subject} onChange={e => setSubject(e.target.value)} />

@@ -8,6 +8,8 @@ import RecordLayout from '../components/RecordLayout'
 import EditField from '../components/EditField'
 import RelatedLink from '../components/RelatedLink'
 import { MultiUserPicker } from '../components/UserPicker'
+import FieldTabs from '../components/FieldTabs'
+import SystemFieldsTab from '../components/SystemFieldsTab'
 
 export default function MeetingDetail() {
   const { id } = useParams()
@@ -59,6 +61,12 @@ export default function MeetingDetail() {
           <MultiUserPicker users={users} value={m.participants || []} onChange={v => save('participants', v)} />
         </div>
         <div style={{ marginTop: 10 }}><EditField label="סיכום" value={m.summary} type="textarea" onSave={v => save('summary', v)} /></div>
+
+        <FieldTabs tabs={[
+          {
+            key: 'system', label: 'שדות מערכת', content: <SystemFieldsTab record={m} users={users} />,
+          },
+        ]} />
       </div>
     </RecordLayout>
   )

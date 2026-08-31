@@ -7,13 +7,14 @@ import { formatDate } from '../lib/format'
 import { useBusinessUnitStore } from '../stores/businessUnitStore'
 import ResourceList from '../components/ResourceList'
 import { BulkDeleteButton } from '../components/admin/bulk-delete-button'
+import BulkEditButton from '../components/list/BulkEditButton'
 import EditableCell from '../components/EditableCell'
 import RecordFormModal from '../components/RecordFormModal'
 import Icon from '../components/Icon'
+import StatusBadge from '../components/StatusBadge'
 
 const statusOpts = enumOpts(CUSTOMER_STATUSES)
 const sourceOpts = enumOpts(LEAD_SOURCES)
-const STATUS_BADGE = { 'ליד חדש': 'mp', 'בטיפול': 'warn', 'לקוח פעיל': 'ok', 'לקוח עבר': 'gray', 'לא רלוונטי': 'gray' }
 
 function daysAgoIso(n) {
   const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString()
@@ -36,7 +37,7 @@ export default function Customers() {
     { source: 'campaign', label: 'קמפיין', hidden: true, csv: r => r.campaign, render: r => r.campaign || '-' },
     { source: 'status', label: 'סטטוס', csv: r => r.status,
       render: r => <Cell row={r} field="status" mode="select" options={statusOpts}
-        display={v => <span className={`badge ${STATUS_BADGE[v] || 'gray'}`}>{v}</span>} /> },
+        display={v => <StatusBadge value={v} field="status" resource="customer" />} /> },
     { source: 'first_contact_at', label: 'פנייה ראשונה', csv: r => r.first_contact_at,
       render: r => <span className="small">{formatDate(r.first_contact_at)}</span> },
     // Every remaining customer schema field, hidden by default — makes the
@@ -63,7 +64,7 @@ export default function Customers() {
           { field: 'lead_source', title: 'מקור הגעה', options: sourceOpts },
         ]}
         rowPath={r => `/customers/${r.id}`}
-        bulkActions={<BulkDeleteButton />}
+        bulkActions={<><BulkEditButton resource="customer" table="customers" /><BulkDeleteButton /></>}
         actions={<button className="btn sm" data-tour="new-record" onClick={() => setShowNew(true)}><Icon name="plus" size={15} /> לקוח חדש</button>}
       />
       {showNew && (

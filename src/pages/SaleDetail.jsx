@@ -10,18 +10,19 @@ import {
 import RecordLayout from '../components/RecordLayout'
 import EditField from '../components/EditField'
 import UserPicker from '../components/UserPicker'
+import EntityPicker from '../components/EntityPicker'
 import FieldTabs from '../components/FieldTabs'
+import SystemFieldsTab from '../components/SystemFieldsTab'
 import { MeetingFormModal } from './Meetings'
 import CardcomChargeModal from '../components/CardcomChargeModal'
 import { formatCurrency, formatDateTime } from '../lib/format'
+import StatusBadge, { badgeClassFor } from '../components/StatusBadge'
+import { celebrateWin } from '../lib/celebration'
 
 const LOST_STAGE = 'עסקה הופסדה'
+const WON_STAGE = 'נסגר בהצלחה'
 
 const STAGES = SALE_STAGES.map(s => ({ key: s, label: s }))
-const STAGE_BADGE = {
-  'ליד חדש': 'mp', 'נוצר קשר על ידי AI': 'mp', 'שיחת מכירה עם נציג אנושי': 'warn',
-  'הצעה נשלחה': 'warn', 'ממתין להחלטה': 'warn', 'נסגר בהצלחה': 'ok', 'עסקה הופסדה': 'gray',
-}
 
 export default function SaleDetail() {
   const { id } = useParams()
@@ -52,14 +53,18 @@ export default function SaleDetail() {
       toast('יש לבחור סיבת אי סגירה לפני סגירת העסקה כלא מוצלחת', 'err')
       return
     }
+    // Fire the celebration only on the actual transition INTO the won stage
+    // (not on every render, and not when it's already won) — a random
+    // effect (fireworks/jeep/skier/skydiver) plays via CelebrationHost.
+    const enteringWon = stage === WON_STAGE && s.stage !== WON_STAGE
     await save('stage', stage)
+    if (enteringWon) celebrateWin()
   }
 
   if (loading) return <div className="empty"><span className="spinner" /></div>
   if (!s) return <div className="card"><div className="empty">מכירה לא נמצאה.</div></div>
 
   const isXcon = s.business_unit === 'Xcon'
-  const journeyOpts = (opts.journeys || []).map(j => ({ value: j.id, label: j.name }))
 
   const related = [
     // Resource-mode chip (paginated, links to the standalone MeetingDetail
@@ -79,7 +84,7 @@ export default function SaleDetail() {
       title={s.deal_name || 'עסקה חדשה'}
       subtitle={s.customer ? `${s.customer.first_name} ${s.customer.last_name} · ${s.business_unit}` : s.business_unit}
       backTo="/sales"
-      status={{ label: s.stage, badge: STAGE_BADGE[s.stage] || 'gray' }}
+      status={{ label: s.stage, badge: badgeClassFor('sale', 'stage', s.stage) }}
       actions={[
         { icon: 'calendar', title: 'פגישה חדשה', onClick: () => setShowNewMeeting(true) },
         { icon: 'money', title: 'חיוב לקוח באשראי', onClick: () => setShowCharge(true) },
@@ -92,7 +97,8 @@ export default function SaleDetail() {
       <div className="card">
         <div className="field-grid">
           <EditField label="לקוח" value={s.customer ? `${s.customer.first_name} ${s.customer.last_name}` : ''} linkTo={s.customer_id ? `/customers/${s.customer_id}` : undefined} />
-          <EditField label="שלב מכירה" value={s.stage} type="select" options={enumOpts(SALE_STAGES)} onSave={setStage} />
+          <EditField label="שלב מכירה" value={s.stage} type="select" options={enumOpts(SALE_STAGES)}
+            display={<StatusBadge value={s.stage} field="stage" resource="sale" />} onSave={setStage} />
           <div className="ef">
             <span className="ef-label">בעלים</span>
             <UserPicker users={opts.users} value={s.owner_id} onChange={v => save('owner_id', v)} placeholder="בחרו בעלים" />
@@ -102,7 +108,10 @@ export default function SaleDetail() {
           {s.stage === LOST_STAGE && (
             <EditField label="סיבת אי סגירה" value={s.loss_reason} type="select" options={enumOpts(LOSS_REASONS)} onSave={v => save('loss_reason', v)} />
           )}
-          <EditField label="מסע מבוקש" value={s.journey_id} display={opts.journeys?.find(j => j.id === s.journey_id)?.name} type="select" options={journeyOpts} onSave={v => save('journey_id', v)} />
+          <div className="ef">
+            <span className="ef-label">מסע מבוקש</span>
+            <EntityPicker resource="journeys" value={s.journey_id} onChange={v => save('journey_id', v)} placeholder="בחרו מסע" />
+          </div>
           <EditField label="מספר משתתפים" value={s.participants_count} type="number" onSave={v => save('participants_count', v)} />
           <EditField label="שווי צפוי" value={s.expected_value} display={formatCurrency(s.expected_value, s.currency)} type="number" onSave={v => save('expected_value', v)} />
           <EditField label="מטבע" value={s.currency} type="select" options={CURRENCIES} onSave={v => save('currency', v)} />
@@ -116,8 +125,7 @@ export default function SaleDetail() {
           {
             key: 'system', label: 'נתוני מערכת', content: <>
               <EditField label="יחידה עסקית" value={s.business_unit} readOnly readOnlyReason="נקבע בעת יצירת העסקה ולא ניתן לשינוי" />
-              <EditField label="נוצר בתאריך" value={s.created_at} display={formatDateTime(s.created_at)} readOnly readOnlyReason="נחתם אוטומטית ביצירת הרשומה" />
-              <EditField label="עודכן בתאריך" value={s.updated_at} display={formatDateTime(s.updated_at)} readOnly readOnlyReason="מתעדכן אוטומטית בכל שינוי" />
+              <SystemFieldsTab record={s} users={opts.users} />
             </>,
           },
           {
