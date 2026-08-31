@@ -63,7 +63,7 @@ export default function Customers() {
         ]}
         rowPath={r => `/customers/${r.id}`}
         bulkActions={<BulkDeleteButton />}
-        actions={<button className="btn sm" onClick={() => setShowNew(true)}><Icon name="plus" size={15} /> לקוח חדש</button>}
+        actions={<button className="btn sm" data-tour="new-record" onClick={() => setShowNew(true)}><Icon name="plus" size={15} /> לקוח חדש</button>}
       />
       {showNew && (
         <RecordFormModal type="customer" defaults={{ business_unit: unit }} onClose={() => setShowNew(false)}

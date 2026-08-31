@@ -8,25 +8,70 @@ import Modal from '../components/Modal'
 import UserAvatar from '../components/UserAvatar'
 import RequirePermission from '../components/RequirePermission'
 import TrashManager from '../components/TrashManager'
-import { usePermissionStore } from '../stores/permissionStore'
+import { confirmDialog, promptDialog } from '../components/Dialogs'
+import { usePermissionStore, RESOURCES } from '../stores/permissionStore'
+import { startOnboarding } from '../components/Onboarding'
+import { applyTheme } from '../components/ThemeToggle'
 
-const SECTIONS = ['פרטי מערכת', 'אוטומציות', 'מפתחות API', 'משתמשים', 'תפקידים והרשאות', 'סל מיחזור']
+const SECTIONS = ['תצוגה', 'פרטי מערכת', 'אוטומציות', 'מפתחות API', 'דוקומנטציה API', 'שדות מותאמים', 'משתמשים', 'תפקידים והרשאות', 'מיזוג כפילויות', 'הדרכה', 'סל מיחזור']
 
 export default function Settings() {
-  const [sec, setSec] = useState('פרטי מערכת')
+  const [sec, setSec] = useState('תצוגה')
   const canManageUsers = usePermissionStore(s => s.can('users', 'view'))
 
-  const visibleSections = SECTIONS.filter(s => canManageUsers || (s !== 'משתמשים' && s !== 'תפקידים והרשאות'))
+  const MANAGER_ONLY = new Set(['משתמשים', 'תפקידים והרשאות', 'מיזוג כפילויות'])
+  const visibleSections = SECTIONS.filter(s => canManageUsers || !MANAGER_ONLY.has(s))
 
   return (
     <div className="card">
       <div className="sections-tabs">{visibleSections.map(s => <div key={s} className={`sec-tab ${sec === s ? 'active' : ''}`} onClick={() => setSec(s)}>{s}</div>)}</div>
+      {sec === 'תצוגה' && <AppearanceTab />}
       {sec === 'פרטי מערכת' && <SystemSettings />}
       {sec === 'אוטומציות' && <AutomationRules />}
       {sec === 'מפתחות API' && <ApiKeys />}
+      {sec === 'דוקומנטציה API' && <ApiDocsTab />}
+      {sec === 'שדות מותאמים' && <SchemaTab />}
       {sec === 'משתמשים' && <RequirePermission resource="users"><UsersTab /></RequirePermission>}
       {sec === 'תפקידים והרשאות' && <RequirePermission resource="users"><RolesTab /></RequirePermission>}
+      {sec === 'מיזוג כפילויות' && <RequirePermission resource="users"><DuplicatesTab /></RequirePermission>}
+      {sec === 'הדרכה' && <OnboardingTab />}
       {sec === 'סל מיחזור' && <TrashManager />}
+    </div>
+  )
+}
+
+// ============================================================
+// תצוגה — light/dark theme. index.css already ships the full
+// [data-theme="dark"] palette; there's also an icon toggle in the topbar
+// (ThemeToggle.jsx) — this labelled control is here for anyone who doesn't
+// spot the icon. See docs/bina-crm-feature-audit.md item #1.
+// ============================================================
+function AppearanceTab() {
+  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light')
+  const apply = (t) => { applyTheme(t); setTheme(t) }
+  return (
+    <div className="card" style={{ maxWidth: 460 }}>
+      <div className="card-title"><Icon name="cog" /> ערכת נושא</div>
+      <p className="muted small" style={{ marginTop: -4, marginBottom: 14 }}>ניתן להחליף גם מהאייקון שבסרגל העליון.</p>
+      <div className="row" style={{ gap: 10 }}>
+        <button className={`btn ${theme === 'light' ? '' : 'ghost'}`} onClick={() => apply('light')}><Icon name="sun" size={15} /> בהיר</button>
+        <button className={`btn ${theme === 'dark' ? '' : 'ghost'}`} onClick={() => apply('dark')}><Icon name="moon" size={15} /> כהה</button>
+      </div>
+    </div>
+  )
+}
+
+function OnboardingTab() {
+  return (
+    <div className="card" style={{ maxWidth: 560 }}>
+      <div className="card-title"><Icon name="help" /> סיור הדרכה במערכת</div>
+      <div className="small muted" style={{ marginBottom: 12, lineHeight: 1.7 }}>
+        הסיור רץ אוטומטית בכניסה הראשונה של כל משתמש ומוביל אותו מסך אחר מסך, כולל כרטיס לקוח אמיתי.
+        המשתמש הוא זה שמנווט - הסיור ממתין ללחיצה שלו ואז ממשיך. אפשר להפעיל אותו שוב בכל שלב, גם מהפרופיל האישי.
+      </div>
+      <button className="btn" onClick={() => startOnboarding()}>
+        <Icon name="help" size={15} /> הפעלת הסיור מחדש
+      </button>
     </div>
   )
 }
@@ -107,38 +152,347 @@ function AutomationRules() {
   )
 }
 
+// ============================================================
+// מפתחות API — was a bare read-only list. Now: generate a new key inline
+// (real bcrypt hash via the create_api_key() SECURITY DEFINER RPC —
+// data/007 migration — same crypt()/gen_salt('bf') approach verify_api_key()
+// already reads), toggle active, delete.
+// A manual "backup now" / restore flow needs a new Edge Function that
+// doesn't exist yet — not built here, see the final report.
+// ============================================================
 function ApiKeys() {
   const [keys, setKeys] = useState(null)
+  const [name, setName] = useState('')
+  const [role, setRole] = useState('read')
+  const [busy, setBusy] = useState(false)
+  const [newKey, setNewKey] = useState(null)
+  const canCreate = usePermissionStore(s => s.can('settings', 'create'))
+  const canDelete = usePermissionStore(s => s.can('settings', 'delete'))
 
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase.from('api_keys').select('id, name, key_prefix, role, is_active, last_used_at').order('created_at')
-      setKeys(data || [])
-    })()
-  }, [])
+  const load = async () => {
+    const { data } = await supabase.from('api_keys').select('id, name, key_prefix, role, is_active, last_used_at').order('created_at')
+    setKeys(data || [])
+  }
+  useEffect(() => { load() }, [])
+
+  const createKey = async () => {
+    if (!name.trim()) { toast('יש להזין שם למפתח', 'err'); return }
+    setBusy(true)
+    const { data, error } = await supabase.rpc('create_api_key', { p_name: name.trim(), p_role: role })
+    setBusy(false)
+    if (error) { toast('יצירת המפתח נכשלה: ' + error.message, 'err'); return }
+    const row = Array.isArray(data) ? data[0] : data
+    setNewKey(row?.plaintext_key || null)
+    setName(''); load()
+  }
+  const toggle = async (k) => {
+    const is_active = !k.is_active
+    setKeys(ks => ks.map(x => x.id === k.id ? { ...x, is_active } : x))
+    const { error } = await supabase.from('api_keys').update({ is_active }).eq('id', k.id)
+    if (error) { toast('העדכון נכשל', 'err'); load(); return }
+    toast('נשמר')
+  }
+  const delKey = async (id) => {
+    if (!await confirmDialog('למחוק מפתח API? כל שימוש עתידי בו יידחה.', { danger: true, confirmText: 'מחיקה' })) return
+    const { error } = await supabase.from('api_keys').delete().eq('id', id)
+    if (error) { toast('המחיקה נכשלה: ' + error.message, 'err'); return }
+    toast('נמחק'); load()
+  }
 
   if (!keys) return <div className="empty"><span className="spinner" /></div>
-  if (!keys.length) return <div className="empty small">אין מפתחות API</div>
 
   return (
-    <div className="table-wrap">
-      <table className="grid">
-        <thead><tr><th>שם</th><th>קידומת</th><th>תפקיד</th><th>שימוש אחרון</th><th>סטטוס</th></tr></thead>
-        <tbody>
-          {keys.map(k => (
-            <tr key={k.id}>
-              <td style={{ fontWeight: 600 }}>{k.name}</td>
-              <td className="small" dir="ltr">{k.key_prefix}…</td>
-              <td>{k.role}</td>
-              <td className="small">{k.last_used_at ? new Date(k.last_used_at).toLocaleString('he-IL') : 'מעולם לא נעשה בו שימוש'}</td>
-              <td><span className={`badge ${k.is_active ? 'ok' : 'gray'}`}>{k.is_active ? 'פעיל' : 'לא פעיל'}</span></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div>
+      {canCreate && (
+        <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border-soft)', borderRadius: 'var(--rs)', padding: 12, marginBottom: 14 }}>
+          <div className="row wrap" style={{ gap: 8 }}>
+            <input className="input" style={{ maxWidth: 220 }} placeholder="שם המפתח (לדוגמה: n8n / אתר)" value={name} onChange={e => setName(e.target.value)} />
+            <select className="input" style={{ maxWidth: 140 }} value={role} onChange={e => setRole(e.target.value)}>
+              <option value="read">קריאה בלבד</option>
+              <option value="write">קריאה וכתיבה</option>
+              <option value="internal">פנימי</option>
+            </select>
+            <button className="btn sm" disabled={busy || !name.trim()} onClick={createKey}>
+              {busy ? <span className="spinner light" style={{ width: 14, height: 14 }} /> : <><Icon name="plus" size={14} /> הפקת מפתח</>}
+            </button>
+          </div>
+          {newKey && (
+            <div className="small" style={{ marginTop: 10, wordBreak: 'break-all', color: 'var(--ok)' }}>
+              המפתח החדש (העתיקו עכשיו - לא יוצג שוב): <b dir="ltr">{newKey}</b>
+            </div>
+          )}
+        </div>
+      )}
+      {keys.length === 0 ? <div className="empty small">אין מפתחות API</div> : (
+        <div className="table-wrap">
+          <table className="grid">
+            <thead><tr><th>שם</th><th>קידומת</th><th>תפקיד</th><th>שימוש אחרון</th><th>סטטוס</th>{canDelete && <th></th>}</tr></thead>
+            <tbody>
+              {keys.map(k => (
+                <tr key={k.id}>
+                  <td style={{ fontWeight: 600 }}>{k.name}</td>
+                  <td className="small" dir="ltr">{k.key_prefix}…</td>
+                  <td>{k.role}</td>
+                  <td className="small">{k.last_used_at ? new Date(k.last_used_at).toLocaleString('he-IL') : 'מעולם לא נעשה בו שימוש'}</td>
+                  <td><button className={`badge ${k.is_active ? 'ok' : 'gray'}`} style={{ border: 'none', cursor: 'pointer' }} onClick={() => toggle(k)}>{k.is_active ? 'פעיל' : 'לא פעיל'}</button></td>
+                  {canDelete && <td><button className="btn subtle sm" style={{ color: 'var(--err)', padding: '2px 6px' }} onClick={() => delKey(k.id)}><Icon name="x" size={12} /></button></td>}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       <div className="muted small" style={{ marginTop: 10 }}>
-        <Icon name="help" size={13} /> יצירת מפתח חדש דורשת פונקציית שרת (Edge Function) ואינה זמינה כאן עדיין.
+        <Icon name="help" size={13} /> גיבוי/שחזור ידני דורש פונקציית שרת (Edge Function) שעדיין לא קיימת - לא זמין כאן.
       </div>
+    </div>
+  )
+}
+
+// ============================================================
+// דוקומנטציה API — self-generating docs for the real /api-v1/{object}
+// contract (supabase/functions/api-v1/index.ts's SCHEMA, exact field lists).
+// ============================================================
+const API_SCHEMA = {
+  customers: { fields: ['first_name', 'last_name', 'mobile_phone', 'email', 'business_unit', 'lead_source', 'campaign', 'status', 'notes', 'lead_rating', 'club_member', 'club_joined_at', 'credit_balance', 'extreme_experience_level', 'preferred_language', 'company', 'job_title', 'work_email', 'owner_id', 'custom', 'execution_url'] },
+  sales: { fields: ['customer_id', 'business_unit', 'stage', 'channel', 'lead_source', 'campaign', 'owner_id', 'loss_reason', 'journey_id', 'participants_count', 'expected_value', 'currency', 'qualification_rating', 'qualification_summary', 'next_call_at', 'interest_area', 'custom', 'execution_url'] },
+  journeys: { fields: ['name', 'business_unit', 'destination', 'departure_date', 'return_date', 'seats_total', 'min_seats', 'status', 'price_per_person', 'currency', 'includes_flights', 'short_description', 'page_url', 'operations_notes', 'custom', 'execution_url'] },
+  registrations: { fields: ['customer_id', 'journey_id', 'sale_id', 'status', 'amount_paid', 'currency', 'last_payment_date', 'payment_method', 'invoice_number', 'passport_valid', 'travel_insurance', 'medical_dietary_notes', 'emergency_contact', 'includes_flight_for_participant', 'custom', 'execution_url'] },
+  tasks: { fields: ['subject', 'related_type', 'related_id', 'assignee_id', 'due_at', 'status', 'priority', 'description', 'business_unit', 'execution_url'] },
+  contacts: { fields: ['customer_id', 'name', 'phone', 'email', 'role', 'execution_url'] },
+}
+
+function ApiDocsTab() {
+  const [resource, setResource] = useState('customers')
+  const FUNCTIONS = (import.meta.env.VITE_SUPABASE_URL || '').replace('.supabase.co', '.functions.supabase.co')
+  const url = `${FUNCTIONS}/api-v1`
+  const meta = API_SCHEMA[resource]
+
+  const curlList = `curl "${url}/${resource}?limit=20" \\\n  -H "Authorization: Bearer <API-KEY>"`
+  const curlGet = `curl "${url}/${resource}/<id>" \\\n  -H "Authorization: Bearer <API-KEY>"`
+  const curlCreate = `curl -X POST "${url}/${resource}" \\\n  -H "Authorization: Bearer <API-KEY>" -H "content-type: application/json" \\\n  -d '{"${meta.fields[0]}": "..."}'`
+  const curlPatch = `curl -X PATCH "${url}/${resource}/<id>" \\\n  -H "Authorization: Bearer <API-KEY>" -H "content-type: application/json" \\\n  -d '{"${meta.fields[0]}": "..."}'`
+  const curlDelete = `curl -X DELETE "${url}/${resource}/<id>" \\\n  -H "Authorization: Bearer <API-KEY>"`
+
+  return (
+    <div className="card" style={{ maxWidth: 1000 }}>
+      <div className="card-title"><Icon name="book" /> דוקומנטציית API · /api-v1</div>
+      <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border-soft)', borderRadius: 'var(--rs)', padding: 12, marginBottom: 14 }}>
+        <div className="small" style={{ lineHeight: 2 }}>
+          <b>Base URL:</b> <code dir="ltr">{url}/{'{object}'}</code><br />
+          <b>אימות:</b> כותרת <code dir="ltr">Authorization: Bearer &lt;API-KEY&gt;</code> (הפיקו מפתח בלשונית "מפתחות API").<br />
+          <b>מתודות:</b> GET (רשימה, עם <code>?limit=</code>/<code>?offset=</code>/<code>?sort=</code> ופילטרים לפי כל שדה) · GET/<code dir="ltr">{'{id}'}</code> · POST · PATCH/<code dir="ltr">{'{id}'}</code> · DELETE/<code dir="ltr">{'{id}'}</code> (מחיקה רכה בלבד).<br />
+          <b>מבנה תשובה:</b> <code dir="ltr">{'{ "data": … }'}</code>, רשימה גם עם <code dir="ltr">count</code> · שגיאה: <code dir="ltr">{'{ "error" }'}</code>.
+        </div>
+      </div>
+
+      <div className="row wrap" style={{ gap: 8, marginBottom: 14 }}>
+        {Object.keys(API_SCHEMA).map(r => (
+          <button key={r} className={`chip ${resource === r ? 'active' : ''}`} onClick={() => setResource(r)}>{r}</button>
+        ))}
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {[['רשימה', curlList], ['רשומה בודדת', curlGet], ['יצירה', curlCreate], ['עדכון', curlPatch], ['מחיקה (רכה)', curlDelete]].map(([label, ex]) => (
+          <div key={label}>
+            <div className="small muted" style={{ marginBottom: 4, fontWeight: 700 }}>{label}:</div>
+            <pre dir="ltr" style={{ background: 'var(--surface-2)', padding: 10, borderRadius: 8, fontSize: '0.72rem', overflowX: 'auto', margin: 0 }}>{ex}</pre>
+          </div>
+        ))}
+      </div>
+
+      <div className="card-title" style={{ marginTop: 20 }}><Icon name="tag" /> שדות ניתנים לכתיבה - {resource}</div>
+      <div className="table-wrap">
+        <table className="grid" style={{ fontSize: '0.82rem' }}>
+          <thead><tr><th>שדה</th></tr></thead>
+          <tbody>{meta.fields.map(f => <tr key={f}><td><code dir="ltr">{f}</code></td></tr>)}</tbody>
+        </table>
+      </div>
+      <div className="muted small" style={{ marginTop: 8 }}>שדות שנוצרים אוטומטית (קריאה בלבד): <code dir="ltr">id, created_at, updated_at, deleted_at, created_by, updated_by</code></div>
+    </div>
+  )
+}
+
+// ============================================================
+// שדות מותאמים ורשימות — admin definition UI for custom_fields (per-object
+// custom field definitions) + picklists (editable option lists). Rendering
+// these on record detail pages from each row's `custom` jsonb column is a
+// second step, not built here — see the final report.
+// ============================================================
+const CF_OBJECTS = [['customer', 'לקוח'], ['sale', 'מכירה'], ['journey', 'מסע'], ['registration', 'הרשמה'], ['task', 'משימה'], ['meeting', 'פגישה'], ['phone_call', 'שיחת טלפון'], ['contact', 'איש קשר']]
+const CF_TYPES = [['text', 'טקסט'], ['number', 'מספר'], ['date', 'תאריך'], ['select', 'בחירה'], ['checkbox', 'כן/לא']]
+
+function SchemaTab() {
+  const [picklists, setPicklists] = useState([])
+  const [fields, setFields] = useState([])
+  const [obj, setObj] = useState('customer')
+  const [nf, setNf] = useState({ key: '', label: '', type: 'text', options: '' })
+  const [npl, setNpl] = useState({ key: '', label: '' })
+  const canCreate = usePermissionStore(s => s.can('settings', 'create'))
+  const canDelete = usePermissionStore(s => s.can('settings', 'delete'))
+
+  const load = async () => {
+    const [{ data: pl }, { data: cf }] = await Promise.all([
+      supabase.from('picklists').select('*').order('key'),
+      supabase.from('custom_fields').select('*').order('position'),
+    ])
+    setPicklists(pl || []); setFields(cf || [])
+  }
+  useEffect(() => { load() }, [])
+
+  const savePicklist = async (id, text) => {
+    const { error } = await supabase.from('picklists').update({ options: text.split(',').map(s => s.trim()).filter(Boolean), updated_at: new Date().toISOString() }).eq('id', id)
+    if (error) { toast('השמירה נכשלה', 'err'); return }
+    toast('נשמר'); load()
+  }
+  const addPicklist = async () => {
+    if (!npl.key.trim()) return
+    const { error } = await supabase.from('picklists').insert({ key: npl.key.trim(), label: npl.label.trim() || npl.key.trim(), options: [] })
+    if (error) { toast('היצירה נכשלה: ' + error.message, 'err'); return }
+    setNpl({ key: '', label: '' }); load()
+  }
+  const delPicklist = async (id) => { if (await confirmDialog('למחוק רשימת בחירה?', { danger: true })) { await supabase.from('picklists').delete().eq('id', id); load() } }
+
+  const addField = async () => {
+    if (!nf.key.trim() || !nf.label.trim()) return
+    const { error } = await supabase.from('custom_fields').insert({
+      object_type: obj, key: nf.key.trim(), label: nf.label.trim(), type: nf.type,
+      options: nf.options ? nf.options.split(',').map(s => s.trim()).filter(Boolean) : [],
+      position: fields.filter(f => f.object_type === obj).length,
+    })
+    if (error) { toast('היצירה נכשלה: ' + error.message, 'err'); return }
+    setNf({ key: '', label: '', type: 'text', options: '' }); load()
+  }
+  const delField = async (id) => { if (await confirmDialog('למחוק שדה?', { danger: true })) { await supabase.from('custom_fields').delete().eq('id', id); load() } }
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'start' }}>
+      <div className="card">
+        <div className="card-title"><Icon name="tag" /> שדות מותאמים</div>
+        {canCreate && (
+          <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border-soft)', borderRadius: 'var(--rs)', padding: 12, marginBottom: 12 }}>
+            <div className="field" style={{ margin: 0 }}><label>אובייקט</label><select value={obj} onChange={e => setObj(e.target.value)}>{CF_OBJECTS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></div>
+            <div className="row" style={{ gap: 8, marginTop: 8 }}>
+              <input className="input" placeholder="מפתח (אנגלית)" dir="ltr" value={nf.key} onChange={e => setNf(f => ({ ...f, key: e.target.value }))} />
+              <input className="input" placeholder="תווית" value={nf.label} onChange={e => setNf(f => ({ ...f, label: e.target.value }))} />
+            </div>
+            <div className="row" style={{ gap: 8, marginTop: 8 }}>
+              <select className="input" value={nf.type} onChange={e => setNf(f => ({ ...f, type: e.target.value }))}>{CF_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+              {nf.type === 'select' && <input className="input" placeholder="אפשרויות, מופרד בפסיק" value={nf.options} onChange={e => setNf(f => ({ ...f, options: e.target.value }))} />}
+            </div>
+            <button className="btn sm" style={{ marginTop: 8 }} onClick={addField}><Icon name="plus" size={14} /> הוסף שדה</button>
+          </div>
+        )}
+        {CF_OBJECTS.map(([v, l]) => {
+          const fs = fields.filter(f => f.object_type === v)
+          if (!fs.length) return null
+          return <div key={v} style={{ marginBottom: 8 }}><div className="small muted" style={{ fontWeight: 700 }}>{l}</div>
+            {fs.map(f => <div key={f.id} className="row small" style={{ padding: '5px 8px', background: 'var(--surface-2)', borderRadius: 8, marginTop: 4 }}><b>{f.label}</b><span className="muted" dir="ltr">{f.key} · {f.type}</span><div className="spacer" />{canDelete && <button className="btn subtle sm" style={{ color: 'var(--err)', padding: '2px 6px' }} onClick={() => delField(f.id)}><Icon name="x" size={11} /></button>}</div>)}
+          </div>
+        })}
+        {!fields.length && <div className="empty small">אין עדיין שדות מותאמים</div>}
+      </div>
+
+      <div className="card">
+        <div className="card-title"><Icon name="filter" /> רשימות בחירה (דרופדאונים)</div>
+        {canCreate && (
+          <div className="row" style={{ gap: 8, marginBottom: 12 }}>
+            <input className="input" placeholder="מפתח" dir="ltr" value={npl.key} onChange={e => setNpl(p => ({ ...p, key: e.target.value }))} />
+            <input className="input" placeholder="תווית" value={npl.label} onChange={e => setNpl(p => ({ ...p, label: e.target.value }))} />
+            <button className="btn sm" onClick={addPicklist}><Icon name="plus" size={14} /></button>
+          </div>
+        )}
+        {picklists.map(pl => (
+          <div key={pl.id} className="field">
+            <label>{pl.label || pl.key}{canDelete && <button className="btn subtle sm" style={{ color: 'var(--err)', padding: '1px 6px', marginInlineStart: 8 }} onClick={() => delPicklist(pl.id)}><Icon name="x" size={11} /></button>}</label>
+            <textarea defaultValue={(pl.options || []).join(', ')} onBlur={e => savePicklist(pl.id, e.target.value)} style={{ minHeight: 50 }} />
+          </div>
+        ))}
+        {!picklists.length && <div className="empty small">אין עדיין רשימות בחירה</div>}
+        <div className="muted small">מופרד בפסיק. נשמר אוטומטית ביציאה מהשדה.</div>
+      </div>
+    </div>
+  )
+}
+
+// ============================================================
+// מיזוג כפילויות — groups customers by phone (TRAX) / work_email (Xcon),
+// NEVER across business units. Merge reassigns sales/registrations/
+// contacts/notes/tasks/meetings/phone_calls that reference the loser to the
+// winner, then soft-deletes the loser (matches every other delete path in
+// this app - see data/001_init_schema.sql / RecordLayout.jsx).
+// ============================================================
+const digits = (s) => (s || '').replace(/\D/g, '')
+
+function DuplicatesTab() {
+  const [groups, setGroups] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState(null)
+
+  const scan = async () => {
+    setLoading(true)
+    const { data } = await supabase.from('customers').select('id, first_name, last_name, mobile_phone, work_email, business_unit, created_at').is('deleted_at', null)
+    const byKey = {}
+    for (const c of data || []) {
+      // Identity key never crosses business_unit — TRAX matches on phone,
+      // Xcon on work email, exactly like the rest of the app's dedup rule.
+      const key = c.business_unit === 'Xcon'
+        ? (c.work_email && `${c.business_unit}|e:${c.work_email.trim().toLowerCase()}`)
+        : (digits(c.mobile_phone) && `${c.business_unit}|p:${digits(c.mobile_phone)}`)
+      if (key) (byKey[key] ||= []).push(c)
+    }
+    const gs = Object.values(byKey).filter(arr => arr.length > 1)
+      .map(arr => arr.sort((a, b) => new Date(a.created_at) - new Date(b.created_at)))
+    setGroups(gs); setLoading(false)
+  }
+  useEffect(() => { scan() }, [])
+
+  const merge = async (group) => {
+    if (!await confirmDialog(`למזג ${group.length} לקוחות? הראשון (הוותיק ביותר) יישאר, כל שאר הרשומות המקושרות יעברו אליו והשאר יימחקו (מחיקה רכה).`, { danger: true, confirmText: 'מיזוג' })) return
+    setBusy(group[0].id)
+    const primary = group[0].id
+    const dupes = group.slice(1).map(x => x.id)
+    for (const tbl of ['sales', 'registrations', 'contacts']) {
+      await supabase.from(tbl).update({ customer_id: primary }).in('customer_id', dupes)
+    }
+    for (const tbl of ['notes', 'tasks', 'meetings', 'phone_calls']) {
+      await supabase.from(tbl).update({ related_id: primary }).eq('related_type', 'customer').in('related_id', dupes)
+    }
+    const { error } = await supabase.from('customers').update({ deleted_at: new Date().toISOString() }).in('id', dupes)
+    setBusy(null)
+    if (error) { toast('המיזוג נכשל: ' + error.message, 'err'); return }
+    toast('המיזוג הושלם'); scan()
+  }
+
+  if (loading) return <div className="empty"><span className="spinner" /></div>
+
+  return (
+    <div>
+      <div className="toolbar" style={{ marginBottom: 12 }}>
+        <div className="card-title" style={{ border: 'none', margin: 0 }}><Icon name="users" /> כפילויות ({groups.length})</div>
+        <div className="spacer" />
+        <button className="btn ghost sm" onClick={scan}>סריקה מחדש</button>
+      </div>
+      <div className="muted small" style={{ marginBottom: 12 }}>
+        זיהוי כפילות: אותו טלפון בלקוחות TRAX, אותו מייל עבודה בלקוחות Xcon. אף פעם לא בין שתי היחידות.
+      </div>
+      {groups.length === 0 ? <div className="card"><div className="empty">לא נמצאו כפילויות. המאגר נקי.</div></div>
+        : groups.map((g, i) => (
+          <div key={i} className="card" style={{ marginBottom: 12 }}>
+            <div className="row" style={{ marginBottom: 8 }}>
+              <b>{g.length} רשומות זהות · {g[0].business_unit}</b><div className="spacer" />
+              <button className="btn sm" disabled={busy === g[0].id} onClick={() => merge(g)}>{busy === g[0].id ? <span className="spinner light" style={{ width: 14, height: 14 }} /> : 'מזג'}</button>
+            </div>
+            {g.map((c, j) => (
+              <div key={c.id} className="row small" style={{ padding: '6px 8px', borderRadius: 8, background: j === 0 ? 'var(--xlp)' : 'var(--surface-2)', marginBottom: 4 }}>
+                {j === 0 && <span className="badge mp" style={{ fontSize: '0.62rem' }}>ראשי</span>}
+                <b>{c.first_name} {c.last_name}</b>
+                <span className="muted" dir="ltr">{c.mobile_phone}</span>
+                <span className="muted" dir="ltr">{c.work_email}</span>
+              </div>
+            ))}
+          </div>
+        ))}
     </div>
   )
 }
@@ -224,8 +578,6 @@ function InviteUserModal({ roles, onClose, onInvited }) {
       body: { email: email.trim(), full_name: fullName.trim(), role_key: roleKey },
     })
     setBusy(false)
-    // supabase-js surfaces a non-2xx Edge Function response as `error`, with
-    // the function's own {error} body sometimes reachable via error.context.
     if (error || data?.error) {
       toast('ההזמנה נכשלה: ' + (data?.error || error?.message || 'שגיאה לא ידועה'), 'err')
       return
@@ -260,75 +612,134 @@ function InviteUserModal({ roles, onClose, onInvited }) {
 }
 
 // ============================================================
-// תפקידים והרשאות — read-only matrix, roles × resources × view/create/
-// edit/delete + scope. Source: `permissions` (data/003_rbac.sql), readable
-// by any authenticated user (permissions_select RLS policy).
+// תפקידים והרשאות — now a genuinely editable matrix (was read-only).
+// TRAX's model is role-only (app_users.role_id is a single FK — no per-user
+// scope/scope_key split like bina-crm has), and the permissions table only
+// has can_view/can_create/can_edit/can_delete/scope (no can_export/
+// can_manage/record_scope columns — those would need a new migration and
+// aren't added since nothing in TRAX's spec calls for them yet).
+// Create/delete a role, and click any cell to toggle it — optimistic
+// update + toast, matching every other inline-edit control in the app.
 // ============================================================
-const RESOURCE_LABELS = {
-  customers: 'לקוחות', sales: 'מכירות', journeys: 'מסעות', registrations: 'הרשמות',
-  tasks: 'משימות', contacts: 'אנשי קשר', meetings: 'פגישות', phone_calls: 'שיחות טלפון',
-  settings: 'הגדרות', users: 'משתמשים', dashboard: 'לוח בקרה',
-}
+const RESOURCE_LABELS = Object.fromEntries(RESOURCES.map(r => [r.key, r.label]))
 const ACTION_LABELS = [['can_view', 'צפייה'], ['can_create', 'יצירה'], ['can_edit', 'עריכה'], ['can_delete', 'מחיקה']]
 
 function RolesTab() {
   const [roles, setRoles] = useState(null)
   const [permsByRole, setPermsByRole] = useState({})
+  const [saving, setSaving] = useState(null)
+  const reload = usePermissionStore(s => s.load)
+  const myUserId = usePermissionStore(s => s.userId)
 
-  useEffect(() => {
-    (async () => {
-      const [{ data: r }, { data: p }] = await Promise.all([
-        supabase.from('roles').select('id, key, label, description').order('label'),
-        supabase.from('permissions').select('*'),
-      ])
-      setRoles(r || [])
-      const byRole = {}
-      for (const row of p || []) { (byRole[row.role_id] = byRole[row.role_id] || []).push(row) }
-      setPermsByRole(byRole)
-    })()
-  }, [])
+  const loadRoles = () => supabase.from('roles').select('id, key, label, description').order('label').then(({ data }) => setRoles(data || []))
+
+  const load = async () => {
+    const [{ data: r }, { data: p }] = await Promise.all([
+      supabase.from('roles').select('id, key, label, description').order('label'),
+      supabase.from('permissions').select('*'),
+    ])
+    setRoles(r || [])
+    const byRole = {}
+    for (const row of p || []) { (byRole[row.role_id] = byRole[row.role_id] || []).push(row) }
+    setPermsByRole(byRole)
+  }
+  useEffect(() => { load() }, [])
+
+  const addRole = async () => {
+    const label = await promptDialog('שם התפקיד החדש:', { placeholder: 'לדוגמה: מנהל מכירות' })
+    if (!label) return
+    const key = 'role_' + Date.now().toString(36)
+    const { error } = await supabase.from('roles').insert({ key, label })
+    if (error) { toast('יצירת התפקיד נכשלה: ' + error.message, 'err'); return }
+    toast(`התפקיד "${label}" נוצר. סמנו לו הרשאות.`); load()
+  }
+
+  const deleteRole = async (role) => {
+    const { count } = await supabase.from('app_users').select('id', { count: 'exact', head: true }).eq('role_id', role.id)
+    if (count) { toast(`לא ניתן למחוק: ${count} משתמשים משויכים לתפקיד "${role.label}"`, 'err'); return }
+    if (!await confirmDialog(`למחוק את התפקיד "${role.label}" ואת ההרשאות שלו?`, { danger: true, confirmText: 'מחיקה' })) return
+    await supabase.from('permissions').delete().eq('role_id', role.id)
+    const { error } = await supabase.from('roles').delete().eq('id', role.id)
+    if (error) { toast('המחיקה נכשלה: ' + error.message, 'err'); return }
+    toast('התפקיד נמחק'); load()
+  }
+
+  const upsertPerm = async (role, resource, patch) => {
+    const cellKey = role.id + resource
+    setSaving(cellKey)
+    const existing = (permsByRole[role.id] || []).find(p => p.resource === resource)
+    const base = existing || { role_id: role.id, resource, can_view: false, can_create: false, can_edit: false, can_delete: false, scope: 'mine' }
+    const payload = { ...base, ...patch }
+    delete payload.id
+    const { data, error } = await supabase.from('permissions').upsert(payload, { onConflict: 'role_id,resource' }).select().single()
+    setSaving(null)
+    if (error) { toast('השמירה נכשלה: ' + error.message, 'err'); return }
+    setPermsByRole(m => ({ ...m, [role.id]: [...(m[role.id] || []).filter(p => p.resource !== resource), data] }))
+    // If this changed the current user's own role, refresh their live permission set.
+    load().then(() => {}) // keep table fresh
+    if (myUserId) reload(myUserId)
+  }
 
   if (!roles) return <div className="empty"><span className="spinner" /></div>
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <div className="row">
+        <button className="btn sm" onClick={addRole}><Icon name="plus" size={14} /> תפקיד חדש</button>
+      </div>
       {roles.map(role => {
-        const perms = (permsByRole[role.id] || []).sort((a, b) => (RESOURCE_LABELS[a.resource] || a.resource).localeCompare(RESOURCE_LABELS[b.resource] || b.resource, 'he'))
+        const perms = (permsByRole[role.id] || [])
+        const rowFor = (resource) => perms.find(p => p.resource === resource)
         return (
           <div key={role.id}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
+            <div className="row" style={{ alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
               <span style={{ fontWeight: 700 }}>{role.label}</span>
               {role.description && <span className="muted small">{role.description}</span>}
+              <div className="spacer" />
+              <button className="btn subtle sm" style={{ color: 'var(--err)' }} onClick={() => deleteRole(role)}><Icon name="trash" size={13} /> מחיקת תפקיד</button>
             </div>
             <div className="table-wrap">
               <table className="grid">
                 <thead>
                   <tr>
                     <th>משאב</th>
-                    {ACTION_LABELS.map(([, l]) => <th key={l}>{l}</th>)}
+                    {ACTION_LABELS.map(([, l]) => <th key={l} style={{ textAlign: 'center' }}>{l}</th>)}
                     <th>היקף</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {perms.length === 0
-                    ? <tr><td colSpan={6} className="empty small">אין הרשאות מוגדרות</td></tr>
-                    : perms.map(p => (
-                      <tr key={p.id}>
-                        <td style={{ fontWeight: 600 }}>{RESOURCE_LABELS[p.resource] || p.resource}</td>
+                  {RESOURCES.map(res => {
+                    const row = rowFor(res.key)
+                    const cellSaving = saving === role.id + res.key
+                    return (
+                      <tr key={res.key}>
+                        <td style={{ fontWeight: 600 }}>{RESOURCE_LABELS[res.key] || res.key}</td>
                         {ACTION_LABELS.map(([key]) => (
-                          <td key={key}>
-                            <span className={`badge ${p[key] ? 'ok' : 'gray'}`}>{p[key] ? '✓' : '✗'}</span>
+                          <td key={key} style={{ textAlign: 'center' }}>
+                            {cellSaving ? <span className="spinner" style={{ width: 14, height: 14 }} /> : (
+                              <input type="checkbox" checked={!!row?.[key]} onChange={e => upsertPerm(role, res.key, { [key]: e.target.checked })} />
+                            )}
                           </td>
                         ))}
-                        <td className="small">{p.scope === 'all' ? 'הכול' : 'רק שלי'}</td>
+                        <td>
+                          <select className="input" style={{ minWidth: 90 }} value={row?.scope || 'mine'} onChange={e => upsertPerm(role, res.key, { scope: e.target.value })}>
+                            <option value="mine">רק שלי</option>
+                            <option value="all">הכול</option>
+                          </select>
+                        </td>
                       </tr>
-                    ))}
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
           </div>
         )
       })}
+      <p className="muted small">
+        לחיצה על כל תא צפייה/יצירה/עריכה/מחיקה משנה אותו מיידית. "היקף" קובע אם בעלי התפקיד רואים את כל הרשומות
+        או רק רשומות ששייכות להם. שינוי בתפקיד של המשתמש המחובר מתעדכן מיד גם בממשק שלו.
+      </p>
     </div>
   )
 }

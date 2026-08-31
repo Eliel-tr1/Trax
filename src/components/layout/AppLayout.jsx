@@ -7,6 +7,8 @@ import Notifications from '../Notifications'
 import Toaster from '../Toaster'
 import DialogHost from '../Dialogs'
 import BusinessUnitSwitcher from './BusinessUnitSwitcher'
+import ThemeToggle from '../ThemeToggle'
+import Onboarding from '../Onboarding'
 import { titleForPath } from './nav-data'
 
 export default function AppLayout() {
@@ -24,6 +26,7 @@ export default function AppLayout() {
             <BusinessUnitSwitcher />
             <GlobalSearch />
             <Notifications />
+            <ThemeToggle />
           </div>
         </header>
         <main className="min-w-0 flex-1 p-4 pb-16 md:p-6">
@@ -31,6 +34,7 @@ export default function AppLayout() {
         </main>
         <Toaster />
         <DialogHost />
+        <Onboarding />
       </SidebarInset>
     </SidebarProvider>
   )

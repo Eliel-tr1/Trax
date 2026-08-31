@@ -6,6 +6,7 @@ import { MEETING_TYPES, enumOpts } from '../lib/constants'
 import RecordLayout from '../components/RecordLayout'
 import EditField from '../components/EditField'
 import RelatedLink from '../components/RelatedLink'
+import { MultiUserPicker } from '../components/UserPicker'
 
 export default function MeetingDetail() {
   const { id } = useParams()
@@ -50,8 +51,11 @@ export default function MeetingDetail() {
           <EditField label="משך (דקות)" value={m.duration_minutes} type="number" onSave={v => save('duration_minutes', v)} />
           <EditField label="סוג" value={m.type} type="select" options={enumOpts(MEETING_TYPES)} onSave={v => save('type', v)} />
           <EditField label="יחידה עסקית" value={m.business_unit} readOnly readOnlyReason="נקבע בעת יצירת הפגישה ולא ניתן לשינוי" />
-          <EditField label="משתתפים" value={(m.participants || []).length ? (m.participants || []).map(pid => users.find(u => u.id === pid)?.full_name || '?').join(', ') : null} readOnly readOnlyReason="עריכת רשימת משתתפים אינה נתמכת עדיין בממשק זה" />
           {m.google_event_id && <EditField label="סנכרון יומן גוגל" value={m.google_event_id} readOnly readOnlyReason="מגיע מסנכרון Google Calendar" />}
+        </div>
+        <div style={{ marginTop: 10 }}>
+          <div className="ef-label" style={{ marginBottom: 6 }}>משתתפים</div>
+          <MultiUserPicker users={users} value={m.participants || []} onChange={v => save('participants', v)} />
         </div>
         <div style={{ marginTop: 10 }}><EditField label="סיכום" value={m.summary} type="textarea" onSave={v => save('summary', v)} /></div>
       </div>

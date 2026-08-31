@@ -10,7 +10,7 @@ export default function BusinessUnitSwitcher() {
   const setUnit = useBusinessUnitStore(s => s.setUnit)
   return (
     <Select value={unit} onValueChange={setUnit}>
-      <SelectTrigger className="h-9 w-28" aria-label="יחידה עסקית">
+      <SelectTrigger className="h-9 w-28" aria-label="יחידה עסקית" data-tour="bu-switcher">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

@@ -12,6 +12,7 @@ import { toast } from './Toaster'
 import Icon from './Icon'
 import { confirmDialog } from './Dialogs'
 import UserAvatar from './UserAvatar'
+import Attachment from './Attachment'
 
 /* TRAX rewrite of bina-crm's ActivityFeed.jsx.
 
@@ -40,7 +41,9 @@ export default function ActivityFeed({ objectType, recordId, allowTasks = true }
   const [due, setDue] = useState('')
   const [priority, setPriority] = useState('רגילה')
   const [assignee, setAssignee] = useState('')
+  const [file, setFile] = useState(null)
   const [busy, setBusy] = useState(false)
+  const fileRef = useRef()
 
   // notes.created_by / tasks.assignee_id reference auth.users(id), not
   // app_users — there is no FK PostgREST can embed across (see the same
@@ -65,14 +68,35 @@ export default function ActivityFeed({ objectType, recordId, allowTasks = true }
   useEffect(() => { load() }, [objectType, recordId])
 
   const addNote = async () => {
-    if (!text.trim()) return
+    if (!text.trim() && !file) return
     setBusy(true)
+    let file_url = null, file_name = null, file_type = null, file_size = null
+    if (file) {
+      // Storage keys must be ASCII, so the original (often Hebrew) filename
+      // is kept on the row (file_name) instead of being encoded into the
+      // path — same approach as bina-crm's ActivityFeed.
+      const ext = (file.name.match(/\.[a-z0-9]{1,8}$/i) || [''])[0]
+      const path = `${objectType}/${recordId}/${Date.now()}${ext}`
+      const { error: upErr } = await supabase.storage.from('attachments').upload(path, file)
+      if (upErr) {
+        // Never save the note as if the file had attached — that's how
+        // attachments silently disappear.
+        setBusy(false)
+        toast('העלאת הקובץ נכשלה: ' + (upErr.message || ''), 'err')
+        return
+      }
+      file_url = supabase.storage.from('attachments').getPublicUrl(path).data.publicUrl
+      file_name = file.name
+      file_type = file.type || null
+      file_size = file.size ?? null
+    }
     const { data, error } = await supabase.from('notes')
-      .insert({ related_type: objectType, related_id: recordId, content: text.trim(), created_by: user?.id })
+      .insert({ related_type: objectType, related_id: recordId, content: text.trim() || null, created_by: user?.id, file_url, file_name, file_type, file_size })
       .select('*').single()
     setBusy(false)
     if (error) { toast('שמירת ההערה נכשלה: ' + error.message, 'err'); return }
-    setNotes(x => [{ ...data, created_by_user: users.find(u => u.id === data.created_by) }, ...x]); setText('')
+    setNotes(x => [{ ...data, created_by_user: users.find(u => u.id === data.created_by) }, ...x])
+    setText(''); setFile(null); if (fileRef.current) fileRef.current.value = ''
   }
 
   const addTask = async () => {
@@ -111,7 +135,7 @@ export default function ActivityFeed({ objectType, recordId, allowTasks = true }
           {allowTasks && <Button size="sm" variant={mode === 'task' ? 'default' : 'outline'} onClick={() => setMode('task')}><Icon name="calendar" size={13} /> משימה</Button>}
         </div>
 
-        <div className="bg-card focus-within:border-ring mb-4 rounded-lg border p-3 transition-colors">
+        <div data-tour="rec-composer" className="bg-card focus-within:border-ring mb-4 rounded-lg border p-3 transition-colors">
           <Textarea className="min-h-24 resize-y" value={text} onChange={e => setText(e.target.value)} placeholder={mode === 'note' ? 'הוסיפו הערה…' : 'נושא המשימה…'} />
           {allowTasks && mode === 'task' && (
             <>
@@ -139,9 +163,15 @@ export default function ActivityFeed({ objectType, recordId, allowTasks = true }
             </>
           )}
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <Button size="sm" onClick={mode === 'note' ? addNote : addTask} disabled={busy || !text.trim()}>
+            <Button size="sm" onClick={mode === 'note' ? addNote : addTask} disabled={busy || (!text.trim() && !(mode === 'note' && file))}>
               {busy ? <span className="spinner light" style={{ width: 14, height: 14 }} /> : 'פרסם'}
             </Button>
+            {mode === 'note' && (
+              <label className="border-input hover:bg-accent inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border px-3 text-xs font-medium transition-colors">
+                <Icon name="paperclip" size={13} /> {file ? file.name : 'צרף קובץ'}
+                <input ref={fileRef} type="file" className="hidden" onChange={e => setFile(e.target.files[0] || null)} />
+              </label>
+            )}
           </div>
         </div>
 
@@ -170,6 +200,7 @@ export default function ActivityFeed({ objectType, recordId, allowTasks = true }
                   {(n.created_by === user?.id) && <Button variant="ghost" size="icon" className="ms-auto size-6 text-[var(--err)]" onClick={() => delNote(n)}><Icon name="x" size={12} /></Button>}
                 </div>
                 {n.content && <div className="mt-1.5 text-sm whitespace-pre-wrap">{n.content}</div>}
+                {n.file_url && <Attachment url={n.file_url} name={n.file_name} size={n.file_size} />}
               </div>
             ))}
           </div>

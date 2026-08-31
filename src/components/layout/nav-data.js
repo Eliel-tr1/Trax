@@ -52,6 +52,20 @@ export const DETAIL_TITLES = [
 
 export const allNavItems = () => NAV_GROUPS.flatMap(g => g.items)
 
+// Applies a user's saved sidebar customization (app_users.prefs.navOrder /
+// .navHidden, set from Profile.jsx — feature-audit item #9, ported from
+// bina-crm's MySettings.jsx) to NAV_GROUPS: filters hidden items and
+// reorders the survivors within each group by their position in navOrder
+// (global order list, items not in it keep their original relative order).
+export function orderedGroups(prefs) {
+  const order = prefs?.navOrder || []
+  const hidden = new Set(prefs?.navHidden || [])
+  const rank = (path) => { const i = order.indexOf(path); return i === -1 ? 999 + order.length : i }
+  return NAV_GROUPS
+    .map(g => ({ ...g, items: g.items.filter(it => !hidden.has(it.path)).slice().sort((a, b) => rank(a.path) - rank(b.path)) }))
+    .filter(g => g.items.length > 0)
+}
+
 export function titleForPath(pathname) {
   if (pathname === '/profile') return 'הפרופיל שלי'
   const match = allNavItems()

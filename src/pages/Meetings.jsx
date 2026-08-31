@@ -12,6 +12,7 @@ import EditableCell from '../components/EditableCell'
 import RelatedLink from '../components/RelatedLink'
 import Modal from '../components/Modal'
 import Icon from '../components/Icon'
+import { MultiUserPicker } from '../components/UserPicker'
 
 const typeOpts = enumOpts(MEETING_TYPES)
 
@@ -77,6 +78,7 @@ export function MeetingFormModal({ defaultUnit, defaultRelatedType, defaultRelat
   const [type, setType] = useState('')
   const [summary, setSummary] = useState('')
   const [businessUnit, setBusinessUnit] = useState(defaultUnit || 'TRAX')
+  const [participants, setParticipants] = useState([])
   const [busy, setBusy] = useState(false)
 
   useEffect(() => { loadOptions().then(setOpts) }, [])
@@ -99,6 +101,7 @@ export function MeetingFormModal({ defaultUnit, defaultRelatedType, defaultRelat
       type: type || null,
       summary: summary.trim() || null,
       business_unit: businessUnit,
+      participants: participants.length ? participants : null,
     }).select().single()
     setBusy(false)
     if (error) { toast('היצירה נכשלה: ' + error.message, 'err'); return }
@@ -144,6 +147,9 @@ export function MeetingFormModal({ defaultUnit, defaultRelatedType, defaultRelat
         </div>
         <div className="field" style={{ gridColumn: '1 / -1' }}><label>סיכום</label>
           <textarea value={summary} onChange={e => setSummary(e.target.value)} style={{ minHeight: 64 }} />
+        </div>
+        <div className="field" style={{ gridColumn: '1 / -1' }}><label>משתתפים</label>
+          <MultiUserPicker users={opts?.users || []} value={participants} onChange={setParticipants} />
         </div>
       </div>
       <div className="row" style={{ marginTop: 6 }}>

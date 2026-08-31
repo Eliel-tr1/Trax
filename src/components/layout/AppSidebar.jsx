@@ -8,7 +8,7 @@ import {
 } from '../ui/sidebar'
 import UserAvatar from '../UserAvatar'
 import Icon from '../Icon'
-import { NAV_GROUPS } from './nav-data'
+import { orderedGroups } from './nav-data'
 import logoHeader from '../../assets/logo-header.png'
 
 /* TRAX rewrite of bina-crm's AppSidebar.jsx: same Sidebar primitive, no
@@ -39,7 +39,7 @@ export default function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        {NAV_GROUPS.map((group, i) => (
+        {orderedGroups(rep?.prefs).map((group, i) => (
           <SidebarGroup key={group.key ?? i}>
             {group.title && <SidebarGroupLabel>{group.title}</SidebarGroupLabel>}
             <SidebarGroupContent>
@@ -47,7 +47,7 @@ export default function AppSidebar() {
                 {group.items.map(item => (
                   <SidebarMenuItem key={item.path}>
                     <SidebarMenuButton asChild isActive={isActive(item)} tooltip={item.label}>
-                      <NavLink to={item.path} end={item.end} onClick={close}>
+                      <NavLink to={item.path} end={item.end} onClick={close} data-tour-nav={item.path}>
                         <Icon name={item.icon} size={17} />
                         <span>{item.label}</span>
                       </NavLink>
@@ -64,7 +64,7 @@ export default function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild size="lg" isActive={loc.pathname === '/profile'} tooltip="הפרופיל שלי">
-              <NavLink to="/profile" onClick={close}>
+              <NavLink to="/profile" onClick={close} data-tour="sidebar-user">
                 <UserAvatar user={rep} size="md" />
                 <div className="grid flex-1 text-start leading-tight">
                   <span className="truncate text-sm font-medium">{name}</span>
