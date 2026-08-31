@@ -18,6 +18,14 @@ export default function SystemFieldsTab({ record, users }) {
 
   return (
     <>
+      {/* Not every table carries business_unit (registrations, for one,
+          derives its unit from journey_id — see docs/domain-model.md) —
+          `'business_unit' in record` skips it cleanly rather than every
+          page having to know which tables have the column. Locked: it's
+          set once at creation and never changes (data/001_init_schema.sql). */}
+      {'business_unit' in record && (
+        <EditField label="יחידה עסקית" value={record.business_unit} readOnly readOnlyReason="נקבע בעת יצירת הרשומה ולא ניתן לשינוי" />
+      )}
       <EditField label="נוצר בתאריך" value={record.created_at} display={formatDateTime(record.created_at)}
         readOnly readOnlyReason="נחתם אוטומטית ביצירת הרשומה" />
       <div className="ef">

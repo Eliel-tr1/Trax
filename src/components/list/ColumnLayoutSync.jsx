@@ -36,6 +36,18 @@ const EMPTY_COLUMN_WIDTHS = {}
    genuinely later dependency change — hence armedRef below, separate
    from hydrated.
 
+   SECOND bug, same class, found live afterward: even with armedRef fixing
+   the spurious mount-time save, a REAL drag/resize still called
+   fetchRep(user) with no arguments below, which defaults to a non-silent
+   permissionStore.load() — i.e. every genuine column reorder/resize
+   flipped `loading` true then false once the debounced save landed,
+   remounting the entire routed screen (RequirePermission wraps every
+   route in App.jsx). That's "changing column order/width causes a full
+   page reload" — a different trigger than the mount-time bug above, but
+   the exact same RequirePermission-remount mechanism. Fix:
+   fetchRep(user, true) — silent, so `rep` still refreshes with the new
+   prefs but the route never unmounts. See authStore.js's fetchRep.
+
    Renders nothing — it only watches two store keys and syncs them. */
 export default function ColumnLayoutSync({ resource, datatableStoreKey }) {
   const rep = useAuthStore(s => s.rep)
@@ -81,7 +93,7 @@ export default function ColumnLayoutSync({ resource, datatableStoreKey }) {
         columnLayout: { ...(rep?.prefs?.columnLayout || {}), [resource]: current },
       }
       const { error } = await supabase.from('app_users').update({ prefs: nextPrefs }).eq('id', user.id)
-      if (!error) await fetchRep(user)
+      if (!error) await fetchRep(user, true)
     }, 600)
     return () => clearTimeout(saveTimer.current)
     // eslint-disable-next-line react-hooks/exhaustive-deps

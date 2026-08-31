@@ -8,7 +8,16 @@ import { toast } from '../components/Toaster'
 // bina-crm's lib/api.js — there is no separate manual audit insert here.
 export async function updateField(table, row, field, newValue) {
   let { error } = await supabase.from(table).update({ [field]: newValue }).eq('id', row.id)
-  if (error) { toast('השמירה נכשלה', 'err'); throw error }
+  // Defense-in-depth: every select-type field that's NOT NULL in the DB is
+  // supposed to have its empty "-" option removed client-side (see the
+  // `required` prop on EditField/EditableCell), so this should never fire —
+  // but if some caller ever falls out of sync with a schema change, a
+  // friendly Hebrew message beats a raw Postgres 23502 message reaching
+  // the user as a mystifying toast.
+  if (error) {
+    toast(error.code === '23502' ? 'שדה זה הוא חובה' : 'השמירה נכשלה', 'err')
+    throw error
+  }
   toast('נשמר')
   return true
 }

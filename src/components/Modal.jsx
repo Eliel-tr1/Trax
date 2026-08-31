@@ -10,7 +10,16 @@ export default function Modal({ title, icon = 'plus', onClose, children, maxWidt
   }, [onClose])
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,10,40,0.45)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={onClose}>
+    // zIndex 40 is deliberately just under the shadcn/Radix primitives'
+    // shared z-50 (Dialog/Sheet/Popover all use z-50 via their Portal, see
+    // ui/dialog.tsx, ui/sheet.tsx, ui/popover.tsx) — this legacy overlay is
+    // not itself portalled, so without this it renders inline in the tree
+    // and its z-index alone decides stacking. At 100 it sat *above* z-50,
+    // which meant any Radix popup opened from inside it (e.g. AvatarUpload's
+    // ImageCropDialog from the "משתמש חדש" invite modal) rendered behind it
+    // and became unclickable. 200 stays reserved for Toaster.jsx, which must
+    // always win.
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,10,40,0.45)', zIndex: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={onClose}>
       <div className="card" style={{ width: '100%', maxWidth, boxShadow: 'var(--sh3)', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
         <div className="card-title" style={{ display: 'flex', alignItems: 'center' }}>
           <Icon name={icon} /> <span style={{ flex: 1 }}>{title}</span>

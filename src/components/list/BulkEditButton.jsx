@@ -96,6 +96,15 @@ function BulkEditModal({ def, fields, table, ids, onClose, onDone, dataProvider 
     if (mode === 'single') {
       const f = fieldByKey(singleField)
       if (!f) return
+      // Checkboxes have no "untouched" state (false is a real value), but
+      // every other field type left at its blank default means the user
+      // never actually chose a value here — applying that as-is would
+      // silently null the column on every selected row (constraint error
+      // on a NOT NULL column like stage/status, silent data loss on a
+      // nullable one). Block it the same way "multi" mode already does.
+      if (f.type !== 'checkbox' && (singleValue === '' || singleValue === undefined)) {
+        toast('לא הוזן ערך לשדה', 'err'); return
+      }
       patch = { [f.key]: coerce(f, singleValue) }
     } else {
       for (const k of multiKeys) {

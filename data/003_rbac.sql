@@ -70,8 +70,16 @@ begin
   select * into v_perm from permissions where role_id = v_role_id and resource = p_resource;
   if not found then return false; end if;
 
+  -- 'view' is gated purely on can_view: row-level scoping for 'mine' is
+  -- enforced by each table's own RLS policy, not by this gate (see
+  -- permissionStore.js). Falling through to the owner-match check below for
+  -- 'view' would make every 'mine'-scoped view permission evaluate to false,
+  -- since callers rarely have a specific row's owner_id to pass at that point.
+  if p_action = 'view' then
+    return v_perm.can_view;
+  end if;
+
   case p_action
-    when 'view' then if not v_perm.can_view then return false; end if;
     when 'create' then if not v_perm.can_create then return false; end if;
     when 'edit' then if not v_perm.can_edit then return false; end if;
     when 'delete' then if not v_perm.can_delete then return false; end if;

@@ -5,6 +5,7 @@ import { REGISTRATION_STATUSES, enumOpts } from '../lib/constants'
 import { extraHiddenColumns } from '../lib/schema'
 import { formatCurrency } from '../lib/format'
 import { useBusinessUnitStore } from '../stores/businessUnitStore'
+import useSchemaFilterGroups from '../hooks/useSchemaFilterGroups'
 import ResourceList from '../components/ResourceList'
 import { BulkDeleteButton } from '../components/admin/bulk-delete-button'
 import BulkEditButton from '../components/list/BulkEditButton'
@@ -16,12 +17,15 @@ import StatusBadge from '../components/StatusBadge'
 const statusOpts = enumOpts(REGISTRATION_STATUSES)
 const UNPAID_STATUSES = ['משוריין', 'שולמה מקדמה']
 
-export default function Registrations() {
-  const nav = useNavigate()
-  const unit = useBusinessUnitStore(s => s.unit)
-  const [showNew, setShowNew] = useState(false)
-
-  const columns = [
+// Exported so nested "הרשמות" chips embedded inside CustomerDetail/
+// SaleDetail/JourneyDetail (RecordLayout's RelatedPanel, resource-mode)
+// render the exact same column set — order, labels, editability and the
+// extraHiddenColumns() tail — as the standalone Registrations screen,
+// instead of each detail page hand-rolling its own 2-3-column subset (which
+// also meant the columns picker there could only ever hide those 2-3
+// columns, never add any other real column — see the fix on those pages).
+export function registrationColumns() {
+  return [
     { source: 'registration_name', label: 'שם ההרשמה', csv: r => r.registration_name,
       render: r => <span style={{ fontWeight: 600, color: 'var(--mp)' }}>{r.registration_name || '-'}</span> },
     { source: 'customer_id', label: 'לקוח', csv: r => r.customer ? `${r.customer.first_name} ${r.customer.last_name}` : '',
@@ -29,12 +33,21 @@ export default function Registrations() {
     { source: 'journey_id', label: 'מסע', csv: r => r.journey?.name,
       render: r => r.journey?.name || '-' },
     { source: 'status', label: 'סטטוס הרשמה', csv: r => r.status,
-      render: r => <Cell row={r} field="status" mode="select" options={statusOpts}
+      render: r => <Cell row={r} field="status" mode="select" options={statusOpts} required
         display={v => <StatusBadge value={v} field="status" resource="registration" />} /> },
     { source: 'amount_paid', label: 'סכום ששולם', csv: r => r.amount_paid,
       render: r => <span className="small">{formatCurrency(r.amount_paid, r.currency)}</span> },
     ...extraHiddenColumns('registration', ['registration_name', 'customer_id', 'journey_id', 'status', 'amount_paid']),
   ]
+}
+
+export default function Registrations() {
+  const nav = useNavigate()
+  const unit = useBusinessUnitStore(s => s.unit)
+  const [showNew, setShowNew] = useState(false)
+  const filterGroups = useSchemaFilterGroups('registration')
+
+  const columns = registrationColumns()
 
   const presets = [
     { key: 'all', label: 'כל ההרשמות' },
@@ -51,6 +64,7 @@ export default function Registrations() {
         columns={columns} presets={presets}
         search="שם ההרשמה / מספר חשבונית"
         facets={[{ field: 'status', title: 'סטטוס הרשמה', options: statusOpts }]}
+        filters={filterGroups}
         rowPath={r => `/registrations/${r.id}`}
         bulkActions={<><BulkEditButton resource="registration" table="registrations" /><BulkDeleteButton /></>}
         actions={<button className="btn sm" onClick={() => setShowNew(true)}><Icon name="plus" size={15} /> הרשמה חדשה</button>}
@@ -63,7 +77,7 @@ export default function Registrations() {
   )
 }
 
-function Cell({ row, field, mode, options, display }) {
+function Cell({ row, field, mode, options, display, required }) {
   const refresh = useRefresh()
-  return <EditableCell row={row} table="registrations" field={field} mode={mode} options={options} display={display} onSaved={() => refresh()} />
+  return <EditableCell row={row} table="registrations" field={field} mode={mode} options={options} display={display} required={required} onSaved={() => refresh()} />
 }

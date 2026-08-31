@@ -257,17 +257,17 @@ export default function ActivityFeed({ objectType, recordId, record, allowTasks 
           {allowTasks && <Button size="sm" variant={mode === 'task' ? 'default' : 'outline'} onClick={() => switchMode('task')}><Icon name="tag" size={13} /> משימה</Button>}
         </div>
 
-        <div data-tour="rec-composer" className="bg-card focus-within:border-ring mb-4 rounded-lg border p-3 transition-colors">
+        <div data-tour="rec-composer" className="bg-card focus-within:border-ring mb-4 rounded-lg border p-4 transition-colors space-y-3">
           {mode === 'note'
             ? <Textarea className="min-h-24 resize-y" value={text} onChange={e => setText(e.target.value)} placeholder="הוסיפו הערה…" />
             : <Input value={text} onChange={e => setText(e.target.value)} placeholder={mode === 'task' ? 'נושא המשימה…' : 'נושא הפגישה…'} />}
 
           {allowTasks && mode === 'task' && (
-            <>
-              <div className="mt-3 flex flex-wrap items-center gap-1.5">
+            <div className="space-y-2.5">
+              <div className="flex flex-wrap items-center gap-2">
                 <Input className="h-7 w-48 text-xs" type="datetime-local" dir="ltr" value={due} onChange={e => setDue(e.target.value)} />
               </div>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2.5">
                 <span className="text-muted-foreground text-xs">עדיפות:</span>
                 {TASK_PRIORITIES.map(p => (
                   <Button key={p} size="sm" variant="outline" className="h-7 px-2.5 text-xs" onClick={() => setPriority(p)}
@@ -276,33 +276,33 @@ export default function ActivityFeed({ objectType, recordId, record, allowTasks 
                 <span className="text-muted-foreground text-xs">אחראי:</span>
                 <UserPicker users={users} value={assignee} onChange={v => setAssignee(v || '')} placeholder="בחרו אחראי" allowEmpty={false} className="w-44" />
               </div>
-            </>
+            </div>
           )}
 
           {allowMeetings && mode === 'meeting' && (
-            <>
-              <div className="mt-3 flex flex-wrap items-center gap-1.5">
+            <div className="space-y-2.5">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="text-muted-foreground text-xs">תאריך ושעה:</span>
                 <Input className="h-7 w-48 text-xs" type="datetime-local" dir="ltr" value={meetStart} onChange={e => setMeetStart(e.target.value)} />
                 <span className="text-muted-foreground text-xs">משך (דקות):</span>
                 <Input className="h-7 w-20 text-xs" type="number" value={meetDuration} onChange={e => setMeetDuration(e.target.value)} />
               </div>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2.5">
                 <span className="text-muted-foreground text-xs">סוג:</span>
                 {MEETING_TYPES.map(t => (
                   <Button key={t} size="sm" variant="outline" className="h-7 px-2.5 text-xs" onClick={() => setMeetType(t)}
                     style={meetType === t ? { background: 'var(--mp)', color: '#fff', borderColor: 'var(--mp)' } : undefined}>{t}</Button>
                 ))}
               </div>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2.5">
                 <span className="text-muted-foreground text-xs">משתתפים:</span>
                 <MultiUserPicker users={users} value={meetParticipants} onChange={setMeetParticipants} />
               </div>
-              <Textarea className="mt-2 min-h-16 resize-y text-xs" value={meetSummary} onChange={e => setMeetSummary(e.target.value)} placeholder="סיכום (אופציונלי)…" />
-            </>
+              <Textarea className="min-h-16 resize-y text-xs" value={meetSummary} onChange={e => setMeetSummary(e.target.value)} placeholder="סיכום (אופציונלי)…" />
+            </div>
           )}
 
-          <div className="mt-3 flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2.5 pt-1">
             <Button size="sm" onClick={submit} disabled={submitDisabled}>
               {busy ? <span className="spinner light" style={{ width: 14, height: 14 }} /> : 'פרסם'}
             </Button>

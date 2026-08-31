@@ -71,7 +71,7 @@ function Body({ columns, rowPath, bulkActions, emptyLabel }) {
 
 export default function ResourceList({
   resource, storeKey, sort, perPage = 50, filter, filterDefault, columns,
-  presets, facets, search, extra, actions, rowPath, bulkActions, exportName,
+  presets, facets, filters, search, extra, actions, rowPath, bulkActions, exportName,
   emptyLabel,
 }) {
   // DataTable defaults its own storeKey to `${resource}.datatable` when
@@ -89,7 +89,7 @@ export default function ResourceList({
       disableSyncWithLocation>
       <ColumnLayoutSync resource={resource} datatableStoreKey={datatableStoreKey} />
       <Toolbar
-        presets={presets} facets={facets} search={search}
+        presets={presets} facets={facets} filterGroups={filters} search={search}
         extra={<><SavedViews resource={resource} datatableStoreKey={datatableStoreKey} />{extra}</>}
         actions={<><ExportButton columns={columns} name={exportName || resource} />{actions}</>}
       />

@@ -26,14 +26,19 @@ export const useAuthStore = create((set, get) => ({
     })
   },
 
-  fetchRep: async (user) => {
+  // silent=true skips permissionStore's loading:true flip (see its load()
+  // comment) — used by callers that refetch `rep` as a side effect of a
+  // background write (e.g. ColumnLayoutSync persisting a column drag/resize)
+  // where the signed-in user's screen shouldn't unmount/remount just because
+  // their own prefs blob got a round trip.
+  fetchRep: async (user, silent = false) => {
     const { data } = await supabase
       .from('app_users')
       .select('*')
       .eq('id', user.id)
       .maybeSingle()
     set({ user, rep: data })
-    usePermissionStore.getState().load(user.id)
+    usePermissionStore.getState().load(user.id, silent)
   },
 
   signIn: async (email, password) => {

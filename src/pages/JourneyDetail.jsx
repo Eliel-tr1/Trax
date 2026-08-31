@@ -15,6 +15,7 @@ import { formatDate, formatCurrency } from '../lib/format'
 import StatusBadge, { badgeClassFor } from '../components/StatusBadge'
 import FieldTabs from '../components/FieldTabs'
 import SystemFieldsTab from '../components/SystemFieldsTab'
+import { registrationColumns } from './Registrations'
 
 export default function JourneyDetail() {
   const { id } = useParams()
@@ -69,18 +70,12 @@ export default function JourneyDetail() {
 
   const totalPassengers = Object.values(passengersByReg).reduce((n, arr) => n + arr.length, 0)
 
+  // listColumns reuses Registrations.jsx's own column builder — see the
+  // comment on CustomerDetail.jsx's `related` array for why.
   const related = [
     { key: 'registrations', label: 'הרשמות', count: regs.length, rows: regs, onOpen: r => `/registrations/${r.id}`,
       resource: 'registrations', fk: 'journey_id', recordId: id,
-      listColumns: [
-        { source: 'registration_name', label: 'הרשמה', render: r => r.registration_name || '-' },
-        { source: 'status', label: 'סטטוס', render: r => <StatusBadge value={r.status} field="status" resource="registration" /> },
-        { source: 'amount_paid', label: 'שולם', render: r => formatCurrency(r.amount_paid, r.currency) },
-      ],
-      columns: [
-        { label: 'הרשמה', get: r => r.registration_name || '-' },
-        { label: 'סטטוס', get: r => <StatusBadge value={r.status} field="status" resource="registration" /> },
-      ] },
+      listColumns: registrationColumns() },
   ]
 
   return (
@@ -102,7 +97,7 @@ export default function JourneyDetail() {
           <EditField label="יעד" value={j.destination} type="select" options={enumOpts(JOURNEY_DESTINATIONS)} onSave={v => save('destination', v)} />
           <EditField label="תאריך יציאה" value={j.departure_date} display={formatDate(j.departure_date)} type="date" onSave={v => save('departure_date', v)} />
           <EditField label="תאריך חזרה" value={j.return_date} display={formatDate(j.return_date)} type="date" onSave={v => save('return_date', v)} />
-          <EditField label="סטטוס יציאה" value={j.status} type="select" options={enumOpts(JOURNEY_STATUSES)}
+          <EditField label="סטטוס יציאה" value={j.status} type="select" options={enumOpts(JOURNEY_STATUSES)} required
             display={<StatusBadge value={j.status} field="status" resource="journey" />} onSave={v => save('status', v)} />
           <EditField label="מספר מקומות" value={j.seats_total} type="number" onSave={v => save('seats_total', v)} />
           <EditField label="מינימום להוצאה לדרך" value={j.min_seats} type="number" onSave={v => save('min_seats', v)} />

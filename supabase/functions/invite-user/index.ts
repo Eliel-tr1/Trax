@@ -12,11 +12,26 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+// supabase-js's functions.invoke() sends the caller's session as an
+// Authorization header, which makes this a cross-origin request the browser
+// preflights with an OPTIONS request before the real POST. Without these
+// headers (and without answering OPTIONS at all) the browser's CORS check on
+// the preflight fails silently and supabase-js reports it as a generic
+// "Failed to send a request to the Edge Function" — the actual bug behind
+// the invite flow's reported failure, not anything in the function's own
+// logic below.
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+  return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", ...corsHeaders } });
 }
 
 Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "POST only" }, 405);
 
   const authHeader = req.headers.get("Authorization") || "";

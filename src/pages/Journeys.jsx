@@ -5,6 +5,7 @@ import { JOURNEY_STATUSES, JOURNEY_DESTINATIONS, enumOpts } from '../lib/constan
 import { extraHiddenColumns } from '../lib/schema'
 import { formatDate, formatCurrency } from '../lib/format'
 import { useBusinessUnitStore } from '../stores/businessUnitStore'
+import useSchemaFilterGroups from '../hooks/useSchemaFilterGroups'
 import ResourceList from '../components/ResourceList'
 import { BulkDeleteButton } from '../components/admin/bulk-delete-button'
 import BulkEditButton from '../components/list/BulkEditButton'
@@ -25,6 +26,7 @@ export default function Journeys() {
   const nav = useNavigate()
   const unit = useBusinessUnitStore(s => s.unit)
   const [showNew, setShowNew] = useState(false)
+  const filterGroups = useSchemaFilterGroups('journey', ['business_unit'])
 
   const columns = [
     { source: 'name', label: 'שם היציאה', csv: r => r.name,
@@ -34,7 +36,7 @@ export default function Journeys() {
     { source: 'departure_date', label: 'תאריך יציאה', csv: r => r.departure_date,
       render: r => <span className="small">{formatDate(r.departure_date)}</span> },
     { source: 'status', label: 'סטטוס', csv: r => r.status,
-      render: r => <Cell row={r} field="status" mode="select" options={statusOpts}
+      render: r => <Cell row={r} field="status" mode="select" options={statusOpts} required
         display={v => <StatusBadge value={v} field="status" resource="journey" />} /> },
     { source: 'seats_sold', label: 'מקומות שנמכרו', sortable: true, csv: r => r.seats_sold,
       render: r => <span className="small">{r.seats_sold} / {r.seats_total}</span> },
@@ -63,6 +65,7 @@ export default function Journeys() {
           { field: 'status', title: 'סטטוס', options: statusOpts },
           { field: 'destination', title: 'יעד', options: destOpts },
         ]}
+        filters={filterGroups}
         rowPath={r => `/journeys/${r.id}`}
         bulkActions={<><BulkEditButton resource="journey" table="journeys" /><BulkDeleteButton /></>}
         actions={<button className="btn sm" onClick={() => setShowNew(true)}><Icon name="plus" size={15} /> מסע חדש</button>}
@@ -75,7 +78,7 @@ export default function Journeys() {
   )
 }
 
-function Cell({ row, field, mode, options, display }) {
+function Cell({ row, field, mode, options, display, required }) {
   const refresh = useRefresh()
-  return <EditableCell row={row} table="journeys" field={field} mode={mode} options={options} display={display} onSaved={() => refresh()} />
+  return <EditableCell row={row} table="journeys" field={field} mode={mode} options={options} display={display} required={required} onSaved={() => refresh()} />
 }

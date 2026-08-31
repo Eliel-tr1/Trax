@@ -15,10 +15,19 @@ import './PhoneInput.css'
 // swapped in via its `countrySelectComponent` extension point, matching the
 // shadcn/Radix Popover + Command primitives already used across the app.
 // Defaults to Israel (🇮🇱 +972) when no country/value is set.
+//
+// `international` is toggled dynamically off the current value's detected
+// country rather than passed as a static true/false: Israeli numbers get
+// the natural local 05X... look (matches how the client actually reads a
+// phone number), while any other country still shows the full +<code>
+// international format the client asked to keep for non-Israeli numbers.
+// The stored/emitted value is always E.164 either way — only the on-screen
+// formatting changes.
 export default function PhoneInput({ value, onChange, onBlur, disabled, readOnly, placeholder, className, autoFocus }) {
+  const country = useCountryOf(value) || 'IL'
   return (
     <PhoneInputBase
-      international
+      international={country !== 'IL'}
       autoFocus={autoFocus}
       defaultCountry="IL"
       countries={getCountries()}
@@ -37,14 +46,17 @@ export default function PhoneInput({ value, onChange, onBlur, disabled, readOnly
 
 // Read-only display: formatted, RTL-safe, with the flag alongside the
 // number — used anywhere a phone is only shown (lists, activity cards).
+// Israeli numbers (+972) render in natural local format (050-111-2223);
+// every other country keeps the international +<code> format.
 export function PhoneDisplay({ value }) {
   const country = useCountryOf(value)
   if (!value) return <span className="muted" style={{ fontWeight: 400 }}>-</span>
   const Flag = country && flags[country]
+  const formatted = country === 'IL' ? (formatPhoneNumber(value) || value) : formatPhoneNumberIntl(value)
   return (
     <span dir="ltr" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
       {Flag && <span style={{ width: 16, borderRadius: 2, overflow: 'hidden', display: 'inline-flex' }}><Flag title={en[country] || country} /></span>}
-      {value}
+      {formatted}
     </span>
   )
 }

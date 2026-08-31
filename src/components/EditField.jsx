@@ -10,13 +10,19 @@ import PhoneInput, { PhoneDisplay } from './PhoneInput'
 // linkTo: renders the value as an in-app navigable link (`#${linkTo}`,
 // matching the HashRouter convention used elsewhere, e.g. Tasks.jsx) instead
 // of plain text — a relation display, never itself editable here.
-export default function EditField({ label, value, display, type = 'text', options = [], onSave, ltr, placeholder, readOnly, readOnlyReason, linkTo }) {
+export default function EditField({ label, value, display, type = 'text', options = [], onSave, ltr, placeholder, readOnly, readOnlyReason, linkTo, required }) {
   const [edit, setEdit] = useState(false)
   const [saving, setSaving] = useState(false)
 
   const commit = async (v) => {
+    const next = v === '' ? null : v
+    // Required select fields (status/stage/priority-style columns that are
+    // NOT NULL in the DB) never offer an empty option below, but guard here
+    // too in case a caller forgets required/options are out of sync — a
+    // friendly inline message beats a raw Postgres constraint error.
+    if (required && next === null) { setEdit(false); return }
     setSaving(true)
-    try { await onSave(v === '' ? null : v) } catch { /* keep */ } finally { setSaving(false); setEdit(false) }
+    try { await onSave(next) } catch { /* keep */ } finally { setSaving(false); setEdit(false) }
   }
 
   const shown = display !== undefined ? display : value
@@ -69,7 +75,7 @@ export default function EditField({ label, value, display, type = 'text', option
     return row(
       <select className="input" autoFocus defaultValue={value ?? ''} disabled={saving}
         onBlur={() => setEdit(false)} onChange={e => commit(e.target.value)}>
-        <option value="">-</option>
+        {!required && <option value="">-</option>}
         {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
     )

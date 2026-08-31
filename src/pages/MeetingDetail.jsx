@@ -53,7 +53,6 @@ export default function MeetingDetail() {
           <EditField label="תאריך ושעה" value={m.start_at?.slice(0, 16)} display={formatDateTime(m.start_at)} type="datetime" onSave={v => save('start_at', v)} />
           <EditField label="משך (דקות)" value={m.duration_minutes} type="number" onSave={v => save('duration_minutes', v)} />
           <EditField label="סוג" value={m.type} type="select" options={enumOpts(MEETING_TYPES)} onSave={v => save('type', v)} />
-          <EditField label="יחידה עסקית" value={m.business_unit} readOnly readOnlyReason="נקבע בעת יצירת הפגישה ולא ניתן לשינוי" />
           {m.google_event_id && <EditField label="סנכרון יומן גוגל" value={m.google_event_id} readOnly readOnlyReason="מגיע מסנכרון Google Calendar" />}
         </div>
         <div style={{ marginTop: 10 }}>

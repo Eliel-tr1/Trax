@@ -5,6 +5,7 @@ import { extraHiddenColumns } from '../lib/schema'
 import { formatDateTime } from '../lib/format'
 import { useBusinessUnitStore } from '../stores/businessUnitStore'
 import { loadOptions } from '../lib/api'
+import useSchemaFilterGroups from '../hooks/useSchemaFilterGroups'
 import ResourceList from '../components/ResourceList'
 import { BulkDeleteButton } from '../components/admin/bulk-delete-button'
 import BulkEditButton from '../components/list/BulkEditButton'
@@ -22,14 +23,16 @@ const resultOpts = enumOpts(CALL_RESULTS)
 // the expected real-world state, not a bug — EmptyState (via ResourceList)
 // shows a plain "no records" message with no misleading "create one" hint
 // since no `actions` create button is passed here.
-export default function PhoneCalls() {
-  const unit = useBusinessUnitStore(s => s.unit)
-  const [users, setUsers] = useState([])
-  useEffect(() => { loadOptions().then(o => setUsers(o.users || [])) }, [])
+// Exported so a nested "שיחות" chip (CustomerDetail's related panel) uses
+// the identical column set as the standalone PhoneCalls screen — see the
+// same comment on Registrations.jsx's registrationColumns(). Takes `users`
+// (loadOptions()'s users list) since assigned_user_id resolves a name/avatar
+// from it — the caller is expected to have already loaded it.
+export function phoneCallsColumns(users) {
   const userFor = (id) => users.find(u => u.id === id)
   const nameFor = (id) => userFor(id)?.full_name || '-'
 
-  const columns = [
+  return [
     { source: 'related_id', label: 'לקוח', sortable: false, csv: r => r.related_id,
       render: r => <RelatedLink relatedType={r.related_type} relatedId={r.related_id} showType={false} /> },
     { source: 'direction', label: 'כיוון', csv: r => r.direction,
@@ -50,6 +53,15 @@ export default function PhoneCalls() {
     { source: 'business_unit', label: 'יחידה עסקית', hidden: true, csv: r => r.business_unit, render: r => r.business_unit || '-' },
     ...extraHiddenColumns('phone_call', ['related_id', 'direction', 'occurred_at', 'duration_seconds', 'result', 'assigned_user_id', 'recording_url', 'summary', 'business_unit']),
   ]
+}
+
+export default function PhoneCalls() {
+  const unit = useBusinessUnitStore(s => s.unit)
+  const [users, setUsers] = useState([])
+  const filterGroups = useSchemaFilterGroups('phone_call', ['business_unit'])
+  useEffect(() => { loadOptions().then(o => setUsers(o.users || [])) }, [])
+
+  const columns = phoneCallsColumns(users)
 
   return (
     <ResourceList
@@ -63,6 +75,7 @@ export default function PhoneCalls() {
         { field: 'direction', title: 'כיוון', options: directionOpts },
         { field: 'result', title: 'תוצאה', options: resultOpts },
       ]}
+      filters={filterGroups}
       rowPath={r => `/phone-calls/${r.id}`}
       bulkActions={<><BulkEditButton resource="phone_call" table="phone_calls" /><BulkDeleteButton /></>}
     />

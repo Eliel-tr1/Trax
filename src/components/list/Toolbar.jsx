@@ -7,6 +7,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../ui/sheet'
 import { Input } from '../ui/input'
 import { ColumnsButton } from '../admin/columns-button'
 import FacetedFilter from './FacetedFilter'
+import FiltersPanel from './FiltersPanel'
 
 /* List toolbar modelled on satnaing/shadcn-admin (MIT): a search box, quick
    preset tabs, faceted filters, a reset affordance, and the column selector,
@@ -14,7 +15,7 @@ import FacetedFilter from './FacetedFilter'
 
    Everything here reads and writes ra-core's filter state, so a preset, a
    facet and the search box can never disagree about what the list shows. */
-export default function Toolbar({ presets, facets, search, actions, extra }) {
+export default function Toolbar({ presets, facets, filterGroups, search, actions, extra }) {
   const { filterValues, setFilters } = useListContext()
   const [q, setQ] = useState(filterValues?.q || '')
   const [sheet, setSheet] = useState(false)
@@ -81,6 +82,7 @@ export default function Toolbar({ presets, facets, search, actions, extra }) {
           </Button>
         ))}
         {facets?.map(f => <FacetedFilter key={f.field} {...f} />)}
+        <FiltersPanel groups={filterGroups} />
         {filtered && (
           <Button variant="ghost" size="sm" className="h-9 px-2"
             onClick={() => setFilters(filterValues?.q ? { q: filterValues.q } : {}, null, false)}>
@@ -115,6 +117,12 @@ export default function Toolbar({ presets, facets, search, actions, extra }) {
                 <div className="flex flex-wrap gap-2">
                   {facets.map(f => <FacetedFilter key={f.field} {...f} />)}
                 </div>
+              </div>
+            )}
+            {!!filterGroups?.length && (
+              <div>
+                <p className="mb-2 text-sm font-medium">כל השדות</p>
+                <FiltersPanel groups={filterGroups} />
               </div>
             )}
             {filtered && (

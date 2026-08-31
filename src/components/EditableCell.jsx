@@ -7,7 +7,7 @@ import PhoneInput, { PhoneDisplay } from './PhoneInput'
 // type: 'text' | 'number' — 'number' renders a <input type="number"> and
 // coerces to a JS number (or null) before saving, so numeric columns (e.g.
 // registration_passengers.age) don't get written as raw strings.
-export default function EditableCell({ row, field, table = 'customers', mode = 'text', type = 'text', options = [], display, placeholder, onSaved }) {
+export default function EditableCell({ row, field, table = 'customers', mode = 'text', type = 'text', options = [], display, placeholder, onSaved, required }) {
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const selectRef = useRef(null)
@@ -19,6 +19,11 @@ export default function EditableCell({ row, field, table = 'customers', mode = '
 
   const save = async (newVal) => {
     if (newVal === value || (newVal === '' && value == null)) { setEditing(false); return }
+    // Required select fields (NOT NULL columns like tasks.status) never
+    // render the empty option below, but guard here too — same reasoning
+    // as EditField.jsx's commit() — so a raw constraint error can never
+    // reach the user even if a caller's `required` gets out of sync.
+    if (required && newVal === '') { setEditing(false); return }
     setSaving(true)
     try {
       await updateField(table, row, field, newVal === '' ? null : newVal)
@@ -36,7 +41,7 @@ export default function EditableCell({ row, field, table = 'customers', mode = '
         onBlur={() => setEditing(false)}
         onChange={e => { e.stopPropagation(); save(e.target.value) }}
       >
-        <option value="">-</option>
+        {!required && <option value="">-</option>}
         {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
     )

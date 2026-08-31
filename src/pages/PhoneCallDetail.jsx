@@ -72,11 +72,20 @@ export default function PhoneCallDetail() {
             <UserPicker users={users} value={c.assigned_user_id} onChange={v => save('assigned_user_id', v)}
               placeholder="בחרו נציג" emptyLabel="לא שויך" />
           </div>
-          <EditField label="יחידה עסקית" value={c.business_unit} readOnly readOnlyReason="נקבע אוטומטית ולא ניתן לשינוי" />
         </div>
         <div style={{ marginTop: 10 }}><CallRecordingPlayer url={c.recording_url} /></div>
         <div style={{ marginTop: 10 }}><EditField label="תמליל" value={c.transcript} type="textarea" readOnly readOnlyReason="מגיע אוטומטית מתמלול השיחה" /></div>
         <div style={{ marginTop: 10 }}><EditField label="סיכום AI" value={c.summary} type="textarea" readOnly readOnlyReason="מגיע אוטומטית מ-Fireberry (סיכום AI של Voicenter)" /></div>
+
+        {/* Wasn't rendered before despite the import — phone_calls had no
+            system-fields tab at all, so execution_url/business_unit/audit
+            fields never showed here. Same generic tab every other detail
+            screen uses. */}
+        <FieldTabs tabs={[
+          {
+            key: 'system', label: 'שדות מערכת', content: <SystemFieldsTab record={c} users={users} />,
+          },
+        ]} />
       </div>
     </RecordLayout>
   )

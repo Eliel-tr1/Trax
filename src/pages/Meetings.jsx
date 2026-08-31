@@ -7,6 +7,7 @@ import { toast } from '../components/Toaster'
 import { MEETING_TYPES, enumOpts } from '../lib/constants'
 import { formatDateTime } from '../lib/format'
 import { useBusinessUnitStore } from '../stores/businessUnitStore'
+import useSchemaFilterGroups from '../hooks/useSchemaFilterGroups'
 import ResourceList from '../components/ResourceList'
 import { BulkDeleteButton } from '../components/admin/bulk-delete-button'
 import BulkEditButton from '../components/list/BulkEditButton'
@@ -19,12 +20,11 @@ import EntityPicker from '../components/EntityPicker'
 
 const typeOpts = enumOpts(MEETING_TYPES)
 
-export default function Meetings() {
-  const nav = useNavigate()
-  const unit = useBusinessUnitStore(s => s.unit)
-  const [showNew, setShowNew] = useState(false)
-
-  const columns = [
+// Exported so nested "פגישות" chips (CustomerDetail/SaleDetail's related
+// panel) use the identical column set as the standalone Meetings screen —
+// see the same comment on Registrations.jsx's registrationColumns().
+export function meetingsColumns() {
+  return [
     { source: 'subject', label: 'נושא', csv: r => r.subject,
       render: r => <span style={{ fontWeight: 600, color: 'var(--mp)' }}>{r.subject}</span> },
     { source: 'related_id', label: 'משויך ל', sortable: false, csv: r => r.related_id,
@@ -38,6 +38,15 @@ export default function Meetings() {
     { source: 'summary', label: 'סיכום', hidden: true, csv: r => r.summary, render: r => r.summary || '-' },
     { source: 'business_unit', label: 'יחידה עסקית', hidden: true, csv: r => r.business_unit, render: r => r.business_unit || '-' },
   ]
+}
+
+export default function Meetings() {
+  const nav = useNavigate()
+  const unit = useBusinessUnitStore(s => s.unit)
+  const [showNew, setShowNew] = useState(false)
+  const filterGroups = useSchemaFilterGroups('meeting', ['business_unit'])
+
+  const columns = meetingsColumns()
 
   return (
     <>
@@ -49,6 +58,7 @@ export default function Meetings() {
         columns={columns}
         search="נושא"
         facets={[{ field: 'type', title: 'סוג', options: typeOpts }]}
+        filters={filterGroups}
         rowPath={r => `/meetings/${r.id}`}
         bulkActions={<><BulkEditButton resource="meeting" table="meetings" /><BulkDeleteButton /></>}
         actions={<button className="btn sm" onClick={() => setShowNew(true)}><Icon name="plus" size={15} /> פגישה חדשה</button>}
