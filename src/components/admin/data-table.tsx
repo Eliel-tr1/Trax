@@ -1,5 +1,14 @@
 import type { ReactNode } from "react";
-import { Children, createElement, isValidElement, useCallback, useRef } from "react";
+import {
+  Children,
+  cloneElement,
+  createContext,
+  createElement,
+  isValidElement,
+  useCallback,
+  useContext,
+  useRef,
+} from "react";
 import type {
   DataTableBaseProps,
   ExtractRecordPaths,
@@ -51,6 +60,7 @@ import {
 import {
   ColumnsSelector,
   ColumnsSelectorItem,
+  padRanks,
 } from "@/components/admin/columns-button";
 import { NumberField } from "@/components/admin/number-field";
 import {
@@ -59,6 +69,55 @@ import {
 } from "@/components/admin/bulk-actions-toolbar";
 
 const defaultBulkActionButtons = <BulkActionsToolbarChildren />;
+
+// Carries the total (pre-reorder) column count from DataTable down to each
+// header cell, so a header can compute a full-length columnRanks array on
+// its own the first time a column is dragged (see moveColumnRank below).
+const ColumnCountContext = createContext<number>(0);
+
+// A stable default so `useStore(..., {})` doesn't hand the hook a fresh
+// object identity on every render — ra-core's useStore puts `defaultValue`
+// in a useEffect dependency array, so a literal `{}` here was tearing down
+// and rebuilding the cross-component store subscription on every re-render,
+// dropping any `setItem` published during that gap (e.g. a resize's rapid
+// pointermove updates could vanish before ColumnLayoutSync ever saw them).
+const EMPTY_COLUMN_WIDTHS: Record<string, number> = {};
+
+/**
+ * Same rank-swap algorithm as ColumnsSelectorItem's handleMove (columns-
+ * button.tsx), lifted out so header-drag reordering and the columns-popover
+ * drag reordering stay in agreement — both write the same `${storeKey}_columnRanks`
+ * store entry, so whichever one a user reaches for, the other reflects it.
+ */
+const moveColumnRank = (
+  current: number[] | undefined,
+  total: number,
+  dragIndex: number,
+  dropIndex: number,
+): number[] => {
+  const colRanks = !current
+    ? padRanks([], Math.max(dragIndex, dropIndex, total - 1) + 1)
+    : Math.max(dragIndex, dropIndex) > current.length - 1
+      ? padRanks(current, Math.max(dragIndex, dropIndex) + 1)
+      : current;
+  const dragPos = colRanks.indexOf(dragIndex);
+  const dropPos = colRanks.indexOf(dropIndex);
+  if (dragPos === -1 || dropPos === -1) return colRanks;
+  if (dragPos > dropPos) {
+    return [
+      ...colRanks.slice(0, dropPos),
+      colRanks[dragPos],
+      ...colRanks.slice(dropPos, dragPos),
+      ...colRanks.slice(dragPos + 1),
+    ];
+  }
+  return [
+    ...colRanks.slice(0, dragPos),
+    ...colRanks.slice(dragPos + 1, dropPos + 1),
+    colRanks[dragPos],
+    ...colRanks.slice(dropPos + 1),
+  ];
+};
 
 /**
  * A powerful data table with sorting, selection, and column customization.
@@ -101,9 +160,21 @@ export function DataTable<RecordType extends RaRecord = RaRecord>(
   const resourceFromContext = useResourceContext(props);
   const storeKey = props.storeKey || `${resourceFromContext}.datatable`;
   const [columnRanks] = useStore<number[]>(`${storeKey}_columnRanks`);
+  // Tag each column with its original (pre-reorder) index before reordering,
+  // so a header cell dragged mid-table still knows its stable identity —
+  // reorderChildren moves the element objects around, and cloneElement's
+  // prop travels with them.
+  const rawChildren = Children.toArray(children);
+  const taggedChildren = rawChildren.map((child, i) =>
+    isValidElement(child)
+      ? cloneElement(child as React.ReactElement<{ _colIndex?: number }>, {
+          _colIndex: i,
+        })
+      : child,
+  );
   const columns = columnRanks
-    ? reorderChildren(children, columnRanks)
-    : children;
+    ? reorderChildren(taggedChildren, columnRanks)
+    : taggedChildren;
 
   return (
     <DataTableBase<RecordType>
@@ -115,7 +186,9 @@ export function DataTable<RecordType extends RaRecord = RaRecord>(
       <div className={cn("rounded-md border", className)}>
         <Table>
           <DataTableRenderContext.Provider value="header">
-            <DataTableHead>{columns}</DataTableHead>
+            <ColumnCountContext.Provider value={rawChildren.length}>
+              <DataTableHead>{columns}</DataTableHead>
+            </ColumnCountContext.Provider>
           </DataTableRenderContext.Provider>
           <DataTableBody<RecordType> rowClassName={rowClassName}>
             {columns}
@@ -348,6 +421,7 @@ function DataTableHeadCell<
     sortByOrder,
     className,
     headerClassName,
+    _colIndex,
   } = props;
 
   const sort = useDataTableSortContext();
@@ -360,10 +434,42 @@ function DataTableHeadCell<
   const isColumnHidden = hiddenColumns.includes(source!);
   const [columnWidths, setColumnWidths] = useStore<Record<string, number>>(
     `${storeKey}_columnWidths`,
-    {},
+    EMPTY_COLUMN_WIDTHS,
   );
+  const [columnRanks, setColumnRanks] = useStore<number[]>(
+    `${storeKey}_columnRanks`,
+  );
+  const totalColumns = useContext(ColumnCountContext);
   const thRef = useRef<HTMLTableCellElement>(null);
   const width = source ? columnWidths?.[source] : undefined;
+
+  // Drag a header cell onto another to swap their order. Kept independent
+  // of the resize handle below (that one uses pointer events and stops
+  // propagation, so it never triggers a native dragstart).
+  const handleHeaderDragStart = useCallback(
+    (e: React.DragEvent) => {
+      if (_colIndex == null) return;
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", String(_colIndex));
+    },
+    [_colIndex],
+  );
+  const handleHeaderDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  }, []);
+  const handleHeaderDrop = useCallback(
+    (e: React.DragEvent) => {
+      if (_colIndex == null) return;
+      e.preventDefault();
+      const dragIndex = Number(e.dataTransfer.getData("text/plain"));
+      if (Number.isNaN(dragIndex) || dragIndex === _colIndex) return;
+      setColumnRanks(
+        moveColumnRank(columnRanks, totalColumns, dragIndex, _colIndex),
+      );
+    },
+    [_colIndex, columnRanks, totalColumns, setColumnRanks],
+  );
 
   const handleResizeStart = useCallback(
     (e: React.PointerEvent) => {
@@ -418,8 +524,18 @@ function DataTableHeadCell<
   return (
     <TableHead
       ref={thRef}
-      className={cn(className, headerClassName, "relative")}
+      className={cn(
+        className,
+        headerClassName,
+        "relative",
+        source && "cursor-grab active:cursor-grabbing",
+      )}
       style={width ? { width, minWidth: width, maxWidth: width } : undefined}
+      draggable={!!source && _colIndex != null}
+      onDragStart={handleHeaderDragStart}
+      onDragOver={handleHeaderDragOver}
+      onDrop={handleHeaderDrop}
+      title={source ? "גררו לשינוי מיקום העמודה" : undefined}
     >
       {source && (
         <span
@@ -499,7 +615,7 @@ function DataTableCell<
   const [hiddenColumns] = useStore<string[]>(storeKey, defaultHiddenColumns);
   const [columnWidths] = useStore<Record<string, number>>(
     `${storeKey}_columnWidths`,
-    {},
+    EMPTY_COLUMN_WIDTHS,
   );
   const record = useRecordContext<RecordType>();
   const isColumnHidden = hiddenColumns.includes(source!);
@@ -545,6 +661,8 @@ export interface DataTableColumnProps<
   label?: React.ReactNode;
   disableSort?: boolean;
   sortByOrder?: SortPayload["order"];
+  /** @internal original column index, injected by DataTable for header drag-reorder */
+  _colIndex?: number;
 }
 
 export function DataTableNumberColumn<

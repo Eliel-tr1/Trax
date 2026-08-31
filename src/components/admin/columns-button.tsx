@@ -331,7 +331,7 @@ export interface ColumnsSelectorItemProps<
   sortByOrder?: SortPayload["order"];
 }
 // Function to help with column ranking
-const padRanks = (ranks: number[], length: number) =>
+export const padRanks = (ranks: number[], length: number) =>
   ranks.concat(
     Array.from({ length: length - ranks.length }, (_, i) => ranks.length + i),
   );

@@ -7,6 +7,8 @@ import { DataTable } from './admin/data-table'
 import { Button } from './ui/button'
 import Toolbar from './list/Toolbar'
 import Pagination from './list/Pagination'
+import SavedViews from './list/SavedViews'
+import ColumnLayoutSync from './list/ColumnLayoutSync'
 import { exportCsv } from '../lib/export'
 
 /* ============================================================
@@ -72,6 +74,12 @@ export default function ResourceList({
   presets, facets, search, extra, actions, rowPath, bulkActions, exportName,
   emptyLabel,
 }) {
+  // DataTable defaults its own storeKey to `${resource}.datatable` when
+  // ResourceList doesn't pass one down (it doesn't) — ColumnLayoutSync and
+  // SavedViews need that exact key to read/write the same column
+  // order/width state the table itself drags and resizes live.
+  const datatableStoreKey = `${resource}.datatable`
+
   return (
     // disableSyncWithLocation is load-bearing — see bina-crm's original
     // comment: two list screens at the same position in the tree would
@@ -79,8 +87,10 @@ export default function ResourceList({
     <ListBase key={resource} resource={resource} sort={sort} perPage={perPage} filter={filter}
       filterDefaultValues={filterDefault} storeKey={storeKey || resource}
       disableSyncWithLocation>
+      <ColumnLayoutSync resource={resource} datatableStoreKey={datatableStoreKey} />
       <Toolbar
-        presets={presets} facets={facets} search={search} extra={extra}
+        presets={presets} facets={facets} search={search}
+        extra={<><SavedViews resource={resource} datatableStoreKey={datatableStoreKey} />{extra}</>}
         actions={<><ExportButton columns={columns} name={exportName || resource} />{actions}</>}
       />
       <Body columns={columns} rowPath={rowPath} bulkActions={bulkActions} emptyLabel={emptyLabel} />
