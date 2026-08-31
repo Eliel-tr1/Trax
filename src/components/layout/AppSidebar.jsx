@@ -9,6 +9,7 @@ import {
 import UserAvatar from '../UserAvatar'
 import Icon from '../Icon'
 import { NAV_GROUPS } from './nav-data'
+import logoHeader from '../../assets/logo-header.png'
 
 /* TRAX rewrite of bina-crm's AppSidebar.jsx: same Sidebar primitive, no
    permission-driven collapse/pin logic (spec: 2 users, both full owners —
@@ -32,10 +33,9 @@ export default function AppSidebar() {
 
   return (
     <Sidebar side="left" collapsible="icon">
-      <SidebarHeader className="h-16 justify-center px-4 group-data-[collapsible=icon]:px-0">
+      <SidebarHeader className="h-16 flex-row items-center justify-center gap-2 px-4 group-data-[collapsible=icon]:px-0">
+        <img src={logoHeader} alt="TRAX" className="size-8 shrink-0 rounded-md object-contain" />
         <span className="group-data-[collapsible=icon]:hidden text-lg font-bold">TRAX CRM</span>
-        <span className="text-sidebar-primary-foreground bg-sidebar-primary mx-auto hidden size-8 shrink-0 items-center justify-center rounded-lg text-lg font-bold group-data-[collapsible=icon]:flex"
-          aria-hidden="true">T</span>
       </SidebarHeader>
 
       <SidebarContent>

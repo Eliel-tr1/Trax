@@ -22,7 +22,7 @@ const SCHEMA: Record<string, { table: string; fields: string[] }> = {
       "lead_source", "campaign", "status", "notes", "lead_rating",
       "club_member", "club_joined_at", "credit_balance",
       "extreme_experience_level", "preferred_language",
-      "company", "job_title", "work_email", "owner_id", "custom",
+      "company", "job_title", "work_email", "owner_id", "custom", "execution_url",
     ],
   },
   sales: {
@@ -32,7 +32,7 @@ const SCHEMA: Record<string, { table: string; fields: string[] }> = {
       "campaign", "owner_id", "loss_reason", "journey_id",
       "participants_count", "expected_value", "currency",
       "qualification_rating", "qualification_summary", "next_call_at",
-      "interest_area", "custom",
+      "interest_area", "custom", "execution_url",
     ],
   },
   journeys: {
@@ -41,7 +41,7 @@ const SCHEMA: Record<string, { table: string; fields: string[] }> = {
       "name", "business_unit", "destination", "departure_date",
       "return_date", "seats_total", "min_seats", "status",
       "price_per_person", "currency", "includes_flights",
-      "short_description", "page_url", "operations_notes", "custom",
+      "short_description", "page_url", "operations_notes", "custom", "execution_url",
     ],
   },
   registrations: {
@@ -50,19 +50,19 @@ const SCHEMA: Record<string, { table: string; fields: string[] }> = {
       "customer_id", "journey_id", "sale_id", "status", "amount_paid",
       "currency", "last_payment_date", "payment_method", "invoice_number",
       "passport_valid", "travel_insurance", "medical_dietary_notes",
-      "emergency_contact", "includes_flight_for_participant", "custom",
+      "emergency_contact", "includes_flight_for_participant", "custom", "execution_url",
     ],
   },
   tasks: {
     table: "tasks",
     fields: [
       "subject", "related_type", "related_id", "assignee_id", "due_at",
-      "status", "priority", "description", "business_unit",
+      "status", "priority", "description", "business_unit", "execution_url",
     ],
   },
   contacts: {
     table: "contacts",
-    fields: ["customer_id", "name", "phone", "email", "role"],
+    fields: ["customer_id", "name", "phone", "email", "role", "execution_url"],
   },
 };
 
