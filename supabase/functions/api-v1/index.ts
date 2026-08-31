@@ -22,7 +22,8 @@ const SCHEMA: Record<string, { table: string; fields: string[] }> = {
       "lead_source", "campaign", "status", "notes", "lead_rating",
       "club_member", "club_joined_at", "credit_balance",
       "extreme_experience_level", "preferred_language",
-      "company", "job_title", "work_email", "owner_id", "custom", "execution_url",
+      "company", "job_title", "work_email", "owner_id", "account_manager_id", "custom", "execution_url",
+      "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "landing_page", "referrer",
     ],
   },
   sales: {
@@ -33,6 +34,7 @@ const SCHEMA: Record<string, { table: string; fields: string[] }> = {
       "participants_count", "expected_value", "currency",
       "qualification_rating", "qualification_summary", "next_call_at",
       "interest_area", "custom", "execution_url",
+      "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "landing_page", "referrer",
     ],
   },
   journeys: {
