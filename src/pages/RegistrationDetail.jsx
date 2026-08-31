@@ -7,22 +7,28 @@ import {
 } from '../lib/constants'
 import RecordLayout from '../components/RecordLayout'
 import EditField from '../components/EditField'
+import RegistrationPassengers from '../components/RegistrationPassengers'
 import { REGISTRATION_STATUS_BADGE } from './Registrations'
 
-const SECTIONS = ['פרטים', 'תשלום ומסמכים']
+const SECTIONS = ['פרטים', 'נוסעים', 'תשלום ומסמכים']
 
 export default function RegistrationDetail() {
   const { id } = useParams()
   const [r, setR] = useState(null)
   const [sec, setSec] = useState('פרטים')
+  const [passengerCount, setPassengerCount] = useState(null)
   const [loading, setLoading] = useState(true)
 
   const load = async () => {
     setLoading(true)
-    const { data } = await supabase.from('registrations')
-      .select('*, customer:customers(id,first_name,last_name), journey:journeys(id,name,departure_date), sale:sales(id,deal_name)')
-      .eq('id', id).single()
+    const [{ data }, { count }] = await Promise.all([
+      supabase.from('registrations')
+        .select('*, customer:customers(id,first_name,last_name), journey:journeys(id,name,departure_date), sale:sales(id,deal_name)')
+        .eq('id', id).single(),
+      supabase.from('registration_passengers').select('id', { count: 'exact', head: true }).eq('registration_id', id),
+    ])
     setR(data)
+    setPassengerCount(count ?? 0)
     setLoading(false)
   }
   useEffect(() => { load() }, [id])
@@ -35,7 +41,10 @@ export default function RegistrationDetail() {
   return (
     <RecordLayout
       title={r.registration_name || 'הרשמה חדשה'}
-      subtitle={r.journey ? `${r.journey.name}${r.journey.departure_date ? ' · ' + new Date(r.journey.departure_date).toLocaleDateString('he-IL') : ''}` : undefined}
+      subtitle={[
+        r.journey ? `${r.journey.name}${r.journey.departure_date ? ' · ' + new Date(r.journey.departure_date).toLocaleDateString('he-IL') : ''}` : null,
+        passengerCount != null ? `${passengerCount} נוסעים` : null,
+      ].filter(Boolean).join(' · ') || undefined}
       backTo="/registrations"
       status={{ label: r.status, badge: REGISTRATION_STATUS_BADGE[r.status] || 'gray' }}
       objectType="registration" recordId={id}
@@ -55,6 +64,7 @@ export default function RegistrationDetail() {
           <EditField label="איש קשר לחירום" value={r.emergency_contact} onSave={v => save('emergency_contact', v)} />
           <EditField label="תאריך הרשמה" value={r.registered_at?.slice(0, 10)} readOnly readOnlyReason="נחתם אוטומטית ביצירת ההרשמה" />
         </div>}
+        {sec === 'נוסעים' && <RegistrationPassengers registrationId={id} onCountChange={setPassengerCount} />}
         {sec === 'תשלום ומסמכים' && <div className="field-grid">
           <EditField label="סכום ששולם" value={r.amount_paid} type="number" onSave={v => save('amount_paid', v)} />
           <EditField label="מטבע" value={r.currency} type="select" options={CURRENCIES} onSave={v => save('currency', v)} />

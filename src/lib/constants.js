@@ -52,6 +52,10 @@ export const JOURNEY_STATUSES = ['בתכנון', 'פתוח להרשמה', 'כמ�
 export const REGISTRATION_STATUSES = ['משוריין', 'שולמה מקדמה', 'שולם במלואו', 'בוטל']
 export const PAYMENT_METHODS = ['אשראי', 'העברה בנקאית', 'אחר']
 
+// registration_passengers — per-passenger fields on a registration.
+export const PASSENGER_GENDERS = ['זכר', 'נקבה', 'אחר']
+export const PASSENGER_LANGUAGES = PREFERRED_LANGUAGES
+
 // Task
 export const TASK_STATUSES = ['פתוחה', 'בוצעה', 'בוטלה']
 export const TASK_PRIORITIES = ['רגילה', 'גבוהה', 'דחופה']
@@ -65,3 +69,8 @@ export const CALL_DIRECTIONS = ['נכנסת', 'יוצאת']
 export const CALL_RESULTS = ['נענתה', 'לא נענתה', 'תפוס', 'השאיר הודעה']
 
 export const enumOpts = (arr) => arr.map((x) => ({ value: x, label: x }))
+
+// Fallback used only if the `cardcom_payment_url` row is missing from
+// system_settings (Settings > פרטי מערכת) — the live URL is swapped there,
+// never here, so replacing it later is a one-line DB edit, not a deploy.
+export const DEFAULT_CARDCOM_PAYMENT_URL = 'https://secure.cardcom.solutions/EA/EA5/G1cjb5qFe06oHgZWWSTXug/Order'

@@ -38,3 +38,11 @@ export async function loadOptions(force = false) {
   return _cache
 }
 export function clearOptionsCache() { _cache = null }
+
+// Single system_settings value (key/value table, see Settings.jsx > פרטי
+// מערכת). Not cached — these are rarely read (opened once per modal) and
+// should always reflect the latest value an admin just saved.
+export async function loadSystemSetting(key) {
+  const { data } = await supabase.from('system_settings').select('value').eq('key', key).maybeSingle()
+  return data?.value ?? null
+}

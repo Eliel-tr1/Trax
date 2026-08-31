@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { toast } from '../components/Toaster'
 import { Switch } from '../components/ui/switch'
@@ -12,6 +12,20 @@ import { confirmDialog, promptDialog } from '../components/Dialogs'
 import { usePermissionStore, RESOURCES } from '../stores/permissionStore'
 import { startOnboarding } from '../components/Onboarding'
 import { applyTheme } from '../components/ThemeToggle'
+import ImageCropDialog from '../components/ImageCropDialog'
+
+// Fixed dropdown values for the two new app_users columns (see MEMORY.md /
+// project brief: department text, permission_profile text). permission_profile
+// is deliberately NOT the same thing as the existing RBAC role/role_id pair —
+// it's a simple 3-tier label mapped onto one of those roles at invite time
+// (see ROLE_KEY_FOR_PROFILE below and RolesTab further down, which is the
+// real, editable permission matrix these three map onto).
+const PERMISSION_PROFILES = ['מנהל מערכת', 'מנהל צוות', 'נציג']
+const DEPARTMENTS = ['ניהול', 'מכירות', 'שירות לקוחות']
+// Which roles.key each profile provisions a new user with. owner/team_manager/
+// sales_rep already carry the exact permission shape described in the spec
+// (seeded directly in the `permissions` table) — see RolesTab to edit them.
+const ROLE_KEY_FOR_PROFILE = { 'מנהל מערכת': 'owner', 'מנהל צוות': 'team_manager', 'נציג': 'sales_rep' }
 
 const SECTIONS = ['תצוגה', 'פרטי מערכת', 'אוטומציות', 'מפתחות API', 'דוקומנטציה API', 'שדות מותאמים', 'משתמשים', 'תפקידים והרשאות', 'מיזוג כפילויות', 'הדרכה', 'סל מיחזור']
 
@@ -92,14 +106,14 @@ function SystemSettings() {
     toast('נשמר')
   }
 
-  const LABELS = { system_name: 'שם המערכת', system_logo_url: 'קישור ללוגו המערכת' }
+  const LABELS = { system_name: 'שם המערכת', system_logo_url: 'קישור ללוגו המערכת', cardcom_payment_url: 'קישור לדף סליקת אשראי (Cardcom)' }
 
   if (!rows) return <div className="empty"><span className="spinner" /></div>
 
   return (
     <div className="field-grid">
       {rows.map(r => (
-        <EditField key={r.key} label={LABELS[r.key] || r.key} value={r.value} ltr={r.key === 'system_logo_url'} onSave={v => save(r.key, v)} />
+        <EditField key={r.key} label={LABELS[r.key] || r.key} value={r.value} ltr={r.key === 'system_logo_url' || r.key === 'cardcom_payment_url'} onSave={v => save(r.key, v)} />
       ))}
     </div>
   )
@@ -511,7 +525,7 @@ function UsersTab() {
 
   const load = async () => {
     const [{ data: u }, { data: r }] = await Promise.all([
-      supabase.from('app_users').select('id, full_name, is_active, avatar_url, roles(id,key,label)').order('full_name'),
+      supabase.from('app_users').select('id, full_name, is_active, avatar_url, department, permission_profile, roles(id,key,label)').order('full_name'),
       supabase.from('roles').select('id, key, label').order('label'),
     ])
     setUsers(u || []); setRoles(r || [])
@@ -533,22 +547,41 @@ function UsersTab() {
     toast('נשמר')
   }
 
+  const changeField = async (u, field, value) => {
+    setUsers(us => us.map(x => x.id === u.id ? { ...x, [field]: value } : x))
+    const { error } = await supabase.from('app_users').update({ [field]: value }).eq('id', u.id)
+    if (error) { toast('העדכון נכשל', 'err'); load(); return }
+    toast('נשמר')
+  }
+
   if (!users) return <div className="empty"><span className="spinner" /></div>
 
   return (
     <div>
       <div className="row" style={{ justifyContent: 'flex-end', marginBottom: 10 }}>
-        <button className="btn sm" onClick={() => setShowInvite(true)}><Icon name="user-plus" size={15} /> הזמנת משתמש</button>
+        <button className="btn sm" onClick={() => setShowInvite(true)}><Icon name="user-plus" size={15} /> משתמש חדש</button>
       </div>
       <div className="table-wrap">
         <table className="grid">
-          <thead><tr><th>משתמש</th><th>תפקיד</th><th>פעיל</th></tr></thead>
+          <thead><tr><th>משתמש</th><th>פרופיל הרשאה</th><th>מחלקה</th><th>תפקיד (RBAC)</th><th>פעיל</th></tr></thead>
           <tbody>
             {users.map(u => (
               <tr key={u.id}>
                 <td><UserAvatar user={u} showName size="sm" /></td>
                 <td>
-                  <select className="input" style={{ maxWidth: 200 }} value={u.roles?.id || ''} onChange={e => changeRole(u, e.target.value)}>
+                  <select className="input" style={{ minWidth: 130 }} value={u.permission_profile || ''} onChange={e => changeField(u, 'permission_profile', e.target.value || null)}>
+                    <option value="">—</option>
+                    {PERMISSION_PROFILES.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                </td>
+                <td>
+                  <select className="input" style={{ minWidth: 130 }} value={u.department || ''} onChange={e => changeField(u, 'department', e.target.value || null)}>
+                    <option value="">—</option>
+                    {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                </td>
+                <td>
+                  <select className="input" style={{ maxWidth: 160 }} value={u.roles?.id || ''} onChange={e => changeRole(u, e.target.value)}>
                     {roles.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
                   </select>
                 </td>
@@ -558,6 +591,11 @@ function UsersTab() {
           </tbody>
         </table>
       </div>
+      <p className="muted small" style={{ marginTop: 6 }}>
+        "פרופיל הרשאה" הוא תווית פשוטה (מנהל מערכת / מנהל צוות / נציג) שנקבעת ביצירת המשתמש. "תפקיד (RBAC)"
+        הוא ה־role האמיתי שנאכף בפועל בהרשאות (טאב "תפקידים והרשאות" למטה) — שינוי הפרופיל כאן לא משנה את
+        התפקיד אוטומטית, לכך יש לבחור תפקיד בנפרד.
+      </p>
       {showInvite && <InviteUserModal roles={roles} onClose={() => setShowInvite(false)} onInvited={() => { setShowInvite(false); load() }} />}
     </div>
   )
@@ -566,28 +604,83 @@ function UsersTab() {
 function InviteUserModal({ roles, onClose, onInvited }) {
   const [email, setEmail] = useState('')
   const [fullName, setFullName] = useState('')
-  const [roleKey, setRoleKey] = useState(roles.find(r => r.key === 'sales_rep')?.key || roles[0]?.key || '')
+  const [profile, setProfile] = useState(PERMISSION_PROFILES[2]) // נציג
+  const [department, setDepartment] = useState(DEPARTMENTS[1]) // מכירות
   const [busy, setBusy] = useState(false)
 
-  const missing = !email.trim() || !fullName.trim() || !roleKey
+  // Avatar: pick -> crop -> hold the cropped blob until the user actually
+  // exists (the invite-user Edge Function creates the auth user + app_users
+  // row), then upload to the shared `attachments` bucket and set avatar_url —
+  // same storage layout as AvatarUpload.jsx (avatars/{user.id}/{ts}.jpg).
+  const [avatarSrc, setAvatarSrc] = useState(null)   // object URL being cropped
+  const [avatarBlob, setAvatarBlob] = useState(null) // cropped result, ready to upload
+  const [avatarPreview, setAvatarPreview] = useState(null)
+  const fileRef = useRef(null)
+
+  const roleKey = ROLE_KEY_FOR_PROFILE[profile]
+  const missing = !email.trim() || !fullName.trim() || !roleKey || !department
+
+  const pickAvatar = (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    if (!file.type.startsWith('image/')) { toast('יש לבחור קובץ תמונה', 'err'); return }
+    if (file.size > 4 * 1024 * 1024) { toast('התמונה גדולה מדי (מקסימום 4MB)', 'err'); return }
+    setAvatarSrc(URL.createObjectURL(file))
+  }
+  const closeCrop = () => { if (avatarSrc) URL.revokeObjectURL(avatarSrc); setAvatarSrc(null) }
+  const onCropped = (blob) => {
+    setAvatarBlob(blob)
+    setAvatarPreview(URL.createObjectURL(blob))
+    closeCrop()
+  }
 
   const invite = async () => {
     if (missing) return
     setBusy(true)
     const { data, error } = await supabase.functions.invoke('invite-user', {
-      body: { email: email.trim(), full_name: fullName.trim(), role_key: roleKey },
+      body: { email: email.trim(), full_name: fullName.trim(), role_key: roleKey, department, permission_profile: profile },
     })
-    setBusy(false)
     if (error || data?.error) {
+      setBusy(false)
       toast('ההזמנה נכשלה: ' + (data?.error || error?.message || 'שגיאה לא ידועה'), 'err')
       return
     }
+    const userId = data.user_id
+    if (avatarBlob && userId) {
+      const path = `avatars/${userId}/${Date.now()}.jpg`
+      const { error: upErr } = await supabase.storage.from('attachments').upload(path, avatarBlob, { contentType: 'image/jpeg' })
+      if (!upErr) {
+        const url = supabase.storage.from('attachments').getPublicUrl(path).data.publicUrl
+        await supabase.from('app_users').update({ avatar_url: url }).eq('id', userId)
+      } else {
+        toast('המשתמש נוצר, אך העלאת התמונה נכשלה: ' + upErr.message, 'err')
+      }
+    }
+    setBusy(false)
     toast('הזמנה נשלחה בהצלחה — המשתמש יקבל מייל להגדרת סיסמה')
     onInvited?.()
   }
 
   return (
-    <Modal title="הזמנת משתמש חדש" icon="user-plus" onClose={onClose} maxWidth={440}>
+    <Modal title="משתמש חדש" icon="user-plus" onClose={onClose} maxWidth={460}>
+      <div className="row" style={{ gap: 14, alignItems: 'center', marginBottom: 14 }}>
+        <div className="avatar-fallback" style={{
+          width: 56, height: 56, borderRadius: '50%', overflow: 'hidden', flexShrink: 0,
+          background: 'hsl(270 62% 88%)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontWeight: 700, color: 'hsl(270 70% 28%)', fontSize: '1.1rem',
+        }}>
+          {avatarPreview ? <img src={avatarPreview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (fullName.trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('') || '?')}
+        </div>
+        <div>
+          <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={pickAvatar} />
+          <button type="button" className="btn subtle sm" onClick={() => fileRef.current?.click()}>
+            {avatarPreview ? 'החלפת תמונה' : 'העלאת תמונת פרופיל'}
+          </button>
+          <div className="muted small" style={{ marginTop: 4 }}>אופציונלי — ניתן להוסיף מאוחר יותר</div>
+        </div>
+      </div>
+
       <div className="field-grid">
         <div className="field"><label>שם מלא<span className="req"> *</span></label>
           <input value={fullName} onChange={e => setFullName(e.target.value)} />
@@ -595,18 +688,30 @@ function InviteUserModal({ roles, onClose, onInvited }) {
         <div className="field"><label>אימייל<span className="req"> *</span></label>
           <input type="email" dir="ltr" value={email} onChange={e => setEmail(e.target.value)} />
         </div>
-        <div className="field"><label>תפקיד<span className="req"> *</span></label>
-          <select value={roleKey} onChange={e => setRoleKey(e.target.value)}>
-            {roles.map(r => <option key={r.key} value={r.key}>{r.label}</option>)}
+        <div className="field"><label>פרופיל הרשאה<span className="req"> *</span></label>
+          <select value={profile} onChange={e => setProfile(e.target.value)}>
+            {PERMISSION_PROFILES.map(p => <option key={p} value={p}>{p}</option>)}
+          </select>
+        </div>
+        <div className="field"><label>מחלקה<span className="req"> *</span></label>
+          <select value={department} onChange={e => setDepartment(e.target.value)}>
+            {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
           </select>
         </div>
       </div>
-      <div className="row" style={{ marginTop: 6 }}>
+      <p className="muted small" style={{ marginTop: 2 }}>
+        "פרופיל הרשאה" קובע את סט ההרשאות ההתחלתי (תפקיד ה-RBAC: {roleKey}). ניתן לכוונן אותו לאחר מכן
+        בטאב "תפקידים והרשאות" למטה.
+      </p>
+
+      <div className="row" style={{ marginTop: 10 }}>
         <button className="btn" disabled={busy || missing} onClick={invite}>
           {busy ? <span className="spinner light" style={{ width: 15, height: 15 }} /> : 'שליחת הזמנה'}
         </button>
         <button className="btn subtle" onClick={onClose}>ביטול</button>
       </div>
+
+      {avatarSrc && <ImageCropDialog open src={avatarSrc} busy={false} onClose={closeCrop} onCropped={onCropped} />}
     </Modal>
   )
 }

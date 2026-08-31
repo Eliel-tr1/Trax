@@ -35,6 +35,7 @@ export default function RecordFormModal({ type, defaults = {}, title, onCreated,
     const { data, error } = await supabase.from(def.table).insert(payload).select().single()
     setBusy(false)
     if (error) { toast('היצירה נכשלה: ' + error.message, 'err'); return }
+    if (type === 'registration' && data.customer_id) await createPrimaryPassenger(data)
     toast('נוצר בהצלחה')
     onCreated?.(data)
     onClose()
@@ -55,6 +56,23 @@ export default function RecordFormModal({ type, defaults = {}, title, onCreated,
       </div>
     </Modal>
   )
+}
+
+// Every new הרשמה למסע gets its "anchor" passenger row auto-created from
+// the linked customer's own identity fields (is_primary: true) — that's
+// the seat the customer themself occupies; additional travellers are added
+// by hand afterwards on the registration screen (RegistrationPassengers.jsx).
+// Best-effort: a failure here shouldn't block the registration from being
+// created, so errors are swallowed after a toast.
+async function createPrimaryPassenger(registration) {
+  const { data: customer } = await supabase.from('customers')
+    .select('first_name, last_name, mobile_phone, email').eq('id', registration.customer_id).single()
+  if (!customer) return
+  const full_name = `${customer.first_name || ''} ${customer.last_name || ''}`.trim() || 'לקוח'
+  const { error } = await supabase.from('registration_passengers').insert({
+    registration_id: registration.id, full_name, phone: customer.mobile_phone, email: customer.email, is_primary: true,
+  })
+  if (error) toast('יצירת נוסע ראשי אוטומטית נכשלה: ' + error.message, 'err')
 }
 
 function Field({ f, value, onChange, opts }) {

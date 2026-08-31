@@ -9,7 +9,9 @@ import {
 } from '../lib/constants'
 import RecordLayout from '../components/RecordLayout'
 import EditField from '../components/EditField'
+import UserPicker from '../components/UserPicker'
 import { MeetingFormModal } from './Meetings'
+import CardcomChargeModal from '../components/CardcomChargeModal'
 
 const STAGES = SALE_STAGES.map(s => ({ key: s, label: s }))
 const STAGE_BADGE = {
@@ -23,6 +25,7 @@ export default function SaleDetail() {
   const [opts, setOpts] = useState({ users: [], journeys: [] })
   const [meetings, setMeetings] = useState([])
   const [showNewMeeting, setShowNewMeeting] = useState(false)
+  const [showCharge, setShowCharge] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const load = async () => {
@@ -52,7 +55,6 @@ export default function SaleDetail() {
   if (!s) return <div className="card"><div className="empty">מכירה לא נמצאה.</div></div>
 
   const isXcon = s.business_unit === 'Xcon'
-  const userOpts = opts.users.map(u => ({ value: u.id, label: u.full_name }))
   const journeyOpts = (opts.journeys || []).map(j => ({ value: j.id, label: j.name }))
 
   const related = [
@@ -74,7 +76,10 @@ export default function SaleDetail() {
       subtitle={s.customer ? `${s.customer.first_name} ${s.customer.last_name} · ${s.business_unit}` : s.business_unit}
       backTo="/sales"
       status={{ label: s.stage, badge: STAGE_BADGE[s.stage] || 'gray' }}
-      actions={[{ icon: 'calendar', title: 'פגישה חדשה', onClick: () => setShowNewMeeting(true) }]}
+      actions={[
+        { icon: 'calendar', title: 'פגישה חדשה', onClick: () => setShowNewMeeting(true) },
+        { icon: 'money', title: 'חיוב לקוח באשראי', onClick: () => setShowCharge(true) },
+      ]}
       objectType="sale" recordId={id}
       recordType="sale" record={s} onRelatedCreated={() => load()}
       stage={{ stages: STAGES, current: s.stage, onSet: setStage }}
@@ -88,7 +93,10 @@ export default function SaleDetail() {
           <EditField label="ערוץ פנייה" value={s.channel} type="select" options={enumOpts(SALE_CHANNELS)} onSave={v => save('channel', v)} />
           <EditField label="מקור הגעה" value={s.lead_source} type="select" options={enumOpts(LEAD_SOURCES)} onSave={v => save('lead_source', v)} />
           <EditField label="קמפיין" value={s.campaign} onSave={v => save('campaign', v)} />
-          <EditField label="בעלים" value={s.owner_id} display={opts.users.find(u => u.id === s.owner_id)?.full_name} type="select" options={userOpts} onSave={v => save('owner_id', v)} />
+          <div className="ef">
+            <span className="ef-label">בעלים</span>
+            <UserPicker users={opts.users} value={s.owner_id} onChange={v => save('owner_id', v)} placeholder="בחרו בעלים" />
+          </div>
           <EditField label="סיבת אי סגירה" value={s.loss_reason} type="select" options={enumOpts(LOSS_REASONS)} onSave={v => save('loss_reason', v)} />
           <EditField label="מסע מבוקש" value={s.journey_id} display={opts.journeys?.find(j => j.id === s.journey_id)?.name} type="select" options={journeyOpts} onSave={v => save('journey_id', v)} />
           <EditField label="מספר משתתפים" value={s.participants_count} type="number" onSave={v => save('participants_count', v)} />
@@ -104,6 +112,7 @@ export default function SaleDetail() {
         <MeetingFormModal defaultRelatedType="sale" defaultRelatedId={id} defaultUnit={s.business_unit}
           onClose={() => setShowNewMeeting(false)} onCreated={() => { setShowNewMeeting(false); load() }} />
       )}
+      {showCharge && <CardcomChargeModal onClose={() => setShowCharge(false)} />}
     </RecordLayout>
   )
 }

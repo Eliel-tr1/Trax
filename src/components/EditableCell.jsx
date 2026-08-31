@@ -3,7 +3,10 @@ import { updateField } from '../lib/api'
 
 // Ported verbatim from bina-crm — generic inline-editable table cell.
 // mode: 'select' | 'text'. options: [{ value, label }] for select.
-export default function EditableCell({ row, field, table = 'customers', mode = 'text', options = [], display, placeholder, onSaved }) {
+// type: 'text' | 'number' — 'number' renders a <input type="number"> and
+// coerces to a JS number (or null) before saving, so numeric columns (e.g.
+// registration_passengers.age) don't get written as raw strings.
+export default function EditableCell({ row, field, table = 'customers', mode = 'text', type = 'text', options = [], display, placeholder, onSaved }) {
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const selectRef = useRef(null)
@@ -41,9 +44,9 @@ export default function EditableCell({ row, field, table = 'customers', mode = '
   if (editing) {
     return (
       <input
-        className="input" style={{ padding: '4px 8px', fontSize: '0.85rem' }} autoFocus defaultValue={value ?? ''}
+        className="input" style={{ padding: '4px 8px', fontSize: '0.85rem' }} autoFocus type={type === 'number' ? 'number' : 'text'} defaultValue={value ?? ''}
         onClick={e => e.stopPropagation()}
-        onBlur={e => save(e.target.value.trim())}
+        onBlur={e => save(type === 'number' ? (e.target.value === '' ? '' : Number(e.target.value)) : e.target.value.trim())}
         onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') setEditing(false) }}
       />
     )

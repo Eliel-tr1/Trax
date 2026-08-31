@@ -7,6 +7,9 @@ import {
 } from '../lib/constants'
 import RecordLayout from '../components/RecordLayout'
 import EditField from '../components/EditField'
+import Icon from '../components/Icon'
+import { toast } from '../components/Toaster'
+import { exportJourneyPdf } from '../lib/pdf'
 import { JOURNEY_STATUS_BADGE } from './Journeys'
 import { REGISTRATION_STATUS_BADGE } from './Registrations'
 
@@ -14,7 +17,9 @@ export default function JourneyDetail() {
   const { id } = useParams()
   const [j, setJ] = useState(null)
   const [regs, setRegs] = useState([])
+  const [passengersByReg, setPassengersByReg] = useState({})
   const [loading, setLoading] = useState(true)
+  const [exporting, setExporting] = useState(false)
 
   const load = async () => {
     setLoading(true)
@@ -24,14 +29,40 @@ export default function JourneyDetail() {
       .select('id, registration_name, status, amount_paid, currency')
       .eq('journey_id', id).is('deleted_at', null).order('created_at', { ascending: false })
     setRegs(r || [])
+    const regIds = (r || []).map(x => x.id)
+    if (regIds.length) {
+      // Combined passenger list across every registration on this journey
+      // (registration_passengers joined through registrations) — used both
+      // by the on-screen table below and the PDF export.
+      const { data: p } = await supabase.from('registration_passengers').select('*').in('registration_id', regIds)
+      const byReg = {}
+      for (const passenger of p || []) (byReg[passenger.registration_id] ||= []).push(passenger)
+      setPassengersByReg(byReg)
+    } else {
+      setPassengersByReg({})
+    }
     setLoading(false)
   }
   useEffect(() => { load() }, [id])
 
   const save = async (field, value) => { setJ(x => ({ ...x, [field]: value })); await updateField('journeys', j, field, value) }
 
+  const doExport = async () => {
+    setExporting(true)
+    try {
+      const groups = regs.map(r => ({ registration: r, passengers: passengersByReg[r.id] || [] }))
+      await exportJourneyPdf(j, groups)
+    } catch (e) {
+      toast('ייצוא ה-PDF נכשל: ' + e.message, 'err')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   if (loading) return <div className="empty"><span className="spinner" /></div>
   if (!j) return <div className="card"><div className="empty">מסע לא נמצא.</div></div>
+
+  const totalPassengers = Object.values(passengersByReg).reduce((n, arr) => n + arr.length, 0)
 
   const related = [
     { key: 'registrations', label: 'הרשמות', count: regs.length, rows: regs, onOpen: r => `/registrations/${r.id}`,
@@ -50,9 +81,10 @@ export default function JourneyDetail() {
   return (
     <RecordLayout
       title={j.name}
-      subtitle={`${j.destination || ''} · ${j.business_unit}`}
+      subtitle={`${j.destination || ''} · ${j.business_unit}${totalPassengers ? ` · ${totalPassengers} נוסעים` : ''}`}
       backTo="/journeys"
       status={{ label: j.status, badge: JOURNEY_STATUS_BADGE[j.status] || 'gray' }}
+      actions={[{ icon: 'file', title: exporting ? 'מייצא…' : 'ייצוא PDF', onClick: exporting ? undefined : doExport }]}
       objectType="journey" recordId={id}
       recordType="journey" record={j} onRelatedCreated={() => load()}
       related={related}
@@ -77,6 +109,49 @@ export default function JourneyDetail() {
         </div>
         <div style={{ marginTop: 10 }}><EditField label="תיאור קצר" value={j.short_description} type="textarea" onSave={v => save('short_description', v)} /></div>
         <div style={{ marginTop: 10 }}><EditField label="הערות תפעול" value={j.operations_notes} type="textarea" onSave={v => save('operations_notes', v)} /></div>
+      </div>
+
+      <div className="card" style={{ marginTop: 16 }}>
+        <div className="card-title"><Icon name="users" /> נוסעים במסע ({totalPassengers})</div>
+        {!regs.length ? (
+          <div className="empty small">אין עדיין הרשמות למסע זה</div>
+        ) : (
+          <div className="table-wrap">
+            <table className="grid">
+              <thead>
+                <tr>
+                  <th>הרשמה</th><th>שם מלא</th><th>טלפון</th><th>אימייל</th><th>גיל</th><th>מין</th>
+                  <th>מגבלות רפואיות / פיזיות</th><th>העדפות תזונה</th>
+                </tr>
+              </thead>
+              <tbody>
+                {regs.flatMap(r => {
+                  const passengers = passengersByReg[r.id] || []
+                  if (!passengers.length) {
+                    return [
+                      <tr key={r.id}>
+                        <td style={{ fontWeight: 600 }}>{r.registration_name || '-'}</td>
+                        <td colSpan={7} className="muted small">אין נוסעים רשומים</td>
+                      </tr>,
+                    ]
+                  }
+                  return passengers.map((p, i) => (
+                    <tr key={p.id}>
+                      {i === 0 && <td rowSpan={passengers.length} style={{ fontWeight: 600, verticalAlign: 'top' }}>{r.registration_name || '-'}</td>}
+                      <td>{p.is_primary && <span className="badge mp" style={{ marginInlineEnd: 6 }}>לקוח</span>}{p.full_name}</td>
+                      <td dir="ltr">{p.phone || '-'}</td>
+                      <td dir="ltr">{p.email || '-'}</td>
+                      <td>{p.age ?? '-'}</td>
+                      <td>{p.gender || '-'}</td>
+                      <td>{p.medical_notes || '-'}</td>
+                      <td>{p.dietary_notes || '-'}</td>
+                    </tr>
+                  ))
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </RecordLayout>
   )
