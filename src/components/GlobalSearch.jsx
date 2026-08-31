@@ -4,7 +4,11 @@ import { supabase } from '../lib/supabase'
 import { useBusinessUnitStore } from '../stores/businessUnitStore'
 import Icon from './Icon'
 
-// Global search across customers and sales, scoped to the active business unit.
+// Global search — customers, sales, journeys, registrations and meetings,
+// all scoped to the active business unit. phone_calls is deliberately left
+// out: it has no free-text field worth matching on (direction/result are
+// closed enums, transcript search would need a much heavier query) — it's
+// reachable from its own list page instead (see PhoneCalls.jsx).
 export default function GlobalSearch() {
   const nav = useNavigate()
   const unit = useBusinessUnitStore(s => s.unit)
@@ -17,16 +21,27 @@ export default function GlobalSearch() {
     if (q.trim().length < 2) { setRes([]); return }
     const t = setTimeout(async () => {
       const like = `%${q.trim()}%`
-      const [cust, sales] = await Promise.all([
+      const [cust, sales, journeys, registrations, meetings] = await Promise.all([
         supabase.from('customers').select('id, first_name, last_name, mobile_phone, email')
           .eq('business_unit', unit).is('deleted_at', null)
           .or(`first_name.ilike.${like},last_name.ilike.${like},mobile_phone.ilike.${like},email.ilike.${like}`).limit(6),
         supabase.from('sales').select('id, deal_name')
           .eq('business_unit', unit).is('deleted_at', null).ilike('deal_name', like).limit(4),
+        supabase.from('journeys').select('id, name, destination')
+          .eq('business_unit', unit).is('deleted_at', null).ilike('name', like).limit(4),
+        // registrations has no business_unit column of its own — it's
+        // inherited via journey (same !inner-embed pattern as Registrations.jsx).
+        supabase.from('registrations').select('id, registration_name, journey:journeys!inner(business_unit)')
+          .eq('journey.business_unit', unit).is('deleted_at', null).ilike('registration_name', like).limit(4),
+        supabase.from('meetings').select('id, subject')
+          .eq('business_unit', unit).is('deleted_at', null).ilike('subject', like).limit(4),
       ])
       const out = [
         ...(cust.data || []).map(c => ({ id: c.id, type: 'לקוח', label: `${c.first_name} ${c.last_name}`, sub: c.mobile_phone || c.email, to: `/customers/${c.id}` })),
         ...(sales.data || []).map(s => ({ id: s.id, type: 'מכירה', label: s.deal_name || '-', sub: null, to: `/sales/${s.id}` })),
+        ...(journeys.data || []).map(j => ({ id: j.id, type: 'מסע', label: j.name, sub: j.destination, to: `/journeys/${j.id}` })),
+        ...(registrations.data || []).map(r => ({ id: r.id, type: 'הרשמה', label: r.registration_name || '-', sub: null, to: `/registrations/${r.id}` })),
+        ...(meetings.data || []).map(m => ({ id: m.id, type: 'פגישה', label: m.subject, sub: null, to: `/meetings/${m.id}` })),
       ]
       setRes(out); setOpen(true)
     }, 250)

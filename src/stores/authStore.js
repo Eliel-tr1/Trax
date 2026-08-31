@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { supabase } from '../lib/supabase'
+import { usePermissionStore } from './permissionStore'
 
 // Maps a Supabase auth user + the matching app_users row into a session
 // profile. TRAX has no permission_level yet (spec: "2 users, both
@@ -32,6 +33,7 @@ export const useAuthStore = create((set, get) => ({
       .eq('id', user.id)
       .maybeSingle()
     set({ user, rep: data })
+    usePermissionStore.getState().load(user.id)
   },
 
   signIn: async (email, password) => {
@@ -46,5 +48,6 @@ export const useAuthStore = create((set, get) => ({
   signOut: async () => {
     await supabase.auth.signOut()
     set({ user: null, rep: null })
+    usePermissionStore.getState().reset()
   },
 }))

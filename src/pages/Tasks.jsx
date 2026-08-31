@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useRefresh } from 'ra-core'
 import { TASK_STATUSES, TASK_PRIORITIES, TASK_PRIORITY_COLOR, enumOpts } from '../lib/constants'
+import { extraHiddenColumns } from '../lib/schema'
 import { useBusinessUnitStore } from '../stores/businessUnitStore'
 import { useAuthStore } from '../stores/authStore'
 import { loadOptions } from '../lib/api'
@@ -43,6 +44,7 @@ export default function Tasks() {
     { source: 'status', label: 'סטטוס', csv: r => r.status,
       render: r => <Cell row={r} field="status" mode="select" options={statusOpts}
         display={v => <span className={`badge ${STATUS_BADGE[v] || 'gray'}`}>{v}</span>} /> },
+    ...extraHiddenColumns('task', ['subject', 'related_type', 'assignee_id', 'due_at', 'priority', 'status']),
   ]
 
   const presets = [

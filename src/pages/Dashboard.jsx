@@ -2,8 +2,11 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/authStore'
 import { useBusinessUnitStore } from '../stores/businessUnitStore'
+import { loadOptions } from '../lib/api'
 import { SALE_STAGES_CLOSED, CURRENCY_SYMBOLS } from '../lib/constants'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
+import { Button } from '../components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 
 /* Both dashboards from docs/domain-model.md's "לוחות בקרה" section — see
    there for the exact 10 metrics and the "never sum across currencies"
@@ -16,6 +19,15 @@ function startOfMonthIso() { const d = new Date(); d.setDate(1); d.setHours(0, 0
 function daysAgoIso(n) { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString() }
 function daysFromNowIso(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
 function todayIso() { return new Date().toISOString().slice(0, 10) }
+
+const RANGE_PRESETS = [
+  { key: '7', label: '7 ימים' },
+  { key: '30', label: '30 ימים' },
+  { key: '90', label: '90 ימים' },
+  { key: 'all', label: 'הכול' },
+]
+// Cutoff ISO string for a range key, or null for 'all' (no date filter).
+function rangeCutoff(range) { return range === 'all' ? null : daysAgoIso(Number(range)) }
 
 function groupCount(rows, field, fallback = 'לא צוין') {
   const m = {}
@@ -54,6 +66,11 @@ export default function Dashboard() {
   const rep = useAuthStore(s => s.rep)
   const unit = useBusinessUnitStore(s => s.unit)
   const [sec, setSec] = useState('לוח מכירות')
+  const [range, setRange] = useState('30')
+  const [ownerId, setOwnerId] = useState('')
+  const [reps, setReps] = useState([])
+
+  useEffect(() => { loadOptions().then(o => setReps(o.users || [])) }, [])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -63,24 +80,44 @@ export default function Dashboard() {
       </Card>
 
       <div className="card">
+        <div className="row flex-wrap" style={{ gap: 8, marginBottom: 14, alignItems: 'center' }}>
+          <span className="muted small">טווח תאריכים:</span>
+          {RANGE_PRESETS.map(p => (
+            <Button key={p.key} size="sm" variant={range === p.key ? 'default' : 'outline'} className="h-8" onClick={() => setRange(p.key)}>
+              {p.label}
+            </Button>
+          ))}
+          <span className="muted small" style={{ marginInlineStart: 12 }}>נציג:</span>
+          <Select value={ownerId || '__all__'} onValueChange={v => setOwnerId(v === '__all__' ? '' : v)}>
+            <SelectTrigger className="h-8 w-44"><SelectValue placeholder="כל הנציגים" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">כל הנציגים</SelectItem>
+              {reps.map(r => <SelectItem key={r.id} value={r.id}>{r.full_name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
         <div className="sections-tabs">{SECTIONS.map(s => <div key={s} className={`sec-tab ${sec === s ? 'active' : ''}`} onClick={() => setSec(s)}>{s}</div>)}</div>
-        {sec === 'לוח מכירות' && <SalesDashboard unit={unit} />}
-        {sec === 'לוח מסעות ותפוסה' && <JourneysDashboard unit={unit} />}
+        {sec === 'לוח מכירות' && <SalesDashboard unit={unit} range={range} ownerId={ownerId} />}
+        {sec === 'לוח מסעות ותפוסה' && <JourneysDashboard unit={unit} range={range} />}
       </div>
     </div>
   )
 }
 
-function SalesDashboard({ unit }) {
+function SalesDashboard({ unit, range, ownerId }) {
   const [data, setData] = useState(null)
 
   useEffect(() => {
     setData(null);
     (async () => {
-      const [{ data: customers }, { data: sales }] = await Promise.all([
-        supabase.from('customers').select('id, lead_source, campaign, created_at').eq('business_unit', unit).is('deleted_at', null),
-        supabase.from('sales').select('id, stage, loss_reason').eq('business_unit', unit).is('deleted_at', null),
-      ])
+      const cutoff = rangeCutoff(range)
+      let custQuery = supabase.from('customers').select('id, lead_source, campaign, created_at, owner_id').eq('business_unit', unit).is('deleted_at', null)
+      if (cutoff) custQuery = custQuery.gte('created_at', cutoff)
+      if (ownerId) custQuery = custQuery.eq('owner_id', ownerId)
+      let salesQuery = supabase.from('sales').select('id, stage, loss_reason, owner_id, created_at').eq('business_unit', unit).is('deleted_at', null)
+      if (cutoff) salesQuery = salesQuery.gte('created_at', cutoff)
+      if (ownerId) salesQuery = salesQuery.eq('owner_id', ownerId)
+      const [{ data: customers }, { data: sales }] = await Promise.all([custQuery, salesQuery])
       const cs = customers || []
       const ss = sales || []
       const newMonth = cs.filter(c => c.created_at >= startOfMonthIso()).length
@@ -98,7 +135,7 @@ function SalesDashboard({ unit }) {
         lossReasons: groupCount(lost, 'loss_reason'),
       })
     })()
-  }, [unit])
+  }, [unit, range, ownerId])
 
   if (!data) return <div className="empty"><span className="spinner" /></div>
 
@@ -123,7 +160,11 @@ function SalesDashboard({ unit }) {
   )
 }
 
-function JourneysDashboard({ unit }) {
+// Journeys/registrations have no owner_id column, so the "נציג" filter
+// doesn't apply here — only the date range does, scoped to when a
+// registration was made (registered_at), not the journey's own dates
+// (occupancy per departure is meant to stay visible regardless of range).
+function JourneysDashboard({ unit, range }) {
   const [data, setData] = useState(null)
 
   useEffect(() => {
@@ -147,9 +188,12 @@ function JourneysDashboard({ unit }) {
 
       let unpaid = []
       if (journeyIds.length) {
-        const { data: regs } = await supabase.from('registrations')
-          .select('id, amount_paid, currency')
+        const cutoff = rangeCutoff(range)
+        let regQuery = supabase.from('registrations')
+          .select('id, amount_paid, currency, registered_at')
           .in('journey_id', journeyIds).in('status', ['משוריין', 'שולמה מקדמה']).is('deleted_at', null)
+        if (cutoff) regQuery = regQuery.gte('registered_at', cutoff)
+        const { data: regs } = await regQuery
         unpaid = regs || []
       }
       const unpaidByCurrency = {}
@@ -160,7 +204,7 @@ function JourneysDashboard({ unit }) {
 
       setData({ journeys: js, atRisk, revenueByCurrency, unpaid, unpaidByCurrency })
     })()
-  }, [unit])
+  }, [unit, range])
 
   if (!data) return <div className="empty"><span className="spinner" /></div>
 

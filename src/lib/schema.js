@@ -5,12 +5,14 @@
 // Hebrew field values come from docs/domain-model.md +
 // data/001_init_schema.sql (source of truth — do not rename values).
 // ============================================================
+import { createElement } from 'react'
 import {
   BUSINESS_UNITS, LEAD_SOURCES, CUSTOMER_STATUSES, LEAD_RATINGS,
   EXPERIENCE_LEVELS, PREFERRED_LANGUAGES, SALE_STAGES, SALE_CHANNELS,
   LOSS_REASONS, QUALIFICATION_RATINGS, CURRENCIES, INTEREST_AREAS,
   JOURNEY_DESTINATIONS, JOURNEY_STATUSES, REGISTRATION_STATUSES,
-  PAYMENT_METHODS, TASK_STATUSES, TASK_PRIORITIES, MEETING_TYPES, enumOpts,
+  PAYMENT_METHODS, TASK_STATUSES, TASK_PRIORITIES, MEETING_TYPES,
+  CALL_DIRECTIONS, CALL_RESULTS, enumOpts,
 } from './constants'
 
 // field types: text | number | date | datetime | checkbox | textarea | select
@@ -130,18 +132,40 @@ export const SCHEMA = {
     ],
     relations: [],
   },
-  // Meeting (פגישה) — manual "add meeting" only; not a full list/detail
-  // screen per the spec (mostly auto-created by calendar sync). Used by
-  // RecordFormModal from Customer/Sale detail pages.
+  // Meeting (פגישה) — first-class entity: own list + detail screen. Created
+  // via the dedicated MeetingFormModal (Meetings.jsx), NOT the generic
+  // RecordFormModal — related_type/related_id is a dependent-select pair
+  // the generic schema-driven form can't represent, so those two fields are
+  // deliberately left out of `fields` below (MeetingFormModal inserts
+  // directly, passing related_type/related_id itself; when opened from
+  // Customer/Sale detail it takes defaultRelatedType/defaultRelatedId).
   meeting: {
     table: 'meetings', labelOne: 'פגישה', labelMany: 'פגישות', icon: 'calendar',
-    listPath: null, detailPath: null, softDelete: false, titleField: 'subject',
+    listPath: '/meetings', detailPath: (id) => `/meetings/${id}`, softDelete: true, titleField: 'subject',
     fields: [
       { key: 'subject', label: 'נושא', type: 'text', required: true, wave: 1 },
       { key: 'start_at', label: 'תאריך ושעה', type: 'datetime', required: true, wave: 1 },
       { key: 'duration_minutes', label: 'משך (דקות)', type: 'number', wave: 1 },
       { key: 'type', label: 'סוג', type: 'select', options: enumOpts(MEETING_TYPES), wave: 1 },
       { key: 'summary', label: 'סיכום', type: 'textarea', wave: 1 },
+    ],
+    relations: [],
+  },
+  // Phone call (שיחת טלפון) — list + detail only, per domain-model.md:
+  // "auto-created from Voicenter + every Max voice call". No manual create
+  // button anywhere in the UI; softDelete:false matches the DB (no
+  // deleted_at column on phone_calls).
+  phone_call: {
+    table: 'phone_calls', labelOne: 'שיחת טלפון', labelMany: 'שיחות טלפון', icon: 'phone',
+    listPath: '/phone-calls', detailPath: (id) => `/phone-calls/${id}`, softDelete: false, titleField: 'direction',
+    fields: [
+      { key: 'related_id', label: 'לקוח', type: 'select', optionsFrom: 'customers', required: true, wave: 1 },
+      { key: 'direction', label: 'כיוון', type: 'select', options: enumOpts(CALL_DIRECTIONS), required: true, wave: 1 },
+      { key: 'occurred_at', label: 'תאריך ושעה', type: 'datetime', wave: 1 },
+      { key: 'duration_seconds', label: 'משך (שניות)', type: 'number', wave: 1 },
+      { key: 'result', label: 'תוצאה', type: 'select', options: enumOpts(CALL_RESULTS), wave: 1 },
+      { key: 'recording_url', label: 'קישור להקלטה', type: 'text', ltr: true, wave: 1 },
+      { key: 'transcript', label: 'תמליל', type: 'textarea', wave: 1 },
     ],
     relations: [],
   },
@@ -166,4 +190,39 @@ export function fieldOptions(field, opts) {
   const src = opts[field.optionsFrom] || []
   const labelFor = (x) => x.full_name || x.name || String(x.id)
   return src.map((x) => ({ value: x.id, label: labelFor(x) }))
+}
+
+// Plain-text rendering of a scalar value per its schema field type — used
+// by extraHiddenColumns() below for fields that don't have a bespoke
+// column render in a given list screen.
+function renderScalarText(v, field) {
+  if (v === null || v === undefined || v === '') return '-'
+  if (field.type === 'checkbox') return v ? '✓ כן' : '✗ לא'
+  if (field.type === 'date') return new Date(v).toLocaleDateString('he-IL')
+  if (field.type === 'datetime') return new Date(v).toLocaleString('he-IL')
+  if (Array.isArray(v)) return v.length ? String(v.length) : '-'
+  return String(v)
+}
+
+// Every list screen's `columns` array only declares a curated subset of
+// fields, and the columns picker can only ever offer what's declared — a
+// field missing from `columns` can never be toggled on, regardless of
+// `hidden: true` on some OTHER column. Fix: call this at the end of each
+// page's `columns` array to append every schema field not already covered
+// (matched by column `source`), marked `hidden: true` so the visible set is
+// unchanged, but now toggleable from the columns picker.
+export function extraHiddenColumns(type, existingSources) {
+  const def = SCHEMA[type]
+  if (!def) return []
+  const seen = existingSources instanceof Set ? existingSources : new Set(existingSources || [])
+  return def.fields
+    .filter(f => !seen.has(f.key))
+    .map(f => ({
+      source: f.key,
+      label: f.label,
+      hidden: true,
+      sortable: f.type !== 'textarea',
+      csv: r => r[f.key],
+      render: r => createElement('span', { className: 'small' }, renderScalarText(r[f.key], f)),
+    }))
 }

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useRefresh } from 'ra-core'
 import { JOURNEY_STATUSES, JOURNEY_DESTINATIONS, enumOpts } from '../lib/constants'
+import { extraHiddenColumns } from '../lib/schema'
 import { useBusinessUnitStore } from '../stores/businessUnitStore'
 import ResourceList from '../components/ResourceList'
 import { BulkDeleteButton } from '../components/admin/bulk-delete-button'
@@ -40,6 +41,7 @@ export default function Journeys() {
       render: r => <span className="small">{r.seats_sold} / {r.seats_total}</span> },
     { source: 'seats_available', label: 'מקומות פנויים', sortable: true, csv: r => r.seats_available,
       render: r => <span className="small">{r.seats_available}</span> },
+    ...extraHiddenColumns('journey', ['name', 'destination', 'departure_date', 'status', 'seats_sold', 'seats_available']),
   ]
 
   const presets = [

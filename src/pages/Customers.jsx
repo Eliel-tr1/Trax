@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useRefresh } from 'ra-core'
 import { CUSTOMER_STATUSES, LEAD_SOURCES, enumOpts } from '../lib/constants'
+import { extraHiddenColumns } from '../lib/schema'
 import { useBusinessUnitStore } from '../stores/businessUnitStore'
 import ResourceList from '../components/ResourceList'
 import { BulkDeleteButton } from '../components/admin/bulk-delete-button'
@@ -37,6 +38,9 @@ export default function Customers() {
         display={v => <span className={`badge ${STATUS_BADGE[v] || 'gray'}`}>{v}</span>} /> },
     { source: 'first_contact_at', label: 'פנייה ראשונה', csv: r => r.first_contact_at,
       render: r => <span className="small">{r.first_contact_at ? new Date(r.first_contact_at).toLocaleDateString('he-IL') : '-'}</span> },
+    // Every remaining customer schema field, hidden by default — makes the
+    // columns picker offer the full field set, not just this curated view.
+    ...extraHiddenColumns('customer', ['first_name', 'mobile_phone', 'email', 'lead_source', 'campaign', 'status', 'first_contact_at']),
   ]
 
   const presets = [

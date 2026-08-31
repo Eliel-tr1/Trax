@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useRefresh } from 'ra-core'
 import { SALE_STAGES, SALE_STAGES_CLOSED, LOSS_REASONS, enumOpts } from '../lib/constants'
+import { extraHiddenColumns } from '../lib/schema'
 import { useBusinessUnitStore } from '../stores/businessUnitStore'
 import { useAuthStore } from '../stores/authStore'
 import ResourceList from '../components/ResourceList'
@@ -36,6 +37,7 @@ export default function Sales() {
     { source: 'loss_reason', label: 'סיבת אי סגירה', hidden: true, csv: r => r.loss_reason, render: r => r.loss_reason || '-' },
     { source: 'created_at', label: 'נוצר', csv: r => r.created_at,
       render: r => <span className="small">{new Date(r.created_at).toLocaleDateString('he-IL')}</span> },
+    ...extraHiddenColumns('sale', ['deal_name', 'customer_id', 'stage', 'channel', 'lead_source', 'loss_reason']),
   ]
 
   const presets = [

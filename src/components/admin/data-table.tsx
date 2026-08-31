@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Children, createElement, isValidElement, useCallback } from "react";
+import { Children, createElement, isValidElement, useCallback, useRef } from "react";
 import type {
   DataTableBaseProps,
   ExtractRecordPaths,
@@ -358,6 +358,42 @@ function DataTableHeadCell<
   const { storeKey, defaultHiddenColumns } = useDataTableStoreContext();
   const [hiddenColumns] = useStore<string[]>(storeKey, defaultHiddenColumns);
   const isColumnHidden = hiddenColumns.includes(source!);
+  const [columnWidths, setColumnWidths] = useStore<Record<string, number>>(
+    `${storeKey}_columnWidths`,
+    {},
+  );
+  const thRef = useRef<HTMLTableCellElement>(null);
+  const width = source ? columnWidths?.[source] : undefined;
+
+  const handleResizeStart = useCallback(
+    (e: React.PointerEvent) => {
+      if (!source) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const th = thRef.current;
+      if (!th) return;
+      const rect = th.getBoundingClientRect();
+      const isRtl =
+        getComputedStyle(document.documentElement).direction === "rtl";
+      const anchor = isRtl ? rect.right : rect.left;
+      const MIN_WIDTH = 60;
+      const onMove = (moveEvent: PointerEvent) => {
+        const raw = isRtl
+          ? anchor - moveEvent.clientX
+          : moveEvent.clientX - anchor;
+        const next = Math.max(MIN_WIDTH, Math.round(raw));
+        setColumnWidths((prev) => ({ ...(prev || {}), [source]: next }));
+      };
+      const onUp = () => {
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+      };
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+    },
+    [source, setColumnWidths],
+  );
+
   if (isColumnHidden) return null;
 
   const nextSortOrder =
@@ -380,7 +416,21 @@ function DataTableHeadCell<
   });
 
   return (
-    <TableHead className={cn(className, headerClassName)}>
+    <TableHead
+      ref={thRef}
+      className={cn(className, headerClassName, "relative")}
+      style={width ? { width, minWidth: width, maxWidth: width } : undefined}
+    >
+      {source && (
+        <span
+          onPointerDown={handleResizeStart}
+          className="group absolute top-0 bottom-0 z-10 w-2 cursor-col-resize select-none"
+          style={{ insetInlineEnd: -4 }}
+          title="גררו לשינוי רוחב העמודה"
+        >
+          <span className="mx-auto block h-full w-px bg-transparent group-hover:bg-[var(--border)]" />
+        </span>
+      )}
       {handleSort && sort && !disableSort && source ? (
         <TooltipProvider>
           <Tooltip>
@@ -447,6 +497,10 @@ function DataTableCell<
 
   const { storeKey, defaultHiddenColumns } = useDataTableStoreContext();
   const [hiddenColumns] = useStore<string[]>(storeKey, defaultHiddenColumns);
+  const [columnWidths] = useStore<Record<string, number>>(
+    `${storeKey}_columnWidths`,
+    {},
+  );
   const record = useRecordContext<RecordType>();
   const isColumnHidden = hiddenColumns.includes(source!);
   if (isColumnHidden) return null;
@@ -455,15 +509,17 @@ function DataTableCell<
       "DataTableColumn: Missing at least one of the following props: render, field, children, or source",
     );
   }
+  const width = source ? columnWidths?.[source] : undefined;
 
   return (
     <TableCell
       className={cn(
-        "py-1",
+        "py-1 overflow-hidden text-ellipsis",
         className,
         cellClassName,
         record && conditionalClassName?.(record),
       )}
+      style={width ? { width, minWidth: width, maxWidth: width } : undefined}
     >
       {children ??
         (render

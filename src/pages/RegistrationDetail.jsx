@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { updateField } from '../lib/api'
 import {
@@ -44,13 +44,16 @@ export default function RegistrationDetail() {
       <div className="card">
         <div className="sections-tabs">{SECTIONS.map(s => <div key={s} className={`sec-tab ${sec === s ? 'active' : ''}`} onClick={() => setSec(s)}>{s}</div>)}</div>
         {sec === 'פרטים' && <div className="field-grid">
-          <EditField label="לקוח" value={r.customer ? `${r.customer.first_name} ${r.customer.last_name}` : ''} readOnly />
-          <EditField label="מסע" value={r.journey?.name} readOnly />
-          <EditField label="מכירה" value={r.sale?.deal_name || '-'} readOnly />
+          <EditField label="לקוח" value={r.customer_id} readOnly readOnlyReason="קישור ללקוח — נערך רק בעת יצירת ההרשמה"
+            display={r.customer ? <Link to={`/customers/${r.customer_id}`} style={{ color: 'var(--mp)', fontWeight: 600 }}>{r.customer.first_name} {r.customer.last_name}</Link> : null} />
+          <EditField label="מסע" value={r.journey_id} readOnly readOnlyReason="קישור למסע — נערך רק בעת יצירת ההרשמה"
+            display={r.journey ? <Link to={`/journeys/${r.journey_id}`} style={{ color: 'var(--mp)', fontWeight: 600 }}>{r.journey.name}</Link> : null} />
+          <EditField label="מכירה" value={r.sale_id} readOnly readOnlyReason="קישור למכירה — נערך רק בעת יצירת ההרשמה"
+            display={r.sale ? <Link to={`/sales/${r.sale_id}`} style={{ color: 'var(--mp)', fontWeight: 600 }}>{r.sale.deal_name || 'עסקה'}</Link> : null} />
           <EditField label="סטטוס הרשמה" value={r.status} type="select" options={enumOpts(REGISTRATION_STATUSES)} onSave={v => save('status', v)} />
           <EditField label="כולל טיסה למשתתף זה" value={r.includes_flight_for_participant} type="checkbox" onSave={v => save('includes_flight_for_participant', v)} />
           <EditField label="איש קשר לחירום" value={r.emergency_contact} onSave={v => save('emergency_contact', v)} />
-          <EditField label="תאריך הרשמה" value={r.registered_at?.slice(0, 10)} readOnly />
+          <EditField label="תאריך הרשמה" value={r.registered_at?.slice(0, 10)} readOnly readOnlyReason="נחתם אוטומטית ביצירת ההרשמה" />
         </div>}
         {sec === 'תשלום ומסמכים' && <div className="field-grid">
           <EditField label="סכום ששולם" value={r.amount_paid} type="number" onSave={v => save('amount_paid', v)} />

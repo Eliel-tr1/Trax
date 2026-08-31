@@ -25,6 +25,14 @@ export const NAV_GROUPS = [
     ],
   },
   {
+    key: 'activity',
+    title: 'פעילות',
+    items: [
+      { path: '/meetings', label: 'פגישות', icon: 'calendar', resource: 'meetings' },
+      { path: '/phone-calls', label: 'שיחות טלפון', icon: 'phone', resource: 'phone_calls' },
+    ],
+  },
+  {
     key: 'system',
     title: null,
     items: [
@@ -38,6 +46,8 @@ export const DETAIL_TITLES = [
   ['/sales/', 'כרטיס מכירה'],
   ['/journeys/', 'כרטיס מסע'],
   ['/registrations/', 'כרטיס הרשמה'],
+  ['/meetings/', 'כרטיס פגישה'],
+  ['/phone-calls/', 'כרטיס שיחה'],
 ]
 
 export const allNavItems = () => NAV_GROUPS.flatMap(g => g.items)

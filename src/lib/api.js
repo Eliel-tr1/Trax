@@ -19,16 +19,21 @@ export async function updateField(table, row, field, newValue) {
 let _cache = null
 export async function loadOptions(force = false) {
   if (_cache && !force) return _cache
-  const [users, customers, journeys] = await Promise.all([
+  const [users, customers, journeys, sales] = await Promise.all([
     supabase.from('app_users').select('id, full_name, avatar_url').order('full_name'),
     supabase.from('customers').select('id, first_name, last_name, business_unit').is('deleted_at', null).order('first_name'),
     supabase.from('journeys').select('id, name, business_unit').is('deleted_at', null).order('departure_date'),
+    // Used to resolve meetings/phone_calls' polymorphic related_id -> a
+    // display name without an N+1 query per row (PostgREST can't embed a
+    // relation that isn't a real FK — see lib/ra/providers.js's note).
+    supabase.from('sales').select('id, deal_name, business_unit').is('deleted_at', null).order('created_at', { ascending: false }),
   ])
   _cache = {
     reps: users.data || [],
     users: users.data || [],
     customers: (customers.data || []).map(c => ({ ...c, name: `${c.first_name} ${c.last_name}` })),
     journeys: journeys.data || [],
+    sales: sales.data || [],
   }
   return _cache
 }

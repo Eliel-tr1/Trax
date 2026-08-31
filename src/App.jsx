@@ -15,6 +15,10 @@ import Journeys from './pages/Journeys'
 import JourneyDetail from './pages/JourneyDetail'
 import Registrations from './pages/Registrations'
 import RegistrationDetail from './pages/RegistrationDetail'
+import Meetings from './pages/Meetings'
+import MeetingDetail from './pages/MeetingDetail'
+import PhoneCalls from './pages/PhoneCalls'
+import PhoneCallDetail from './pages/PhoneCallDetail'
 import Tasks from './pages/Tasks'
 import Profile from './pages/Profile'
 import Settings from './pages/Settings'
@@ -68,6 +72,10 @@ export default function App() {
               <Route path="journeys/:id" element={<RequirePermission resource="journeys"><JourneyDetail /></RequirePermission>} />
               <Route path="registrations" element={<RequirePermission resource="registrations"><Registrations /></RequirePermission>} />
               <Route path="registrations/:id" element={<RequirePermission resource="registrations"><RegistrationDetail /></RequirePermission>} />
+              <Route path="meetings" element={<RequirePermission resource="meetings"><Meetings /></RequirePermission>} />
+              <Route path="meetings/:id" element={<RequirePermission resource="meetings"><MeetingDetail /></RequirePermission>} />
+              <Route path="phone-calls" element={<RequirePermission resource="phone_calls"><PhoneCalls /></RequirePermission>} />
+              <Route path="phone-calls/:id" element={<RequirePermission resource="phone_calls"><PhoneCallDetail /></RequirePermission>} />
               <Route path="tasks" element={<RequirePermission resource="tasks"><Tasks /></RequirePermission>} />
               <Route path="profile" element={<Profile />} />
               <Route path="settings" element={<RequirePermission resource="settings"><Settings /></RequirePermission>} />

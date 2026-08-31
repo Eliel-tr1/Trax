@@ -61,15 +61,15 @@ export default function JourneyDetail() {
       <div className="card">
         <div className="field-grid">
           <EditField label="שם היציאה" value={j.name} onSave={v => save('name', v)} />
-          <EditField label="יחידה עסקית" value={j.business_unit} readOnly />
+          <EditField label="יחידה עסקית" value={j.business_unit} readOnly readOnlyReason="נקבע בעת יצירת המסע ולא ניתן לשינוי" />
           <EditField label="יעד" value={j.destination} type="select" options={enumOpts(JOURNEY_DESTINATIONS)} onSave={v => save('destination', v)} />
           <EditField label="תאריך יציאה" value={j.departure_date} type="date" onSave={v => save('departure_date', v)} />
           <EditField label="תאריך חזרה" value={j.return_date} type="date" onSave={v => save('return_date', v)} />
           <EditField label="סטטוס יציאה" value={j.status} type="select" options={enumOpts(JOURNEY_STATUSES)} onSave={v => save('status', v)} />
           <EditField label="מספר מקומות" value={j.seats_total} type="number" onSave={v => save('seats_total', v)} />
           <EditField label="מינימום להוצאה לדרך" value={j.min_seats} type="number" onSave={v => save('min_seats', v)} />
-          <EditField label="מקומות שנמכרו" value={j.seats_sold} readOnly />
-          <EditField label="מקומות פנויים" value={j.seats_available} readOnly />
+          <EditField label="מקומות שנמכרו" value={j.seats_sold} readOnly readOnlyReason="שדה מחושב אוטומטית — ספירת ההרשמות הפעילות למסע זה" />
+          <EditField label="מקומות פנויים" value={j.seats_available} readOnly readOnlyReason="שדה מחושב אוטומטית — מספר מקומות פחות מקומות שנמכרו" />
           <EditField label="מחיר לאדם" value={j.price_per_person} type="number" onSave={v => save('price_per_person', v)} />
           <EditField label="מטבע" value={j.currency} type="select" options={CURRENCIES} onSave={v => save('currency', v)} />
           <EditField label="כולל טיסות" value={j.includes_flights} type="checkbox" onSave={v => save('includes_flights', v)} />

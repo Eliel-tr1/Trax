@@ -28,7 +28,7 @@ import { supabase } from '../supabase'
 import he from '../../i18n/he'
 
 const SOFT_DELETE = new Set([
-  'customers', 'sales', 'journeys', 'registrations', 'tasks',
+  'customers', 'sales', 'journeys', 'registrations', 'tasks', 'meetings',
 ])
 
 // NOTE: sales.owner_id and tasks.assignee_id reference auth.users(id), not
@@ -51,6 +51,11 @@ export const SELECTS = {
   registrations: '*, customer:customers(id,first_name,last_name), journey:journeys!inner(id,name,departure_date,business_unit), sale:sales(id,deal_name)',
   tasks: '*',
   contacts: '*, customer:customers(id,first_name,last_name)',
+  // meetings/phone_calls are polymorphic (related_type + related_id, not a
+  // real FK) — never embedded, resolved client-side in the list/detail
+  // pages via loadOptions()/direct lookups instead.
+  meetings: '*',
+  phone_calls: '*',
 }
 
 /* Free-text search targets for the `q` filter. */
@@ -61,6 +66,8 @@ const SEARCH = {
   registrations: ['registration_name', 'invoice_number'],
   tasks: ['subject'],
   contacts: ['name', 'phone', 'email'],
+  meetings: ['subject'],
+  phone_calls: [],
 }
 
 /* Related-table search: sales/registrations are searched by the customer's

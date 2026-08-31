@@ -9,7 +9,7 @@ import {
 } from '../lib/constants'
 import RecordLayout from '../components/RecordLayout'
 import EditField from '../components/EditField'
-import RecordFormModal from '../components/RecordFormModal'
+import { MeetingFormModal } from './Meetings'
 
 const STAGES = SALE_STAGES.map(s => ({ key: s, label: s }))
 const STAGE_BADGE = {
@@ -56,12 +56,15 @@ export default function SaleDetail() {
   const journeyOpts = (opts.journeys || []).map(j => ({ value: j.id, label: j.name }))
 
   const related = [
-    { key: 'meetings', label: 'פגישות', count: meetings.length, rows: meetings,
-      columns: [
-        { label: 'נושא', get: r => r.subject },
-        { label: 'תאריך ושעה', get: r => r.start_at ? new Date(r.start_at).toLocaleString('he-IL') : '-' },
-        { label: 'סוג', get: r => r.type || '-' },
-        { label: 'סיכום', get: r => r.summary || '-' },
+    // Resource-mode chip (paginated, links to the standalone MeetingDetail
+    // screen) instead of a static inline table — see the same comment on
+    // CustomerDetail.jsx's identical `meetings` entry.
+    { key: 'meetings', label: 'פגישות', count: meetings.length, onOpen: r => `/meetings/${r.id}`,
+      resource: 'meetings', filter: { related_type: 'sale', related_id: id },
+      listColumns: [
+        { source: 'subject', label: 'נושא', render: r => r.subject },
+        { source: 'start_at', label: 'תאריך ושעה', render: r => r.start_at ? new Date(r.start_at).toLocaleString('he-IL') : '-' },
+        { source: 'type', label: 'סוג', render: r => r.type || '-' },
       ] },
   ]
 
@@ -79,8 +82,8 @@ export default function SaleDetail() {
     >
       <div className="card">
         <div className="field-grid">
-          <EditField label="לקוח" value={s.customer ? `${s.customer.first_name} ${s.customer.last_name}` : ''} readOnly />
-          <EditField label="יחידה עסקית" value={s.business_unit} readOnly />
+          <EditField label="לקוח" value={s.customer ? `${s.customer.first_name} ${s.customer.last_name}` : ''} linkTo={s.customer_id ? `/customers/${s.customer_id}` : undefined} />
+          <EditField label="יחידה עסקית" value={s.business_unit} readOnly readOnlyReason="נקבע בעת יצירת העסקה ולא ניתן לשינוי" />
           <EditField label="שלב מכירה" value={s.stage} type="select" options={enumOpts(SALE_STAGES)} onSave={setStage} />
           <EditField label="ערוץ פנייה" value={s.channel} type="select" options={enumOpts(SALE_CHANNELS)} onSave={v => save('channel', v)} />
           <EditField label="מקור הגעה" value={s.lead_source} type="select" options={enumOpts(LEAD_SOURCES)} onSave={v => save('lead_source', v)} />
@@ -98,7 +101,7 @@ export default function SaleDetail() {
         <div style={{ marginTop: 10 }}><EditField label="סיכום הסמכה מהסוכן" value={s.qualification_summary} type="textarea" onSave={v => save('qualification_summary', v)} /></div>
       </div>
       {showNewMeeting && (
-        <RecordFormModal type="meeting" defaults={{ related_type: 'sale', related_id: id, business_unit: s.business_unit }}
+        <MeetingFormModal defaultRelatedType="sale" defaultRelatedId={id} defaultUnit={s.business_unit}
           onClose={() => setShowNewMeeting(false)} onCreated={() => { setShowNewMeeting(false); load() }} />
       )}
     </RecordLayout>

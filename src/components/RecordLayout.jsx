@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { SCHEMA } from '../lib/schema'
+import { loadOptions } from '../lib/api'
 import { toast } from './Toaster'
 import Icon from './Icon'
 import ActivityFeed from './ActivityFeed'
@@ -18,6 +19,8 @@ const REL_STYLE = {
   contacts: { icon: 'users', hue: 291 },
   customers: { icon: 'users', hue: 291 },
   journeys: { icon: 'calendar', hue: 45 },
+  meetings: { icon: 'calendar', hue: 155 },
+  phone_calls: { icon: 'phone', hue: 20 },
 }
 const relStyle = (key) => REL_STYLE[key] || { icon: 'grid', hue: 270 }
 
@@ -119,6 +122,7 @@ export default function RecordLayout({ title, subtitle, status, backTo, actions 
       <div className="rec-grid" style={{ gridTemplateColumns: feed ? '1fr 1fr' : '1fr' }}>
         <div data-tour="rec-fields" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {children}
+          {record && <AuditFooter record={record} />}
         </div>
         {feed && <ActivityFeed objectType={objectType} recordId={recordId} {...feedProps} />}
       </div>
@@ -145,10 +149,40 @@ function buildInherit(rel, record, recordId) {
   return d
 }
 
+// Small metadata footer: who/when created and last updated, plus a link to
+// the automation run that wrote the record (execution_url) when present.
+// Names are resolved from loadOptions()'s cached users list — created_by/
+// updated_by are auth.users uuids (see data/004_audit_fields.sql), null
+// meaning "מערכת" (system/API write, no human rep attached).
+function AuditFooter({ record }) {
+  const [users, setUsers] = useState(null)
+  useEffect(() => { loadOptions().then(o => setUsers(o.users || [])) }, [])
+
+  if (!('created_at' in record) && !('updated_at' in record)) return null
+  const nameFor = (id) => id ? (users?.find(u => u.id === id)?.full_name || '…') : 'מערכת'
+  const fmt = (v) => v ? new Date(v).toLocaleString('he-IL') : null
+
+  const createdAt = fmt(record.created_at)
+  const updatedAt = fmt(record.updated_at)
+
+  return (
+    <div className="muted small" style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 14px', padding: '10px 2px 0', borderTop: '1px solid var(--border-soft)', marginTop: 4 }}>
+      {createdAt && <span>נוצר ב-{createdAt} על ידי {nameFor(record.created_by)}</span>}
+      {updatedAt && updatedAt !== createdAt && <span>עודכן ב-{updatedAt} על ידי {nameFor(record.updated_by)}</span>}
+      {record.execution_url && (
+        <a href={record.execution_url} target="_blank" rel="noreferrer" style={{ color: 'var(--mp)' }}>צפייה בהרצה ↗</a>
+      )}
+    </div>
+  )
+}
+
 function RelatedPanel({ r, nav }) {
   if (!r) return null
 
-  if (r.resource && r.fk && r.recordId) {
+  // r.filter is an escape hatch for polymorphic relations (meetings/
+  // phone_calls: related_type + related_id, not a single FK column) — a
+  // plain fk/recordId pair can't express a two-field filter.
+  if (r.resource && (r.filter || (r.fk && r.recordId))) {
     const cols = r.listColumns || (r.columns || []).map((c, i) => ({
       source: c.source || `c${i}`,
       label: c.label,
@@ -161,7 +195,7 @@ function RelatedPanel({ r, nav }) {
         <ResourceList
           resource={r.resource}
           storeKey={`rel_${r.resource}`}
-          filter={{ [r.fk]: r.recordId }}
+          filter={r.filter || { [r.fk]: r.recordId }}
           sort={r.sort || { field: 'created_at', order: 'DESC' }}
           perPage={r.perPage || 10}
           columns={cols}

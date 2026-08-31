@@ -8,7 +8,7 @@ import {
 } from '../lib/constants'
 import RecordLayout from '../components/RecordLayout'
 import EditField from '../components/EditField'
-import RecordFormModal from '../components/RecordFormModal'
+import { MeetingFormModal } from './Meetings'
 import { REGISTRATION_STATUS_BADGE } from './Registrations'
 
 const STATUS_BADGE = { 'ליד חדש': 'mp', 'בטיפול': 'warn', 'לקוח פעיל': 'ok', 'לקוח עבר': 'gray', 'לא רלוונטי': 'gray' }
@@ -66,20 +66,26 @@ export default function CustomerDetail() {
       columns: [{ label: 'הרשמה', get: r => r.registration_name || '-' }, { label: 'סטטוס', get: r => <span className={`badge ${REGISTRATION_STATUS_BADGE[r.status] || 'gray'}`}>{r.status}</span> }] },
     { key: 'contacts', label: 'אנשי קשר', count: contacts.length, rows: contacts,
       columns: [{ label: 'שם', get: r => r.name }, { label: 'טלפון', get: r => r.phone || '-' }, { label: 'תפקיד', get: r => r.role || '-' }] },
-    { key: 'meetings', label: 'פגישות', count: meetings.length, rows: meetings,
-      columns: [
-        { label: 'נושא', get: r => r.subject },
-        { label: 'תאריך ושעה', get: r => r.start_at ? new Date(r.start_at).toLocaleString('he-IL') : '-' },
-        { label: 'סוג', get: r => r.type || '-' },
-        { label: 'סיכום', get: r => r.summary || '-' },
+    // Resource-mode chips (paginated, sortable, exportable — the same
+    // mechanism JourneyDetail uses for its "הרשמות" chip), not a static
+    // inline table: meetings/phone_calls are now standalone entities with
+    // their own list+detail screens (Meetings.jsx/PhoneCalls.jsx), so the
+    // chip here is just a filtered view into them, not a duplicate of them.
+    // `filter` (not `fk`/`recordId`) because the relation is polymorphic
+    // (related_type + related_id, not a single FK column).
+    { key: 'meetings', label: 'פגישות', count: meetings.length, onOpen: r => `/meetings/${r.id}`,
+      resource: 'meetings', filter: { related_type: 'customer', related_id: id },
+      listColumns: [
+        { source: 'subject', label: 'נושא', render: r => r.subject },
+        { source: 'start_at', label: 'תאריך ושעה', render: r => r.start_at ? new Date(r.start_at).toLocaleString('he-IL') : '-' },
+        { source: 'type', label: 'סוג', render: r => r.type || '-' },
       ] },
-    { key: 'calls', label: 'שיחות', count: calls.length, rows: calls,
-      columns: [
-        { label: 'כיוון', get: r => r.direction },
-        { label: 'תאריך', get: r => r.occurred_at ? new Date(r.occurred_at).toLocaleString('he-IL') : '-' },
-        { label: 'משך', get: r => r.duration_seconds != null ? `${r.duration_seconds} שנ׳` : '-' },
-        { label: 'תוצאה', get: r => r.result || '-' },
-        { label: 'הקלטה', get: r => r.recording_url ? <a href={r.recording_url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}>▶</a> : '-' },
+    { key: 'calls', label: 'שיחות', count: calls.length, onOpen: r => `/phone-calls/${r.id}`,
+      resource: 'phone_calls', filter: { related_type: 'customer', related_id: id },
+      listColumns: [
+        { source: 'direction', label: 'כיוון', render: r => r.direction },
+        { source: 'occurred_at', label: 'תאריך', render: r => r.occurred_at ? new Date(r.occurred_at).toLocaleString('he-IL') : '-' },
+        { source: 'result', label: 'תוצאה', render: r => r.result || '-' },
       ] },
   ]
 
@@ -110,11 +116,11 @@ export default function CustomerDetail() {
           <EditField label="שם משפחה" value={c.last_name} onSave={v => save('last_name', v)} />
           <EditField label="טלפון נייד" value={c.mobile_phone} ltr onSave={v => save('mobile_phone', v)} />
           <EditField label="אימייל" value={c.email} ltr onSave={v => save('email', v)} />
-          <EditField label="יחידה עסקית" value={c.business_unit} readOnly />
+          <EditField label="יחידה עסקית" value={c.business_unit} readOnly readOnlyReason="נקבע בעת יצירת הלקוח ולא ניתן לשינוי" />
           <EditField label="מקור הגעה" value={c.lead_source} type="select" options={enumOpts(LEAD_SOURCES)} onSave={v => save('lead_source', v)} />
           <EditField label="קמפיין" value={c.campaign} onSave={v => save('campaign', v)} />
           <EditField label="סטטוס לקוח" value={c.status} type="select" options={enumOpts(CUSTOMER_STATUSES)} onSave={v => save('status', v)} />
-          <EditField label="תאריך פנייה ראשונה" value={c.first_contact_at?.slice(0, 10)} readOnly />
+          <EditField label="תאריך פנייה ראשונה" value={c.first_contact_at?.slice(0, 10)} readOnly readOnlyReason="נחתם אוטומטית ביצירת הרשומה" />
           {isXcon && <EditField label="חברה" value={c.company} onSave={v => save('company', v)} />}
           {isXcon && <EditField label="תפקיד" value={c.job_title} onSave={v => save('job_title', v)} />}
           {isXcon && <EditField label="מייל עבודה" value={c.work_email} ltr onSave={v => save('work_email', v)} />}
@@ -130,7 +136,7 @@ export default function CustomerDetail() {
         <div style={{ marginTop: 10 }}><EditField label="הערות" value={c.notes} type="textarea" onSave={v => save('notes', v)} /></div>
       </div>
       {showNewMeeting && (
-        <RecordFormModal type="meeting" defaults={{ related_type: 'customer', related_id: id, business_unit: c.business_unit }}
+        <MeetingFormModal defaultRelatedType="customer" defaultRelatedId={id} defaultUnit={c.business_unit}
           onClose={() => setShowNewMeeting(false)} onCreated={() => { setShowNewMeeting(false); load() }} />
       )}
     </RecordLayout>
