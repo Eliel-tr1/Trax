@@ -1,10 +1,13 @@
+import { useEffect, useState } from 'react'
 import { useRefresh } from 'ra-core'
 import { CALL_DIRECTIONS, CALL_RESULTS, enumOpts } from '../lib/constants'
 import { extraHiddenColumns } from '../lib/schema'
 import { useBusinessUnitStore } from '../stores/businessUnitStore'
+import { loadOptions } from '../lib/api'
 import ResourceList from '../components/ResourceList'
 import EditableCell from '../components/EditableCell'
 import RelatedLink from '../components/RelatedLink'
+import UserAvatar from '../components/UserAvatar'
 
 const directionOpts = enumOpts(CALL_DIRECTIONS)
 const resultOpts = enumOpts(CALL_RESULTS)
@@ -18,6 +21,10 @@ const RESULT_BADGE = { 'נענתה': 'ok', 'לא נענתה': 'err', 'תפוס':
 // since no `actions` create button is passed here.
 export default function PhoneCalls() {
   const unit = useBusinessUnitStore(s => s.unit)
+  const [users, setUsers] = useState([])
+  useEffect(() => { loadOptions().then(o => setUsers(o.users || [])) }, [])
+  const userFor = (id) => users.find(u => u.id === id)
+  const nameFor = (id) => userFor(id)?.full_name || '-'
 
   const columns = [
     { source: 'related_id', label: 'לקוח', sortable: false, csv: r => r.related_id,
@@ -31,10 +38,14 @@ export default function PhoneCalls() {
     { source: 'result', label: 'תוצאה', csv: r => r.result,
       render: r => <Cell row={r} field="result" mode="select" options={resultOpts}
         display={v => v ? <span className={`badge ${RESULT_BADGE[v] || 'gray'}`}>{v}</span> : '-'} /> },
+    { source: 'assigned_user_id', label: 'נציג משויך', sortable: false, csv: r => nameFor(r.assigned_user_id),
+      render: r => r.assigned_user_id ? <UserAvatar user={userFor(r.assigned_user_id)} /> : <span className="muted">לא שויך</span> },
     { source: 'recording_url', label: 'הקלטה', hidden: true, sortable: false, csv: r => r.recording_url,
       render: r => r.recording_url ? <a href={r.recording_url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}>▶ האזנה</a> : '-' },
+    { source: 'summary', label: 'סיכום AI', hidden: true, sortable: false, csv: r => r.summary,
+      render: r => r.summary ? <span className="small">{r.summary}</span> : '-' },
     { source: 'business_unit', label: 'יחידה עסקית', hidden: true, csv: r => r.business_unit, render: r => r.business_unit || '-' },
-    ...extraHiddenColumns('phone_call', ['related_id', 'direction', 'occurred_at', 'duration_seconds', 'result', 'recording_url', 'business_unit']),
+    ...extraHiddenColumns('phone_call', ['related_id', 'direction', 'occurred_at', 'duration_seconds', 'result', 'assigned_user_id', 'recording_url', 'summary', 'business_unit']),
   ]
 
   return (
