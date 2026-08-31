@@ -5,6 +5,7 @@ export const NAV_GROUPS = [
     title: null,
     items: [
       { path: '/', label: 'דשבורד', icon: 'grid', resource: 'dashboard', end: true },
+      { path: '/my-desk', label: 'מסך ראשי לנציג', icon: 'user-plus', resource: 'dashboard' },
       { path: '/tasks', label: 'המשימות שלי', icon: 'calendar', resource: 'tasks' },
     ],
   },

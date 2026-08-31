@@ -7,6 +7,7 @@ import { useAuthStore } from './stores/authStore'
 import AppLayout from './components/layout/AppLayout'
 import LoginPage from './pages/LoginPage'
 import Dashboard from './pages/Dashboard'
+import MyDesk from './pages/MyDesk'
 import Customers from './pages/Customers'
 import CustomerDetail from './pages/CustomerDetail'
 import Sales from './pages/Sales'
@@ -23,6 +24,7 @@ import Tasks from './pages/Tasks'
 import Profile from './pages/Profile'
 import Settings from './pages/Settings'
 import RequirePermission from './components/RequirePermission'
+import CelebrationHost from './components/Celebration'
 import { dataProvider, authProvider, i18nProvider, raStore } from './lib/ra/providers'
 
 function Loading() {
@@ -64,6 +66,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<AppLayout />}>
               <Route index element={<RequirePermission resource="dashboard"><Dashboard /></RequirePermission>} />
+              <Route path="my-desk" element={<RequirePermission resource="dashboard"><MyDesk /></RequirePermission>} />
               <Route path="customers" element={<RequirePermission resource="customers"><Customers /></RequirePermission>} />
               <Route path="customers/:id" element={<RequirePermission resource="customers"><CustomerDetail /></RequirePermission>} />
               <Route path="sales" element={<RequirePermission resource="sales"><Sales /></RequirePermission>} />
@@ -85,6 +88,7 @@ export default function App() {
         </CoreAdminContext>
       </HashRouter>
       <SonnerToaster />
+      <CelebrationHost />
     </DirectionProvider>
   )
 }
