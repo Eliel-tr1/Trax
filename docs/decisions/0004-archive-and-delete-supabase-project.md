@@ -33,5 +33,14 @@ steps. Any files actually uploaded to Supabase Storage before the
 snapshot (there was only the one avatar image at snapshot time) are not
 recoverable — only SQL-level table data was archived.
 
-**Status:** Active — the project was deleted after this snapshot was
-taken and verified.
+**Status:** Restored — the project was deleted after this snapshot was
+taken and verified, then restored on 2026-08-31 into a new project
+(ref `bkjqwroclpefwtyxjfkl`, same org/region) using `data/archive/README.md`.
+Schema (001–007, plus a reconstructed `api_keys`/`api_request_logs`/
+`verify_api_key()` prerequisite that had never been captured in a numbered
+migration, plus new 008 schema extensions for UTM tracking/passengers/saved
+views) and all business/config data were restored with row counts matching
+the archive exactly. The two auth users (זרקוש, גולדי) were **not**
+recreated — no Supabase Auth admin-API access is available via MCP, so this
+still needs a human in the dashboard. `.env` and the deployed frontend
+(ai.vitrue.co.il/trax-crm/) point at the new project.

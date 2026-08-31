@@ -5,6 +5,12 @@ its $10/month compute cost (Micro is the cheapest tier available on a
 Pro-tier org — see [decisions/0004](../docs/decisions/0004-archive-and-delete-supabase-project.md)
 for why deletion, not pause, was the only way to actually reach $0).
 
+**Used for a restore on 2026-08-31**, into a new project (ref
+`bkjqwroclpefwtyxjfkl`, same org/region). See decisions/0004's Status line
+for the outcome and gaps (notably: `api_keys`/`api_request_logs`/
+`verify_api_key()` were never captured in a numbered migration and had to
+be reconstructed; the two auth users still need a human in the dashboard).
+
 This is a **test build, not real client data** — see `docs/architecture.md`
 and the client-communication note in that decision record.
 
