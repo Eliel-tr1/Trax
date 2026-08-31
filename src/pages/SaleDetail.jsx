@@ -134,6 +134,19 @@ export default function SaleDetail() {
               <EditField label="ערוץ פנייה" value={s.channel} type="select" options={enumOpts(SALE_CHANNELS)} onSave={v => save('channel', v)} />
               <EditField label="מקור הגעה" value={s.lead_source} type="select" options={enumOpts(LEAD_SOURCES)} onSave={v => save('lead_source', v)} />
               <EditField label="קמפיין" value={s.campaign} onSave={v => save('campaign', v)} />
+              {/* UTM — written automatically by the WF05a lead-intake integration
+                  (docs/decisions/0006), editable here like everything else. */}
+              <EditField label="UTM Source" value={s.utm_source} onSave={v => save('utm_source', v)} />
+              <EditField label="UTM Medium" value={s.utm_medium} onSave={v => save('utm_medium', v)} />
+              <EditField label="UTM Campaign" value={s.utm_campaign} onSave={v => save('utm_campaign', v)} />
+              <EditField label="UTM Content" value={s.utm_content} onSave={v => save('utm_content', v)} />
+              <EditField label="UTM Term" value={s.utm_term} onSave={v => save('utm_term', v)} />
+              <EditField label="Funnel" value={s.funnel} onSave={v => save('funnel', v)} />
+              <EditField label="UTM Ad Set" value={s.utm_adset} onSave={v => save('utm_adset', v)} />
+              <EditField label="UTM Ad" value={s.utm_ad} onSave={v => save('utm_ad', v)} />
+              <EditField label="UTM Placement" value={s.utm_placement} onSave={v => save('utm_placement', v)} />
+              <EditField label="עמוד נחיתה" value={s.landing_page} onSave={v => save('landing_page', v)} />
+              <EditField label="מפנה (Referrer)" value={s.referrer} onSave={v => save('referrer', v)} />
             </>,
           },
         ]} />
