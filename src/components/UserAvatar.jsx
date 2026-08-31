@@ -12,13 +12,23 @@ import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
 export const initialsOf = (name = '') =>
   (name || '').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('') || '?'
 
+// app_users has no avatar_hue column — derive a stable hue from the user's
+// id (a UUID string, so a simple char-sum hash is enough) so two different
+// people without a photo still land on two different fallback colours
+// instead of everyone rendering the same purple circle.
+const hueFromId = (id = '') => {
+  let h = 0
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 360
+  return h
+}
+
 const SIZES = { xs: 'size-5 text-[0.55rem]', sm: 'size-6 text-[0.6rem]', md: 'size-8 text-xs', lg: 'size-10 text-sm' }
 
 export default function UserAvatar({ user, name, size = 'sm', showName = false, className = '' }) {
   const label = user?.full_name || name || ''
   if (!label && !user?.avatar_url) return <span className="text-muted-foreground">-</span>
 
-  const hue = user?.avatar_hue ?? 270
+  const hue = user?.avatar_hue ?? (user?.id ? hueFromId(user.id) : 270)
   const avatar = (
     <Avatar className={`${SIZES[size] || SIZES.sm} shrink-0 ${className}`}>
       {user?.avatar_url && <AvatarImage src={user.avatar_url} alt={label} />}

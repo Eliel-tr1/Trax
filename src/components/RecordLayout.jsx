@@ -8,6 +8,7 @@ import Icon from './Icon'
 import ActivityFeed from './ActivityFeed'
 import RecordFormModal from './RecordFormModal'
 import ResourceList from './ResourceList'
+import UserAvatar from './UserAvatar'
 import { confirmDialog } from './Dialogs'
 
 // Ported from bina-crm — Fireberry-style record shell (header, optional
@@ -159,16 +160,24 @@ function AuditFooter({ record }) {
   useEffect(() => { loadOptions().then(o => setUsers(o.users || [])) }, [])
 
   if (!('created_at' in record) && !('updated_at' in record)) return null
-  const nameFor = (id) => id ? (users?.find(u => u.id === id)?.full_name || '…') : 'מערכת'
+  const userFor = (id) => id ? users?.find(u => u.id === id) : null
   const fmt = (v) => v ? new Date(v).toLocaleString('he-IL') : null
 
   const createdAt = fmt(record.created_at)
   const updatedAt = fmt(record.updated_at)
 
   return (
-    <div className="muted small" style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 14px', padding: '10px 2px 0', borderTop: '1px solid var(--border-soft)', marginTop: 4 }}>
-      {createdAt && <span>נוצר ב-{createdAt} על ידי {nameFor(record.created_by)}</span>}
-      {updatedAt && updatedAt !== createdAt && <span>עודכן ב-{updatedAt} על ידי {nameFor(record.updated_by)}</span>}
+    <div className="muted small" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px 14px', padding: '10px 2px 0', borderTop: '1px solid var(--border-soft)', marginTop: 4 }}>
+      {createdAt && (
+        <span className="inline-flex items-center gap-1.5">
+          נוצר ב-{createdAt} על ידי {record.created_by ? <UserAvatar user={userFor(record.created_by)} size="xs" /> : 'מערכת'}
+        </span>
+      )}
+      {updatedAt && updatedAt !== createdAt && (
+        <span className="inline-flex items-center gap-1.5">
+          עודכן ב-{updatedAt} על ידי {record.updated_by ? <UserAvatar user={userFor(record.updated_by)} size="xs" /> : 'מערכת'}
+        </span>
+      )}
       {record.execution_url && (
         <a href={record.execution_url} target="_blank" rel="noreferrer" style={{ color: 'var(--mp)' }}>צפייה בהרצה ↗</a>
       )}

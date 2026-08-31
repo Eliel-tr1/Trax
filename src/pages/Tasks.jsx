@@ -10,6 +10,7 @@ import { BulkDeleteButton } from '../components/admin/bulk-delete-button'
 import EditableCell from '../components/EditableCell'
 import RecordFormModal from '../components/RecordFormModal'
 import Icon from '../components/Icon'
+import UserAvatar from '../components/UserAvatar'
 
 const statusOpts = enumOpts(TASK_STATUSES)
 const STATUS_BADGE = { 'פתוחה': 'warn', 'בוצעה': 'ok', 'בוטלה': 'gray' }
@@ -26,6 +27,7 @@ export default function Tasks() {
 
   useEffect(() => { loadOptions().then(o => setUsers(o.users || [])) }, [])
   const nameFor = (id) => users.find(u => u.id === id)?.full_name || '-'
+  const userFor = (id) => users.find(u => u.id === id)
 
   const columns = [
     { source: 'subject', label: 'נושא', csv: r => r.subject,
@@ -36,7 +38,7 @@ export default function Tasks() {
         return path ? <a href={`#${path}`} className="small" style={{ color: 'var(--mp)' }}>{RELATED_LABEL[r.related_type]}</a> : (RELATED_LABEL[r.related_type] || '-')
       } },
     { source: 'assignee_id', label: 'אחראי', csv: r => nameFor(r.assignee_id),
-      render: r => nameFor(r.assignee_id) },
+      render: r => <UserAvatar user={userFor(r.assignee_id)} /> },
     { source: 'due_at', label: 'תאריך יעד', csv: r => r.due_at,
       render: r => <span className="small">{r.due_at ? new Date(r.due_at).toLocaleString('he-IL') : '-'}</span> },
     { source: 'priority', label: 'עדיפות', csv: r => r.priority,

@@ -36,6 +36,47 @@ export const usePermissionStore = create((set, get) => ({
   userId: null,
   matrix: {},   // { [resource]: { view, create, edit, delete } } — booleans from can_access()
 
+  // "View as user" (Impersonation.jsx / bina-crm's ImpersonationBar port).
+  // impersonating holds the target app_users row while active, and realUserId
+  // remembers who was actually signed in so stopImpersonation can restore
+  // them. This is a UI LENS, not a session swap — the Supabase auth session
+  // (and therefore auth.uid() inside RLS/can_access()) never changes, so any
+  // row a manager writes while impersonating is still attributed to them,
+  // and any list still comes back scoped to what the REAL signed-in user's
+  // RLS policies allow. That's why the matrix below is read directly off the
+  // target's `permissions` rows instead of the can_access() RPC (which
+  // always evaluates against the real auth.uid(), so it would just re-answer
+  // "what can the real user do" no matter who's being viewed as) — it makes
+  // the visible buttons/route-guards match the target user, while row-level
+  // data visibility still relies on the real user's own (usually broader)
+  // access. Good enough for "why can't this rep see X" UI debugging; not a
+  // substitute for actually logging in as them.
+  impersonating: null,
+  realUserId: null,
+
+  startImpersonation: async (targetUser) => {
+    const realUserId = get().impersonating ? get().realUserId : get().userId
+    set({ impersonating: targetUser, realUserId, loading: true })
+    const { data: rows } = targetUser.role_id
+      ? await supabase.from('permissions').select('resource, can_view, can_create, can_edit, can_delete, scope').eq('role_id', targetUser.role_id)
+      : { data: [] }
+    const byResource = Object.fromEntries((rows || []).map(r => [r.resource, r]))
+    const matrix = {}
+    for (const r of RESOURCES) {
+      const row = byResource[r.key]
+      matrix[r.key] = {
+        view: !!row?.can_view, create: !!row?.can_create, edit: !!row?.can_edit, delete: !!row?.can_delete,
+        scope: row?.scope || 'mine',
+      }
+    }
+    set({ matrix, userId: targetUser.id, loading: false })
+  },
+
+  stopImpersonation: async (realUserId) => {
+    set({ impersonating: null, realUserId: null })
+    await get().load(realUserId ?? get().realUserId)
+  },
+
   // action==='view' ignores scope on purpose: RLS already scopes every row
   // server-side ('mine' roles simply see a filtered list), so the route
   // guard only needs "can this resource be opened at all". Record-level
@@ -76,5 +117,5 @@ export const usePermissionStore = create((set, get) => ({
     set({ matrix, loading: false })
   },
 
-  reset: () => set({ loading: false, userId: null, matrix: {} }),
+  reset: () => set({ loading: false, userId: null, matrix: {}, impersonating: null, realUserId: null }),
 }))

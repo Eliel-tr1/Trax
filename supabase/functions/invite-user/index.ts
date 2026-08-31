@@ -43,6 +43,13 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: "email, full_name and role_key are required" }, 400);
   }
 
+  // department/permission_profile are optional free-standing metadata added
+  // alongside the pre-existing role/role_id RBAC pair (see Settings.jsx's
+  // InviteUserModal) — not validated against an enum here since the UI only
+  // ever sends one of the three fixed dropdown values.
+  const department: string | null = body.department || null;
+  const permission_profile: string | null = body.permission_profile || null;
+
   const { data: role } = await admin.from("roles").select("id").eq("key", body.role_key).maybeSingle();
   if (!role) return jsonResponse({ error: `unknown role_key "${body.role_key}"` }, 400);
 
@@ -53,6 +60,8 @@ Deno.serve(async (req: Request) => {
     id: invited.user.id,
     full_name: body.full_name,
     role_id: role.id,
+    department,
+    permission_profile,
   });
   if (rowErr) return jsonResponse({ error: rowErr.message }, 400);
 

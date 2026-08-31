@@ -182,7 +182,7 @@ export default function ActivityFeed({ objectType, recordId, allowTasks = true }
                 <input type="checkbox" checked={false} onChange={() => toggleTask(t)} />
                 <span style={{ flex: 1, fontSize: '0.86rem', fontWeight: 600 }}>{t.subject}</span>
                 {t.priority && <span className="badge" style={{ background: TASK_PRIORITY_COLOR[t.priority], color: '#fff' }}>{t.priority}</span>}
-                {t.assignee_user?.full_name && <span className="badge gray" style={{ fontSize: '0.68rem' }}>{t.assignee_user.full_name}</span>}
+                {t.assignee_user && <UserAvatar user={t.assignee_user} size="xs" />}
                 {t.due_at && <span className="muted small">{new Date(t.due_at).toLocaleString('he-IL')}</span>}
               </div>
             ))}
@@ -194,9 +194,8 @@ export default function ActivityFeed({ objectType, recordId, allowTasks = true }
             {notes.map(n => (
               <div key={n.id} className="bg-muted/30 rounded-lg border p-3">
                 <div className="flex items-center gap-2">
-                  <UserAvatar user={n.created_by_user} size="sm" />
-                  <b style={{ color: 'var(--heading)', fontSize: '0.82rem' }}>{n.created_by_user?.full_name || 'נציג'}</b>
-                  <span className="text-muted-foreground text-xs">· {new Date(n.created_at).toLocaleString('he-IL')}</span>
+                  <UserAvatar user={n.created_by_user} name={n.created_by_user ? undefined : 'נציג'} size="sm" />
+                  <span className="text-muted-foreground text-xs">{new Date(n.created_at).toLocaleString('he-IL')}</span>
                   {(n.created_by === user?.id) && <Button variant="ghost" size="icon" className="ms-auto size-6 text-[var(--err)]" onClick={() => delNote(n)}><Icon name="x" size={12} /></Button>}
                 </div>
                 {n.content && <div className="mt-1.5 text-sm whitespace-pre-wrap">{n.content}</div>}
