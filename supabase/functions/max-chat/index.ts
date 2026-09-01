@@ -50,7 +50,7 @@ const RESOURCES: Record<string, ResourceDef> = {
       "business_unit", "lead_source", "campaign", "status", "lead_rating",
       "club_member", "extreme_experience_level", "preferred_language", "owner_id",
       "account_manager_id",
-    ],
+     "created_at"],
     listFields: [
       "id", "first_name", "last_name", "mobile_phone", "email", "work_email",
       "business_unit", "lead_source", "campaign", "utm_source", "utm_campaign",
@@ -66,7 +66,7 @@ const RESOURCES: Record<string, ResourceDef> = {
       "business_unit", "stage", "channel", "lead_source", "campaign",
       "owner_id", "loss_reason", "journey_id", "currency", "qualification_rating",
       "customer_id",
-    ],
+     "created_at"],
     listFields: [
       "id", "deal_name", "customer_id", "business_unit", "stage", "channel",
       "lead_source", "campaign", "owner_id", "loss_reason", "journey_id",
@@ -77,7 +77,7 @@ const RESOURCES: Record<string, ResourceDef> = {
   },
   journeys: {
     table: "journeys",
-    filterFields: ["business_unit", "destination", "status", "currency", "includes_flights"],
+    filterFields: ["business_unit", "destination", "status", "currency", "includes_flights", "created_at"],
     listFields: [
       "id", "name", "business_unit", "destination", "departure_date",
       "return_date", "seats_total", "min_seats", "seats_sold", "seats_available",
@@ -91,7 +91,7 @@ const RESOURCES: Record<string, ResourceDef> = {
     filterFields: [
       "customer_id", "journey_id", "sale_id", "status", "currency",
       "payment_method", "passport_valid", "travel_insurance",
-    ],
+     "created_at"],
     listFields: [
       "id", "registration_name", "customer_id", "journey_id", "sale_id",
       "status", "amount_paid", "currency", "last_payment_date",
@@ -102,7 +102,7 @@ const RESOURCES: Record<string, ResourceDef> = {
   },
   registration_passengers: {
     table: "registration_passengers",
-    filterFields: ["registration_id", "gender"],
+    filterFields: ["registration_id", "gender", "created_at"],
     listFields: [
       "id", "registration_id", "full_name", "age", "gender", "phone", "email",
       "is_primary", "medical_notes", "dietary_notes", "language",
@@ -111,19 +111,19 @@ const RESOURCES: Record<string, ResourceDef> = {
   },
   contacts: {
     table: "contacts",
-    filterFields: ["customer_id", "role"],
+    filterFields: ["customer_id", "role", "created_at"],
     listFields: ["id", "customer_id", "name", "phone", "email", "role"],
     searchFields: ["name", "email"],
   },
   notes: {
     table: "notes",
-    filterFields: ["related_type", "related_id", "created_by"],
+    filterFields: ["related_type", "related_id", "created_by", "created_at"],
     listFields: ["id", "related_type", "related_id", "content", "created_by", "created_at"],
     searchFields: ["content"],
   },
   tasks: {
     table: "tasks",
-    filterFields: ["related_type", "related_id", "assignee_id", "status", "priority", "business_unit"],
+    filterFields: ["related_type", "related_id", "assignee_id", "status", "priority", "business_unit", "created_at"],
     listFields: [
       "id", "subject", "related_type", "related_id", "assignee_id", "due_at",
       "status", "priority", "business_unit", "notes", "created_at",
@@ -132,7 +132,7 @@ const RESOURCES: Record<string, ResourceDef> = {
   },
   meetings: {
     table: "meetings",
-    filterFields: ["related_type", "related_id", "type", "status", "business_unit"],
+    filterFields: ["related_type", "related_id", "type", "status", "business_unit", "created_at"],
     listFields: [
       "id", "subject", "related_type", "related_id", "start_at",
       "duration_minutes", "type", "status", "summary", "business_unit",
@@ -141,7 +141,7 @@ const RESOURCES: Record<string, ResourceDef> = {
   },
   phone_calls: {
     table: "phone_calls",
-    filterFields: ["related_type", "related_id", "direction", "result", "business_unit", "assigned_user_id"],
+    filterFields: ["related_type", "related_id", "direction", "result", "business_unit", "assigned_user_id", "created_at"],
     listFields: [
       "id", "related_type", "related_id", "direction", "occurred_at", "duration_seconds",
       "result", "summary", "business_unit", "recording_url",
@@ -150,13 +150,13 @@ const RESOURCES: Record<string, ResourceDef> = {
   },
   app_users: {
     table: "app_users",
-    filterFields: ["role_id", "department", "permission_profile", "is_active"],
+    filterFields: ["role_id", "department", "permission_profile", "is_active", "created_at"],
     listFields: ["id", "full_name", "email", "role_id", "department", "permission_profile", "avatar_url", "is_active", "phone"],
     searchFields: ["full_name", "email"],
   },
   feedback_reports: {
     table: "feedback_reports",
-    filterFields: ["kind", "status", "business_unit"],
+    filterFields: ["kind", "status", "business_unit", "created_at"],
     listFields: ["id", "kind", "content", "status", "business_unit", "created_at"],
     searchFields: ["content"],
   },
@@ -188,11 +188,17 @@ function validateResource(resource: string): ResourceDef {
 
 function applyFilters(query: any, def: ResourceDef, filters: Record<string, unknown> | undefined) {
   if (!filters) return query;
-  for (const [k, v] of Object.entries(filters)) {
+  for (const [rawKey, v] of Object.entries(filters)) {
+    // Operators: field@gte / field@lte / field@in — how Max filters by date
+    // ranges ("leads this month" = created_at@gte) or sets ("stage@in").
+    const [k, op = "eq"] = rawKey.split("@");
     if (!def.filterFields.includes(k)) {
       throw new Error(`field "${k}" is not filterable on this resource. Allowed: ${def.filterFields.join(", ")}`);
     }
     if (v === null) query = query.is(k, null);
+    else if (op === "gte") query = query.gte(k, v as any);
+    else if (op === "lte") query = query.lte(k, v as any);
+    else if (op === "in") query = query.in(k, Array.isArray(v) ? v : String(v).split(","));
     else query = query.eq(k, v as any);
   }
   return query;
@@ -275,12 +281,12 @@ const TOOLS = [
     type: "function",
     function: {
       name: "count_records",
-      description: "Count records of a resource matching filters. Use for 'how many X' questions.",
+      description: "Count records of a resource matching filters. Use for 'how many X' questions. Date filtering IS supported: filters accept field@gte / field@lte (ISO dates), e.g. {\"created_at@gte\": \"2026-09-01\"} counts records created from that date — that's how you answer 'how many leads this month'.",
       parameters: {
         type: "object",
         properties: {
           resource: { type: "string", enum: RESOURCE_NAMES },
-          filters: { type: "object", description: "field -> exact value, only allow-listed filter fields for the resource" },
+          filters: { type: "object", description: "field -> value; supports field@gte/field@lte (dates), field@in (comma list)" },
         },
         required: ["resource"],
       },
@@ -386,6 +392,10 @@ const SYSTEM_PROMPT = `אתה "מקס" — עוזר AI תוך-מערכתי ב-CR
   filters.registration_id).
 - אל תוותר מהר: אם חיפוש בישות אחת לא מצא, נסה ישות אחרת שקשורה (למשל
   שם של נוסע יימצא ב-registration_passengers, לא ב-customers).
+- שאלות זמן ("החודש", "השבוע", "היום") נפתרות עם filters על created_at:
+  חשב את התאריך מתוך היום והשתמש ב-created_at@gte (וב-created_at@lte אם
+  צריך גבול עליון). לדוגמה, לידים שנכנסו החודש = count_records(customers,
+  {"created_at@gte": "<ה-1 לחודש הנוכחי>"}). זה נתמך — אל תגיד שאי אפשר.
 - ענה תמיד בעברית.
 - כשרלוונטי, סיים בהצעת המשך קצרה (שאלה טבעית הבאה) — לא חובה בכל תשובה.`;
 

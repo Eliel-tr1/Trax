@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { useRefresh } from 'ra-core'
 import { CUSTOMER_STATUSES, LEAD_SOURCES, enumOpts } from '../lib/constants'
 import { extraHiddenColumns, metadataColumns } from '../lib/schema'
@@ -100,10 +100,19 @@ function Cell({ row, field, mode, options, display, required }) {
   return <EditableCell row={row} table="customers" field={field} mode={mode} options={options} display={display} required={required} onSaved={() => refresh()} />
 }
 
-/* Drill-down support: the Dashboard navigates here with location.state.
-   initialFilter — the table opens pre-filtered with the exact cut the
-   dashboard tile counted (user can adjust/clear via the toolbar after). */
+/* Drill-down support: the Dashboard navigates here with URL params
+   (?drill_stage=...&drill_from=...) instead of location.state — search
+   params survive hard refreshes and work identically in every browser. */
 export function useDrillInitialFilter() {
-  const location = useLocation()
-  return location.state?.initialFilter || undefined
+  const [params] = useSearchParams()
+  const filter = {}
+  for (const [key, value] of params.entries()) {
+    if (key.startsWith('drill_')) {
+      const field = key.slice(6) // strip the drill_ prefix
+      // encoded 'null' means the dashboard bucket was "(empty)" → is-null
+      if (value === '__null__') filter[`${field}@is`] = null
+      else filter[field] = value
+    }
+  }
+  return Object.keys(filter).length ? filter : undefined
 }

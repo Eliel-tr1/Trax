@@ -309,20 +309,24 @@ function SalesTab({ unit, rangeFrom, rangeTo, ownerId, journeyId, source, campai
 
   /* Drill-down: every clickable chart/tile navigates to the owning entity's
      list screen with the SAME filter shape this tab queried, passed as
-     initialFilter so the table opens pre-filtered (user can clear/adjust it
-     with the normal toolbar afterwards). Date-range filters ride along as
-     created_at@gte/@lte so "עסקאות שנסגרו" always matches what the tile
-     counted. */
-  const drill = (extra) => nav('/sales', { state: { initialFilter: {
-    ...(ownerId ? { owner_id: ownerId } : {}),
-    ...(journeyId ? { journey_id: journeyId } : {}),
-    ...(source ? { lead_source: source } : {}),
-    ...(campaign ? { campaign } : {}),
-    ...(utm ? { utm_source: utm } : {}),
-    ...(rangeFrom ? { 'created_at@gte': rangeFrom } : {}),
-    ...(rangeTo ? { 'created_at@lte': rangeTo } : {}),
-    ...extra,
-  } } })
+     URL params (drill_<field>=value) — survives hard refresh, works in
+     every browser. Date-range filters ride along as created_at ranges. */
+  const drillParams = (extra) => {
+    const p = new URLSearchParams()
+    if (ownerId) p.set('drill_owner_id', ownerId)
+    if (journeyId) p.set('drill_journey_id', journeyId)
+    if (source) p.set('drill_lead_source', source)
+    if (campaign) p.set('drill_campaign', campaign)
+    if (utm) p.set('drill_utm_source', utm)
+    if (rangeFrom) p.set('drill_created_at@gte', rangeFrom)
+    if (rangeTo) p.set('drill_created_at@lte', rangeTo)
+    for (const [k, v] of Object.entries(extra)) {
+      if (Array.isArray(v)) p.set('drill_' + k + '@in', v.join(','))
+      else p.set('drill_' + k, v === null || v === '' ? '__null__' : String(v))
+    }
+    return p
+  }
+  const drill = (extra) => nav(`/sales?${drillParams(extra).toString()}`)
 
   useEffect(() => {
     setSales(null)
@@ -442,16 +446,22 @@ function MarketingTab({ unit, rangeFrom, rangeTo, ownerId, journeyId, source, ca
   const nav = useNavigate()
 
   /* Drill-down to the CUSTOMERS list — this tab's charts all count leads,
-     so every click lands on /customers with the same filter shape. */
-  const drillCustomers = (extra) => nav('/customers', { state: { initialFilter: {
-    ...(ownerId ? { owner_id: ownerId } : {}),
-    ...(source ? { lead_source: source } : {}),
-    ...(campaign ? { campaign } : {}),
-    ...(utm ? { utm_source: utm } : {}),
-    ...(rangeFrom ? { 'created_at@gte': rangeFrom } : {}),
-    ...(rangeTo ? { 'created_at@lte': rangeTo } : {}),
-    ...extra,
-  } } })
+     so every click lands on /customers with the same filter shape (URL
+     params, same scheme as the sales drill). */
+  const drillCustomersParams = (extra) => {
+    const p = new URLSearchParams()
+    if (ownerId) p.set('drill_owner_id', ownerId)
+    if (source) p.set('drill_lead_source', source)
+    if (campaign) p.set('drill_campaign', campaign)
+    if (utm) p.set('drill_utm_source', utm)
+    if (rangeFrom) p.set('drill_created_at@gte', rangeFrom)
+    if (rangeTo) p.set('drill_created_at@lte', rangeTo)
+    for (const [k, v] of Object.entries(extra)) {
+      p.set('drill_' + k, v === null || v === '' ? '__null__' : String(v))
+    }
+    return p
+  }
+  const drillCustomers = (extra) => nav(`/customers?${drillCustomersParams(extra).toString()}`)
 
   useEffect(() => {
     setCustomers(null); setSales(null)
@@ -507,14 +517,7 @@ function MarketingTab({ unit, rangeFrom, rangeTo, ownerId, journeyId, source, ca
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div className="grid gap-4 sm:grid-cols-3">
           <StatTile label="לידים חדשים בטווח" value={customers.length} onClick={() => drillCustomers({})} />
-          <StatTile label="עסקאות מלידים בטווח" value={sales.length} onClick={() => nav('/sales', { state: { initialFilter: {
-            ...(ownerId ? { owner_id: ownerId } : {}),
-            ...(source ? { lead_source: source } : {}),
-            ...(campaign ? { campaign } : {}),
-            ...(utm ? { utm_source: utm } : {}),
-            ...(rangeFrom ? { 'created_at@gte': rangeFrom } : {}),
-            ...(rangeTo ? { 'created_at@lte': rangeTo } : {}),
-          } } })} />
+          <StatTile label="עסקאות מלידים בטווח" value={sales.length} onClick={() => nav(`/sales?${drillCustomersParams({}).toString()}`)} />
           <StatTile label="יחס המרה כולל לעסקה שנסגרה" value={`${sales.length ? Math.round((sales.filter(s => s.stage === 'נסגר בהצלחה').length / sales.length) * 1000) / 10 : 0}%`} tooltip="עסקאות שנסגרו בהצלחה מתוך כלל העסקאות בטווח" />
         </div>
 

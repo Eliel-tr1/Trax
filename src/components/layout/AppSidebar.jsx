@@ -15,6 +15,7 @@ import Icon from '../Icon'
 import { orderedGroups } from './nav-data'
 import FeedbackModal from '../FeedbackModal'
 import UnitTransitionOverlay from '../UnitTransitionOverlay'
+import { clearOptionsCache } from '../../lib/api'
 import logoHeader from '../../assets/logo-header.png'
 import xconLogo from '../../assets/xcon-logo.png'
 
@@ -44,7 +45,12 @@ export default function AppSidebar() {
   const toggleUnit = () => {
     const next = unit === 'TRAX' ? 'Xcon' : 'TRAX'
     setTransitioningTo(next)   // overlay first
-    setTimeout(() => setUnit(next), 60) // theme flips beneath the overlay
+    setTimeout(() => {
+      setUnit(next)            // theme flips beneath the overlay
+      clearOptionsCache()      // every entity list refetches with the new unit
+      nav('/')                 // SPA-navigate to the dashboard
+      setTimeout(() => setTransitioningTo(null), 500) // fade completes
+    }, 700)
   }
 
   const isActive = (item) =>
