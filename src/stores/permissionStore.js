@@ -105,10 +105,17 @@ export const usePermissionStore = create((set, get) => ({
   load: async (userId, silent = false) => {
     if (!userId) { set({ loading: false, userId: null, matrix: {} }); return }
     set({ loading: !silent, userId })
+    // 'view' goes through can_view_resource, not can_access — can_access's
+    // 'view' branch is now a strict per-row check (requires a real row's
+    // owner_id to evaluate 'mine' scope correctly, see migration 022) and
+    // would incorrectly report "cannot view at all" for every scope='mine'
+    // role here, since this bulk loader has no specific row to check.
     const pairs = RESOURCES.flatMap(r => ACTIONS.map(a => ({ resource: r.key, action: a })))
     const results = await Promise.all(pairs.map(({ resource, action }) =>
-      supabase.rpc('can_access', { p_resource: resource, p_action: action })
-        .then(({ data, error }) => ({ resource, action, ok: error ? false : !!data }))
+      (action === 'view'
+        ? supabase.rpc('can_view_resource', { p_resource: resource })
+        : supabase.rpc('can_access', { p_resource: resource, p_action: action })
+      ).then(({ data, error }) => ({ resource, action, ok: error ? false : !!data }))
     ))
     // scope is needed for the edit/delete/create branch above — one extra
     // light read of the caller's own permission rows (RLS-readable to any

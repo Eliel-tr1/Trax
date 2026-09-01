@@ -1,0 +1,11 @@
+-- automation_dispatch() writes to automation_logs (skipped/success/failed
+-- rows) on EVERY matching rule, even ones whose conditions aren't met, but
+-- automation_logs only has a SELECT RLS policy -- no INSERT policy at all.
+-- audit_log_trigger() already uses SECURITY DEFINER for exactly this
+-- reason; automation_dispatch() was never given the same treatment. Result:
+-- any UPDATE that touches a field an active automation_rule watches (e.g.
+-- sales.stage, which 2 rules watch) failed outright for any regular
+-- authenticated user, surfacing as a generic "השמירה נכשלה" -- confirmed
+-- live by reproducing prosecdef=false on automation_dispatch vs true on
+-- audit_log_trigger, and automation_logs having zero INSERT policies.
+alter function automation_dispatch() security definer;
