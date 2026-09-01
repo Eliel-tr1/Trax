@@ -13,6 +13,7 @@ import UserAvatar from '../UserAvatar'
 import Icon from '../Icon'
 import { orderedGroups } from './nav-data'
 import FeedbackModal from '../FeedbackModal'
+import UnitTransitionOverlay from '../UnitTransitionOverlay'
 import logoHeader from '../../assets/logo-header.png'
 import xconLogo from '../../assets/xcon-logo.png'
 
@@ -27,15 +28,23 @@ import xconLogo from '../../assets/xcon-logo.png'
 export default function AppSidebar() {
   const { user, rep, signOut } = useAuthStore()
   const unit = useBusinessUnitStore(s => s.unit)
+  const setUnit = useBusinessUnitStore(s => s.setUnit)
   const { isMobile, setOpenMobile } = useSidebar()
   const loc = useLocation()
   const nav = useNavigate()
   const name = rep?.full_name || user?.email
   const [feedbackKind, setFeedbackKind] = useState(null)
+  const [transitioningTo, setTransitioningTo] = useState(null)
   // Business-unit branding (Goldi, 01.09: "when clicking Xcon the sidebar
   // should switch to Xcon CRM and its logo"). Logo falls back to the TRAX
   // one until a dedicated Xcon asset lands in src/assets/.
   const brandTitle = unit === 'Xcon' ? 'Xcon CRM' : 'TRAX CRM'
+
+  const toggleUnit = () => {
+    const next = unit === 'TRAX' ? 'Xcon' : 'TRAX'
+    setTransitioningTo(next)   // overlay first
+    setTimeout(() => setUnit(next), 60) // theme flips beneath the overlay
+  }
 
   const isActive = (item) =>
     item.end ? loc.pathname === item.path : loc.pathname === item.path || loc.pathname.startsWith(item.path + '/')
@@ -51,7 +60,7 @@ export default function AppSidebar() {
             and still toggles. */}
         <button
           type="button"
-          onClick={() => useBusinessUnitStore.getState().setUnit(unit === 'TRAX' ? 'Xcon' : 'TRAX')}
+          onClick={toggleUnit}
           title={unit === 'TRAX' ? 'עבור ל-Xcon' : 'עבור ל-TRAX'}
           className="flex items-center gap-2 rounded-md transition-colors hover:bg-accent px-2 py-1">
           <img src={unit === 'Xcon' ? xconLogo : logoHeader} alt={unit} className="size-8 shrink-0 rounded-md object-contain" />
@@ -60,7 +69,7 @@ export default function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        {orderedGroups(rep?.prefs).map((group, i) => (
+        {orderedGroups(rep?.prefs, unit).map((group, i) => (
           <SidebarGroup key={group.key ?? i}>
             {group.title && <SidebarGroupLabel>{group.title}</SidebarGroupLabel>}
             <SidebarGroupContent>
@@ -140,6 +149,7 @@ export default function AppSidebar() {
         </SidebarMenu>
       </SidebarFooter>
       {feedbackKind && <FeedbackModal kind={feedbackKind} onClose={() => setFeedbackKind(null)} />}
+      {transitioningTo && <UnitTransitionOverlay to={transitioningTo} />}
     </Sidebar>
   )
 }

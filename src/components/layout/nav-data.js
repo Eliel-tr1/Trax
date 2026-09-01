@@ -21,13 +21,24 @@ export const NAV_GROUPS = [
       { path: '/tasks', label: 'המשימות שלי', icon: 'calendar', resource: 'tasks' },
       { path: '/customers', label: 'לקוחות', icon: 'users', resource: 'customers' },
       { path: '/sales', label: 'מכירות', icon: 'money', resource: 'sales' },
-      { path: '/journeys', label: 'מסעות', icon: 'calendar', resource: 'journeys' },
-      { path: '/registrations', label: 'הרשמות', icon: 'tag', resource: 'registrations' },
+      // journeys/registrations are TRAX-only (Xcon has no departures) —
+      // filtered out for that unit by itemsForUnit() below.
+      { path: '/journeys', label: 'מסעות', icon: 'calendar', resource: 'journeys', units: ['TRAX'] },
+      { path: '/registrations', label: 'הרשמות', icon: 'tag', resource: 'registrations', units: ['TRAX'] },
       { path: '/meetings', label: 'פגישות', icon: 'calendar', resource: 'meetings' },
       { path: '/phone-calls', label: 'שיחות טלפון', icon: 'phone', resource: 'phone_calls' },
     ],
   },
 ]
+
+// Filters nav items by business unit: an item with a `units` array only
+// appears when the active unit is listed (Goldi: no journeys/registrations
+// in Xcon).
+export function itemsForUnit(unit) {
+  return NAV_GROUPS
+    .map(g => ({ ...g, items: g.items.filter(it => !it.units || it.units.includes(unit)) }))
+    .filter(g => g.items.length > 0)
+}
 
 export const DETAIL_TITLES = [
   ['/customers/', 'כרטיס לקוח'],
@@ -42,14 +53,14 @@ export const allNavItems = () => NAV_GROUPS.flatMap(g => g.items)
 
 // Applies a user's saved sidebar customization (app_users.prefs.navOrder /
 // .navHidden, set from Profile.jsx — feature-audit item #9, ported from
-// bina-crm's MySettings.jsx) to NAV_GROUPS: filters hidden items and
-// reorders the survivors within each group by their position in navOrder
+// bina-crm's MySettings.jsx) on top of the unit filter: filters hidden items
+// and reorders the survivors within each group by their position in navOrder
 // (global order list, items not in it keep their original relative order).
-export function orderedGroups(prefs) {
+export function orderedGroups(prefs, unit = 'TRAX') {
   const order = prefs?.navOrder || []
   const hidden = new Set(prefs?.navHidden || [])
   const rank = (path) => { const i = order.indexOf(path); return i === -1 ? 999 + order.length : i }
-  return NAV_GROUPS
+  return itemsForUnit(unit)
     .map(g => ({ ...g, items: g.items.filter(it => !hidden.has(it.path)).slice().sort((a, b) => rank(a.path) - rank(b.path)) }))
     .filter(g => g.items.length > 0)
 }

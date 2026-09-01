@@ -26,7 +26,6 @@ export default function AppLayout() {
           <Separator orientation="vertical" className="me-1 h-5" />
           <h1 className="hidden min-w-0 truncate text-lg font-bold sm:block">{titleForPath(loc.pathname)}</h1>
           <div className="ms-auto flex shrink-0 items-center gap-1 sm:gap-2">
-            <BusinessUnitSwitcher />
             <GlobalSearch />
             <Notifications />
             <ThemeToggle />
