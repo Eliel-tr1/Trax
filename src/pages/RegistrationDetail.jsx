@@ -12,6 +12,7 @@ import Icon from '../components/Icon'
 import { formatDate, formatCurrency } from '../lib/format'
 import StatusBadge, { badgeClassFor } from '../components/StatusBadge'
 import FieldTabs from '../components/FieldTabs'
+import RegistrationChecklist from '../components/RegistrationChecklist'
 import SystemFieldsTab from '../components/SystemFieldsTab'
 
 const SECTIONS = ['פרטים', 'תשלום ומסמכים']
@@ -88,6 +89,8 @@ export default function RegistrationDetail() {
         {sec === 'תשלום ומסמכים' && <div style={{ marginTop: 10 }}>
           <EditField label="הערות רפואיות או תזונתיות" value={r.medical_dietary_notes} type="textarea" onSave={v => save('medical_dietary_notes', v)} />
         </div>}
+
+        <RegistrationChecklist registrationId={r.id} />
 
         <FieldTabs tabs={[
           {

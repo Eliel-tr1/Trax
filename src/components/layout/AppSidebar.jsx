@@ -1,6 +1,7 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { LogOut } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
+import { useBusinessUnitStore } from '../../stores/businessUnitStore'
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent,
   SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
@@ -22,10 +23,15 @@ import logoHeader from '../../assets/logo-header.png'
    live 2026-08-31: side="left" renders on the visual right in this RTL app. */
 export default function AppSidebar() {
   const { user, rep, signOut } = useAuthStore()
+  const unit = useBusinessUnitStore(s => s.unit)
   const { isMobile, setOpenMobile } = useSidebar()
   const loc = useLocation()
   const nav = useNavigate()
   const name = rep?.full_name || user?.email
+  // Business-unit branding (Goldi, 01.09: "when clicking Xcon the sidebar
+  // should switch to Xcon CRM and its logo"). Logo falls back to the TRAX
+  // one until a dedicated Xcon asset lands in src/assets/.
+  const brandTitle = unit === 'Xcon' ? 'Xcon CRM' : 'TRAX CRM'
 
   const isActive = (item) =>
     item.end ? loc.pathname === item.path : loc.pathname === item.path || loc.pathname.startsWith(item.path + '/')
@@ -35,8 +41,8 @@ export default function AppSidebar() {
   return (
     <Sidebar side="left" collapsible="icon">
       <SidebarHeader className="h-16 flex-row items-center justify-center gap-2 px-4 group-data-[collapsible=icon]:px-0">
-        <img src={logoHeader} alt="TRAX" className="size-8 shrink-0 rounded-md object-contain" />
-        <span className="group-data-[collapsible=icon]:hidden text-lg font-bold">TRAX CRM</span>
+        <img src={logoHeader} alt={unit} className="size-8 shrink-0 rounded-md object-contain" />
+        <span className="group-data-[collapsible=icon]:hidden text-lg font-bold">{brandTitle}</span>
       </SidebarHeader>
 
       <SidebarContent>
