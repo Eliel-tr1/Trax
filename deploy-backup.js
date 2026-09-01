@@ -43,6 +43,15 @@ RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule . ${BASE}index.html [L]
 
+# index.html must NEVER be cached: it's the pointer to the hashed bundles.
+# Assets ARE cached (their names change with content) — that's the whole
+# cache-busting scheme, and it only works if the HTML always arrives fresh.
+<IfModule mod_headers.c>
+  <FilesMatch "index\.html$">
+    Header set Cache-Control "no-store, must-revalidate"
+  </FilesMatch>
+</IfModule>
+
 Header set X-Content-Type-Options "nosniff"
 Header set X-Frame-Options "SAMEORIGIN"
 `

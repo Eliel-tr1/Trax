@@ -41,7 +41,7 @@ const corsHeaders = {
 // assistant plausibly needs to filter/aggregate on — not every writable
 // field (e.g. free-text notes are readable via get_record, not filterable).
 // ---------------------------------------------------------------------------
-type ResourceDef = { table: string; filterFields: string[]; listFields: string[] };
+type ResourceDef = { table: string; filterFields: string[]; listFields: string[]; searchFields?: string[] };
 
 const RESOURCES: Record<string, ResourceDef> = {
   customers: {
@@ -49,12 +49,16 @@ const RESOURCES: Record<string, ResourceDef> = {
     filterFields: [
       "business_unit", "lead_source", "campaign", "status", "lead_rating",
       "club_member", "extreme_experience_level", "preferred_language", "owner_id",
+      "account_manager_id",
     ],
     listFields: [
-      "id", "first_name", "last_name", "mobile_phone", "email", "business_unit",
-      "lead_source", "campaign", "status", "lead_rating", "club_member",
-      "created_at",
+      "id", "first_name", "last_name", "mobile_phone", "email", "work_email",
+      "business_unit", "lead_source", "campaign", "utm_source", "utm_campaign",
+      "status", "lead_rating", "club_member", "owner_id",
+      "account_manager_id", "created_at", "first_contact_at", "notes",
+      "preferred_language", "extreme_experience_level",
     ],
+    searchFields: ["first_name", "last_name", "email", "work_email", "notes"],
   },
   sales: {
     table: "sales",
@@ -67,8 +71,9 @@ const RESOURCES: Record<string, ResourceDef> = {
       "id", "deal_name", "customer_id", "business_unit", "stage", "channel",
       "lead_source", "campaign", "owner_id", "loss_reason", "journey_id",
       "expected_value", "currency", "qualification_rating", "next_call_at",
-      "created_at",
+      "qualification_summary", "created_at",
     ],
+    searchFields: ["deal_name", "qualification_summary"],
   },
   journeys: {
     table: "journeys",
@@ -76,8 +81,10 @@ const RESOURCES: Record<string, ResourceDef> = {
     listFields: [
       "id", "name", "business_unit", "destination", "departure_date",
       "return_date", "seats_total", "min_seats", "seats_sold", "seats_available",
-      "status", "price_per_person", "currency",
+      "status", "price_per_person", "currency", "short_description",
+      "page_url",
     ],
+    searchFields: ["name", "destination", "short_description"],
   },
   registrations: {
     table: "registrations",
@@ -88,32 +95,70 @@ const RESOURCES: Record<string, ResourceDef> = {
     listFields: [
       "id", "registration_name", "customer_id", "journey_id", "sale_id",
       "status", "amount_paid", "currency", "last_payment_date",
-      "payment_method", "registered_at",
+      "payment_method", "registered_at", "medical_dietary_notes",
+      "emergency_contact", "invoice_number",
     ],
+    searchFields: ["registration_name", "medical_dietary_notes"],
+  },
+  registration_passengers: {
+    table: "registration_passengers",
+    filterFields: ["registration_id", "gender"],
+    listFields: [
+      "id", "registration_id", "full_name", "age", "gender", "phone", "email",
+      "is_primary", "medical_notes", "dietary_notes", "language",
+    ],
+    searchFields: ["full_name", "medical_notes", "dietary_notes"],
+  },
+  contacts: {
+    table: "contacts",
+    filterFields: ["customer_id", "role"],
+    listFields: ["id", "customer_id", "name", "phone", "email", "role"],
+    searchFields: ["name", "email"],
+  },
+  notes: {
+    table: "notes",
+    filterFields: ["related_type", "related_id", "created_by"],
+    listFields: ["id", "related_type", "related_id", "content", "created_by", "created_at"],
+    searchFields: ["content"],
   },
   tasks: {
     table: "tasks",
     filterFields: ["related_type", "related_id", "assignee_id", "status", "priority", "business_unit"],
     listFields: [
       "id", "subject", "related_type", "related_id", "assignee_id", "due_at",
-      "status", "priority", "business_unit", "created_at",
+      "status", "priority", "business_unit", "notes", "created_at",
     ],
+    searchFields: ["subject", "notes"],
   },
   meetings: {
     table: "meetings",
-    filterFields: ["related_type", "related_id", "type", "business_unit"],
+    filterFields: ["related_type", "related_id", "type", "status", "business_unit"],
     listFields: [
       "id", "subject", "related_type", "related_id", "start_at",
-      "duration_minutes", "type", "summary", "business_unit",
+      "duration_minutes", "type", "status", "summary", "business_unit",
     ],
+    searchFields: ["subject", "summary"],
   },
   phone_calls: {
     table: "phone_calls",
-    filterFields: ["related_id", "direction", "result", "business_unit", "assigned_user_id"],
+    filterFields: ["related_type", "related_id", "direction", "result", "business_unit", "assigned_user_id"],
     listFields: [
-      "id", "related_id", "direction", "occurred_at", "duration_seconds",
-      "result", "summary", "business_unit",
+      "id", "related_type", "related_id", "direction", "occurred_at", "duration_seconds",
+      "result", "summary", "business_unit", "recording_url",
     ],
+    searchFields: ["summary"],
+  },
+  app_users: {
+    table: "app_users",
+    filterFields: ["role_id", "department", "permission_profile", "is_active"],
+    listFields: ["id", "full_name", "email", "role_id", "department", "permission_profile", "avatar_url", "is_active", "phone"],
+    searchFields: ["full_name", "email"],
+  },
+  feedback_reports: {
+    table: "feedback_reports",
+    filterFields: ["kind", "status", "business_unit"],
+    listFields: ["id", "kind", "content", "status", "business_unit", "created_at"],
+    searchFields: ["content"],
   },
 };
 
@@ -186,6 +231,26 @@ async function toolGetRecord(admin: ReturnType<typeof createClient>, args: any) 
   return { record: data };
 }
 
+// Full-text-ish search: ilike across the resource's searchFields. Used by
+// the search_records tool — "who is registered to Montenegro", "find the
+// customer named Dana", "what did Gilad write in notes" all resolve here.
+async function toolSearchRecords(admin: ReturnType<typeof createClient>, args: any) {
+  const def = validateResource(args.resource);
+  const term = String(args.term || "").trim();
+  if (!term) throw new Error("term is required");
+  const fields = def.searchFields || [];
+  if (!fields.length) throw new Error(`no searchable fields on "${args.resource}"`);
+  const limit = Math.min(Number(args.limit) || 10, 25);
+  let q = admin.from(def.table)
+    .select(def.listFields.join(","))
+    .or(fields.map(f => `${f}.ilike.%${term}%`).join(","));
+  if (def.table !== "app_users" && def.table !== "feedback_reports") q = q.is("deleted_at", null);
+  q = q.order("created_at", { ascending: false }).limit(limit);
+  const { data, error } = await q;
+  if (error) throw error;
+  return { records: data };
+}
+
 async function toolAggregateByField(admin: ReturnType<typeof createClient>, args: any) {
   const def = validateResource(args.resource);
   const field = args.field;
@@ -255,6 +320,22 @@ const TOOLS = [
   {
     type: "function",
     function: {
+      name: "search_records",
+      description: "Free-text search across a resource's searchable fields (names, emails, notes, subjects). Use when the user asks about a specific person/journey/note and you don't have its id.",
+      parameters: {
+        type: "object",
+        properties: {
+          resource: { type: "string", enum: RESOURCE_NAMES },
+          term: { type: "string", description: "text to search for (partial match)" },
+          limit: { type: "integer", description: "max 25" },
+        },
+        required: ["resource", "term"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "aggregate_by_field",
       description: "Group-and-count records of a resource by one field. Use for breakdowns like 'leads by source'.",
       parameters: {
@@ -275,6 +356,7 @@ async function runTool(admin: ReturnType<typeof createClient>, name: string, arg
     case "count_records": return toolCountRecords(admin, args);
     case "list_records": return toolListRecords(admin, args);
     case "get_record": return toolGetRecord(admin, args);
+    case "search_records": return toolSearchRecords(admin, args);
     case "aggregate_by_field": return toolAggregateByField(admin, args);
     default: throw new Error(`unknown tool "${name}"`);
   }
@@ -283,9 +365,12 @@ async function runTool(admin: ReturnType<typeof createClient>, name: string, arg
 // ---------------------------------------------------------------------------
 // Max's persona + system prompt
 // ---------------------------------------------------------------------------
-const SYSTEM_PROMPT = `אתה "מקס" — עוזר AI תוך-מערכתי ב-CRM של TRAX Adventure Club.
+const SYSTEM_PROMPT = `אתה "מקס" — עוזר AI תוך-מערכתי ב-CRM של TRAX Adventure Club ו-Xcon.
 טיפוס בטוח בעצמו, טעים אקסטרים (צניחה, צלילה, טיפוס, ג'יפים, רפטינג) ומדי פעם
 (לא בכל משפט) שולף מונח מהעולם הזה בתשובה — אבל אף פעם לא על חשבון בהירות.
+
+יש לך גישת קריאה מלאה לכל המערכת: לקוחות, מכירות, מסעות, הרשמות, נוסעים,
+אנשי קשר, הערות, משימות, פגישות, שיחות טלפון, משתמשים ודיווחים.
 
 חוקים:
 - תשובות קצרות וממוקדות. בלי פטפוט, בלי הקדמות מיותרות.
@@ -294,6 +379,13 @@ const SYSTEM_PROMPT = `אתה "מקס" — עוזר AI תוך-מערכתי ב-CR
   את זה במערכת.
 - כל תשובה על נתונים חייבת להתבסס אך ורק על תוצאות ה-tools שקיבלת — אף פעם
   אל תמציא מספרים.
+- כשמישהו שואל על אדם/מסע/רשומה בשמו ואין לך id — התחל עם search_records
+  (למשל: search_records(customers, "דנה")) ואז המשך עם ה-id שמצאת.
+- "מי רשום למסע X" = search_records(registrations, "X") ואז לרשום את
+  registration_passengers של ההרשמות שמצאת (list_records עם
+  filters.registration_id).
+- אל תוותר מהר: אם חיפוש בישות אחת לא מצא, נסה ישות אחרת שקשורה (למשל
+  שם של נוסע יימצא ב-registration_passengers, לא ב-customers).
 - ענה תמיד בעברית.
 - כשרלוונטי, סיים בהצעת המשך קצרה (שאלה טבעית הבאה) — לא חובה בכל תשובה.`;
 
@@ -324,7 +416,9 @@ async function callOpenAI(messages: any[]) {
 // לידים… סופר… מנסח תשובה…").
 const RESOURCE_LABEL: Record<string, string> = {
   customers: "לקוחות", sales: "מכירות", journeys: "מסעות",
-  registrations: "הרשמות", tasks: "משימות", meetings: "פגישות", phone_calls: "שיחות טלפון",
+  registrations: "הרשמות", registration_passengers: "נוסעים",
+  contacts: "אנשי קשר", notes: "הערות", tasks: "משימות", meetings: "פגישות",
+  phone_calls: "שיחות טלפון", app_users: "משתמשים", feedback_reports: "דיווחים",
 };
 function trailLineFor(toolName: string, args: any): string {
   const label = RESOURCE_LABEL[args?.resource] || args?.resource || "הנתונים";

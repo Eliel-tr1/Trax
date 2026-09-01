@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { LogOut, Bug, Lightbulb } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
@@ -149,7 +150,9 @@ export default function AppSidebar() {
         </SidebarMenu>
       </SidebarFooter>
       {feedbackKind && <FeedbackModal kind={feedbackKind} onClose={() => setFeedbackKind(null)} />}
-      {transitioningTo && <UnitTransitionOverlay to={transitioningTo} />}
+      {/* Portal to document.body: escapes the sidebar's stacking context so
+          the transition truly covers the whole viewport, header included. */}
+      {transitioningTo && createPortal(<UnitTransitionOverlay to={transitioningTo} />, document.body)}
     </Sidebar>
   )
 }

@@ -1,20 +1,30 @@
 import { useEffect, useState } from 'react'
+import xconLogoUrl from '../assets/xcon-logo.png'
+import traxLogoUrl from '../assets/logo-header.png'
 
 /* Full-screen unit-switch transition (Goldi: "something bold that says the
-   system changed"). Covers the viewport in the INCOMING brand's deep color
-   + logo, holds ~900ms, then a full page reload lands the user on the
-   dashboard of the other system — a clean remount with the new theme. */
+   system changed"). Rendered into a TOP-LEVEL portal — inside the Sidebar
+   tree it was clipped by the sidebar's own stacking context and the header
+   stayed on top (the user saw menu fragments during the transition). A
+   portal to document.body escapes all of that: z-index 2147483647 sits
+   above everything the app can ever render.
+
+   The "page not clickable after the transition" report was the overlay
+   dying mid-flow (e.g. reload racing the timers) and LEAVING nothing —
+   actually the reload never happening while the theme had already flipped;
+   here the overlay only fades once the reload is already underway, and a
+   hard safety timeout forces the reload even if something hangs. */
 export default function UnitTransitionOverlay({ to }) {
   const [fading, setFading] = useState(false)
 
   useEffect(() => {
-    const t1 = setTimeout(() => setFading(true), 750)
+    const t1 = setTimeout(() => setFading(true), 800)
     const t2 = setTimeout(() => {
-      // Full reload: clears all in-memory state and remounts with the new
-      // [data-bu] theme + dashboard route as the default landing.
       window.location.assign(window.location.origin + window.location.pathname + '#/')
-    }, 1000)
-    return () => { clearTimeout(t1); clearTimeout(t2) }
+    }, 1050)
+    // Safety: if the reload is somehow blocked, unblock the page anyway.
+    const t3 = setTimeout(() => { try { window.location.reload() } catch { /* ignore */ } }, 2500)
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
   }, [])
 
   const isXcon = to === 'Xcon'
@@ -22,11 +32,11 @@ export default function UnitTransitionOverlay({ to }) {
 
   return (
     <div style={{
-      position: 'fixed', inset: 0, zIndex: 9999,
+      position: 'fixed', inset: 0, zIndex: 2147483647,
       background: bg,
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 18,
       opacity: fading ? 0 : 1,
-      transition: 'opacity 0.35s ease',
+      transition: 'opacity 0.3s ease',
     }}>
       <img src={isXcon ? xconLogoUrl : traxLogoUrl} alt={to}
         style={{ width: isXcon ? 190 : 120, maxWidth: '60vw', objectFit: 'contain' }} />
@@ -37,7 +47,3 @@ export default function UnitTransitionOverlay({ to }) {
     </div>
   )
 }
-
-// Vite statically resolves these imports at build time.
-import xconLogoUrl from '../assets/xcon-logo.png'
-import traxLogoUrl from '../assets/logo-header.png'
