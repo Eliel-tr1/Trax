@@ -79,3 +79,56 @@ stray-click cause.
 - QA pass beyond the smoke test described above.
 - Wave 2 screens (journeys, registrations, dashboards) — schema-ready,
   not built, per roadmap.md.
+
+## Lovable prompt — Xcon contact form with proper lead submission (01.09.2026)
+
+Paste this into Lovable for xcon.pro:
+
+---
+Update the contact form on this site so every submission is sent to our CRM
+system automatically. Requirements:
+
+1. FORM FIELDS (in this exact order, all in Hebrew UI):
+   - שם מלא (full_name) — required
+   - אימייל עסקי (email) — required, must be validated as an email
+   - טלפון (phone) — optional
+   - חברה (company) — required
+   - תפקיד (role) — optional
+   - תחום עניין (area_of_interest) — dropdown with exactly these options:
+     ייעוץ / פרויקטים / פתרונות / Insight / ZAP / קריירה / שותפויות / אחר
+   - ספרו לנו על האתגר (message) — optional textarea
+
+2. UTM CAPTURE: on page load, read all UTM parameters from the URL
+   (utm_source, utm_medium, utm_campaign, utm_content, utm_term, funnel,
+   utm_adset, utm_ad, utm_placement) and store them. Also capture
+   page_url (the full current URL) and referrer (document.referrer).
+   Include ALL of these in the submitted JSON — even when empty, include
+   them as empty strings.
+
+3. SUBMISSION PAYLOAD (POST as application/json to the webhook URL below):
+   {
+     "form_id": "xcon",
+     "full_name": "...",
+     "email": "...",
+     "phone": "... or empty string",
+     "company": "...",
+     "role": "... or empty string",
+     "area_of_interest": "one of the dropdown values",
+     "message": "... or empty string",
+     "utm_source": "...", "utm_medium": "...", "utm_campaign": "...",
+     "utm_content": "...", "utm_term": "...", "funnel": "...",
+     "utm_adset": "...", "utm_ad": "...", "utm_placement": "...",
+     "page_url": "...", "referrer": "..."
+   }
+   IMPORTANT: do not put the email in a "phone" field and do not rename
+   keys — the CRM maps them by exact key name. form_id MUST be exactly "xcon".
+
+4. WEBHOOK URL: POST to the n8n webhook URL we will provide
+   (placeholder: https://n8n.srv1873970.hstgr.cloud/webhook/xcon-lead-intake).
+   Use fetch with mode 'cors'. On success show a success message in Hebrew;
+   on failure show an error message and keep the form data so the user can
+   retry.
+
+5. UX: disable the submit button while submitting, show a loading state,
+   and prevent double-submits (debounce 3 seconds).
+---
