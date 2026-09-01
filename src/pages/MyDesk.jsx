@@ -88,13 +88,13 @@ export default function MyDesk() {
 
       {user?.id ? (
         <>
-          <MetricsRow userId={user.id} unit={unit} refreshKey={refreshKey} />
+          <MetricsRow userId={user.id} unit={unit} refreshKey={refreshKey} refresh={refresh} />
           <div className="grid gap-4 lg:grid-cols-2">
-            <NewLeadsCard userId={user.id} unit={unit} refreshKey={refreshKey} />
-            <FollowUpCard userId={user.id} unit={unit} refreshKey={refreshKey} />
-            <PendingPaymentCard userId={user.id} unit={unit} refreshKey={refreshKey} />
-            <OpenTasksCard userId={user.id} unit={unit} refreshKey={refreshKey} />
-            <MeetingsTodayCard userId={user.id} unit={unit} refreshKey={refreshKey} />
+            <NewLeadsCard userId={user.id} unit={unit} refreshKey={refreshKey} refresh={refresh} />
+            <FollowUpCard userId={user.id} unit={unit} refreshKey={refreshKey} refresh={refresh} />
+            <PendingPaymentCard userId={user.id} unit={unit} refreshKey={refreshKey} refresh={refresh} />
+            <OpenTasksCard userId={user.id} unit={unit} refreshKey={refreshKey} refresh={refresh} />
+            <MeetingsTodayCard userId={user.id} unit={unit} refreshKey={refreshKey} refresh={refresh} />
           </div>
         </>
       ) : (
@@ -106,7 +106,7 @@ export default function MyDesk() {
 
 /* ---------------------------------------------------------------- metrics */
 
-function MetricsRow({ userId, unit, refreshKey }) {
+function MetricsRow({ userId, unit, refreshKey, refresh }) {
   const [data, setData] = useState(null)
 
   useEffect(() => {
@@ -196,7 +196,7 @@ function Row({ to, children }) {
 
 /* ------------------------------------------------------------- new leads */
 
-function NewLeadsCard({ userId, unit, refreshKey }) {
+function NewLeadsCard({ userId, unit, refreshKey, refresh }) {
   const [rows, setRows] = useState(null)
 
   useEffect(() => {
@@ -231,7 +231,7 @@ function NewLeadsCard({ userId, unit, refreshKey }) {
 
 /* --------------------------------------------------------------- follow-up */
 
-function FollowUpCard({ userId, unit, refreshKey }) {
+function FollowUpCard({ userId, unit, refreshKey, refresh }) {
   const [rows, setRows] = useState(null)
 
   useEffect(() => {
@@ -266,7 +266,7 @@ function FollowUpCard({ userId, unit, refreshKey }) {
 
 /* ---------------------------------------------------------- pending payment */
 
-function PendingPaymentCard({ userId, unit, refreshKey }) {
+function PendingPaymentCard({ userId, unit, refreshKey, refresh }) {
   const [rows, setRows] = useState(null)
 
   useEffect(() => {
@@ -309,7 +309,7 @@ function PendingPaymentCard({ userId, unit, refreshKey }) {
 
 /* --------------------------------------------------------------- open tasks */
 
-function OpenTasksCard({ userId, unit, refreshKey }) {
+function OpenTasksCard({ userId, unit, refreshKey, refresh }) {
   const [rows, setRows] = useState(null)
 
   useEffect(() => {
@@ -345,7 +345,7 @@ function OpenTasksCard({ userId, unit, refreshKey }) {
 
 /* ------------------------------------------------------------ meetings today */
 
-function MeetingsTodayCard({ userId, unit, refreshKey }) {
+function MeetingsTodayCard({ userId, unit, refreshKey, refresh }) {
   const [rows, setRows] = useState(null)
 
   useEffect(() => {
