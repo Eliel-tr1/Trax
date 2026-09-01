@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { loadOptions, updateField } from '../lib/api'
-import { MEETING_TYPES, enumOpts } from '../lib/constants'
+import { MEETING_TYPES, MEETING_STATUSES, enumOpts } from '../lib/constants'
 import { formatDateTime } from '../lib/format'
 import RecordLayout from '../components/RecordLayout'
 import EditField from '../components/EditField'
@@ -53,6 +53,7 @@ export default function MeetingDetail() {
           <EditField label="תאריך ושעה" value={m.start_at?.slice(0, 16)} display={formatDateTime(m.start_at)} type="datetime" onSave={v => save('start_at', v)} />
           <EditField label="משך (דקות)" value={m.duration_minutes} type="number" onSave={v => save('duration_minutes', v)} />
           <EditField label="סוג" value={m.type} type="select" options={enumOpts(MEETING_TYPES)} onSave={v => save('type', v)} />
+          <EditField label="סטטוס" value={m.status} type="select" options={enumOpts(MEETING_STATUSES)} onSave={v => save('status', v)} />
           {m.google_event_id && <EditField label="סנכרון יומן גוגל" value={m.google_event_id} readOnly readOnlyReason="מגיע מסנכרון Google Calendar" />}
         </div>
         <div style={{ marginTop: 10 }}>

@@ -11,7 +11,7 @@ import {
   EXPERIENCE_LEVELS, PREFERRED_LANGUAGES, SALE_STAGES, SALE_CHANNELS,
   LOSS_REASONS, QUALIFICATION_RATINGS, CURRENCIES, INTEREST_AREAS,
   JOURNEY_DESTINATIONS, JOURNEY_STATUSES, REGISTRATION_STATUSES,
-  PAYMENT_METHODS, TASK_STATUSES, TASK_PRIORITIES, MEETING_TYPES,
+  PAYMENT_METHODS, TASK_STATUSES, TASK_PRIORITIES, MEETING_TYPES, MEETING_STATUSES,
   CALL_DIRECTIONS, CALL_RESULTS, enumOpts,
 } from './constants'
 import { formatDate, formatDateTime, formatNumber } from './format'
@@ -149,6 +149,7 @@ export const SCHEMA = {
       { key: 'start_at', label: 'תאריך ושעה', type: 'datetime', required: true, wave: 1 },
       { key: 'duration_minutes', label: 'משך (דקות)', type: 'number', wave: 1 },
       { key: 'type', label: 'סוג', type: 'select', options: enumOpts(MEETING_TYPES), wave: 1 },
+      { key: 'status', label: 'סטטוס', type: 'select', options: enumOpts(MEETING_STATUSES), default: 'מתוכננה', wave: 1 },
       { key: 'summary', label: 'סיכום', type: 'textarea', wave: 1 },
     ],
     relations: [],
