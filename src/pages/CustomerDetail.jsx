@@ -157,6 +157,8 @@ export default function CustomerDetail() {
             key: 'marketing', label: 'נתונים שיווקיים', content: <>
               <EditField label="מקור הגעה" value={c.lead_source} type="select" options={enumOpts(LEAD_SOURCES)} onSave={v => save('lead_source', v)} />
               <EditField label="קמפיין" value={c.campaign} onSave={v => save('campaign', v)} />
+              <EditField label="שם טופס" value={c.form_name} onSave={v => save('form_name', v)} />
+              <EditField label="אישור דיוור" value={c.marketing_consent} type="checkbox" onSave={v => save('marketing_consent', v)} />
               {/* UTM — written automatically by the WF05a lead-intake integration
                   (docs/decisions/0006), editable here like everything else. */}
               <EditField label="UTM Source" value={c.utm_source} onSave={v => save('utm_source', v)} />

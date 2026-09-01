@@ -134,6 +134,8 @@ export default function SaleDetail() {
               <EditField label="ערוץ פנייה" value={s.channel} type="select" options={enumOpts(SALE_CHANNELS)} onSave={v => save('channel', v)} />
               <EditField label="מקור הגעה" value={s.lead_source} type="select" options={enumOpts(LEAD_SOURCES)} onSave={v => save('lead_source', v)} />
               <EditField label="קמפיין" value={s.campaign} onSave={v => save('campaign', v)} />
+              <EditField label="שם טופס" value={s.form_name} onSave={v => save('form_name', v)} />
+              <EditField label="אישור דיוור" value={s.marketing_consent} type="checkbox" onSave={v => save('marketing_consent', v)} />
               {/* UTM — written automatically by the WF05a lead-intake integration
                   (docs/decisions/0006), editable here like everything else. */}
               <EditField label="UTM Source" value={s.utm_source} onSave={v => save('utm_source', v)} />

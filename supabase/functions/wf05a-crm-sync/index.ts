@@ -13,16 +13,21 @@
 //
 // Expected POST body:
 // { first_name, last_name, phone_e164, email, page_url, submitted_at,
-//   message?, execution_url?,
+//   notes?, form_name?, execution_url?, page_lang?, marketing_consent?,
 //   utm: { funnel, utm_source, utm_medium, utm_campaign, utm_adset, utm_ad,
 //          utm_content, utm_keyword, utm_ref, utm_placement } }
+// page_lang: the site page's language ('he'/'en') — default preferred_
+// language is עברית, mapped to אנגלית only when the source page isn't 'he'.
+// marketing_consent: boolean, only written when explicitly true/false in
+// the payload (a missing key never overwrites an existing value with null).
 // (utm field NAMES match WF05a's own "נרמול ובדיקת תקינות (G1)" node exactly
 // — utm_keyword maps to this CRM's utm_term column, utm_ref maps to referrer.
-// `message`/`notes`/`comment` are read defensively since no real submission
-// has ever sent one yet (confirmed via n8n execution history) — the site
-// form may add one later, and G1 was deliberately left untouched rather than
-// widening its allow-list, so the calling n8n node reads this straight off
-// the raw Webhook node's output, not off G1's filtered one.)
+// `notes`/`form_name` weren't in the site form's payload at all until a site
+// bug fix on 2026-08-31 — confirmed via real n8n execution 727. Both are read
+// straight off the raw Webhook node's output, not off G1's filtered one
+// (which doesn't carry them), so G1 stays untouched — Origami's branch reads
+// from G1 unaffected. `message`/`comment`/`comments` are still checked as
+// fallbacks in case the field name ever changes again.)
 //
 // business_unit is always TRAX here — WF05a is the TRAX website's own lead
 // form, it has no Xcon variant.
@@ -47,13 +52,21 @@ Deno.serve(async (req: Request) => {
   const body = await req.json().catch(() => null);
   if (!body) return jsonResponse({ error: "invalid JSON" }, 400);
 
-  const { first_name, last_name, phone_e164, email, page_url, utm, execution_url } = body;
-  const message: string | undefined = body.message || body.notes || body.comment || body.comments || undefined;
+  const { first_name, last_name, phone_e164, email, page_url, utm, execution_url, form_name, marketing_consent } = body;
+  const message: string | undefined = body.notes || body.message || body.comment || body.comments || undefined;
   if (!phone_e164) return jsonResponse({ error: "phone_e164 is required" }, 400);
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
   const u = utm || {};
   const now = new Date().toISOString();
+
+  // Page language, not the lead's spoken-language field — but it's the only
+  // signal WF05a has for it, and the client's spec is exactly "default to
+  // Hebrew, map to the real page language when the source page isn't
+  // Hebrew". Site sends this as `page_lang` (and duplicates it at
+  // `context.lang`) — only 'עברית'/'אנגלית' are valid per the DB constraint.
+  const pageLang: string | undefined = body.page_lang || body.context?.lang;
+  const preferredLanguage = pageLang && pageLang.toLowerCase() !== "he" ? "אנגלית" : "עברית";
 
   const utmPatch = {
     utm_source: u.utm_source || null,
@@ -94,6 +107,8 @@ Deno.serve(async (req: Request) => {
       lead_source: LEAD_SOURCE,
       campaign: u.utm_campaign || undefined,
       execution_url: execution_url || undefined,
+      form_name: form_name || undefined,
+      ...(typeof marketing_consent === "boolean" ? { marketing_consent } : {}),
       ...(message ? { notes: (priorNotes ? priorNotes + "\n\n" : "") + `[טופס אתר ${now.slice(0, 10)}] ${message}` } : {}),
       ...utmPatch,
     }).eq("id", customerId);
@@ -109,6 +124,9 @@ Deno.serve(async (req: Request) => {
       campaign: u.utm_campaign || null,
       status: "ליד חדש",
       notes: message || null,
+      form_name: form_name || null,
+      preferred_language: preferredLanguage,
+      marketing_consent: typeof marketing_consent === "boolean" ? marketing_consent : null,
       account_manager_id: DEFAULT_ACCOUNT_MANAGER_ID,
       execution_url: execution_url || null,
       ...utmPatch,
@@ -136,6 +154,8 @@ Deno.serve(async (req: Request) => {
       campaign: u.utm_campaign || undefined,
       next_call_at: now, // a repeat submission is renewed interest — bump the follow-up to today either way
       execution_url: execution_url || undefined,
+      form_name: form_name || undefined,
+      ...(typeof marketing_consent === "boolean" ? { marketing_consent } : {}),
       ...utmPatch,
     };
     // Only default a journey if the sale doesn't already have one — never
@@ -174,6 +194,8 @@ Deno.serve(async (req: Request) => {
       owner_id: DEFAULT_ACCOUNT_MANAGER_ID,
       next_call_at: now, // "same day the lead came in", per spec
       execution_url: execution_url || null,
+      form_name: form_name || null,
+      marketing_consent: typeof marketing_consent === "boolean" ? marketing_consent : null,
       ...utmPatch,
     }).select("id").single();
     if (createErr) return jsonResponse({ error: "sale create failed", detail: createErr.message }, 502);
