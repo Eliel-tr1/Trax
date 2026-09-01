@@ -8,6 +8,7 @@ import AppLayout from './components/layout/AppLayout'
 import LoginPage from './pages/LoginPage'
 import Dashboard from './pages/Dashboard'
 import MyDesk from './pages/MyDesk'
+import TaskDetail from './pages/TaskDetail'
 import Customers from './pages/Customers'
 import CustomerDetail from './pages/CustomerDetail'
 import Sales from './pages/Sales'
@@ -80,6 +81,7 @@ export default function App() {
               <Route path="phone-calls" element={<RequirePermission resource="phone_calls"><PhoneCalls /></RequirePermission>} />
               <Route path="phone-calls/:id" element={<RequirePermission resource="phone_calls"><PhoneCallDetail /></RequirePermission>} />
               <Route path="tasks" element={<RequirePermission resource="tasks"><Tasks /></RequirePermission>} />
+              <Route path="tasks/:id" element={<RequirePermission resource="tasks"><TaskDetail /></RequirePermission>} />
               <Route path="profile" element={<Profile />} />
               <Route path="settings" element={<RequirePermission resource="settings"><Settings /></RequirePermission>} />
               <Route path="*" element={<Navigate to="/" />} />

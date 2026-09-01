@@ -251,23 +251,23 @@ export default function ActivityFeed({ objectType, recordId, record, allowTasks 
         <CardTitle className="flex items-center gap-2 text-base"><Icon name="book" size={16} /> פעילות</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="mb-3 flex items-center gap-2">
+        <div className="mb-4 flex items-center gap-2.5">
           <Button size="sm" variant={mode === 'note' ? 'default' : 'outline'} onClick={() => switchMode('note')}><Icon name="edit" size={13} /> הערה</Button>
           {allowMeetings && <Button size="sm" variant={mode === 'meeting' ? 'default' : 'outline'} onClick={() => switchMode('meeting')}><Icon name="calendar" size={13} /> פגישה</Button>}
           {allowTasks && <Button size="sm" variant={mode === 'task' ? 'default' : 'outline'} onClick={() => switchMode('task')}><Icon name="tag" size={13} /> משימה</Button>}
         </div>
 
-        <div data-tour="rec-composer" className="bg-card focus-within:border-ring mb-4 rounded-lg border p-4 transition-colors space-y-3">
+        <div data-tour="rec-composer" className="bg-card focus-within:border-ring mb-4 rounded-lg border p-5 transition-colors space-y-4">
           {mode === 'note'
             ? <Textarea className="min-h-24 resize-y" value={text} onChange={e => setText(e.target.value)} placeholder="הוסיפו הערה…" />
             : <Input value={text} onChange={e => setText(e.target.value)} placeholder={mode === 'task' ? 'נושא המשימה…' : 'נושא הפגישה…'} />}
 
           {allowTasks && mode === 'task' && (
-            <div className="space-y-2.5">
-              <div className="flex flex-wrap items-center gap-2">
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center gap-3">
                 <Input className="h-7 w-48 text-xs" type="datetime-local" dir="ltr" value={due} onChange={e => setDue(e.target.value)} />
               </div>
-              <div className="flex flex-wrap items-center gap-2.5">
+              <div className="flex flex-wrap items-center gap-3">
                 <span className="text-muted-foreground text-xs">עדיפות:</span>
                 {TASK_PRIORITIES.map(p => (
                   <Button key={p} size="sm" variant="outline" className="h-7 px-2.5 text-xs" onClick={() => setPriority(p)}
@@ -280,21 +280,21 @@ export default function ActivityFeed({ objectType, recordId, record, allowTasks 
           )}
 
           {allowMeetings && mode === 'meeting' && (
-            <div className="space-y-2.5">
-              <div className="flex flex-wrap items-center gap-2">
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center gap-3">
                 <span className="text-muted-foreground text-xs">תאריך ושעה:</span>
                 <Input className="h-7 w-48 text-xs" type="datetime-local" dir="ltr" value={meetStart} onChange={e => setMeetStart(e.target.value)} />
                 <span className="text-muted-foreground text-xs">משך (דקות):</span>
                 <Input className="h-7 w-20 text-xs" type="number" value={meetDuration} onChange={e => setMeetDuration(e.target.value)} />
               </div>
-              <div className="flex flex-wrap items-center gap-2.5">
+              <div className="flex flex-wrap items-center gap-3">
                 <span className="text-muted-foreground text-xs">סוג:</span>
                 {MEETING_TYPES.map(t => (
                   <Button key={t} size="sm" variant="outline" className="h-7 px-2.5 text-xs" onClick={() => setMeetType(t)}
                     style={meetType === t ? { background: 'var(--mp)', color: '#fff', borderColor: 'var(--mp)' } : undefined}>{t}</Button>
                 ))}
               </div>
-              <div className="flex flex-wrap items-center gap-2.5">
+              <div className="flex flex-wrap items-center gap-3">
                 <span className="text-muted-foreground text-xs">משתתפים:</span>
                 <MultiUserPicker users={users} value={meetParticipants} onChange={setMeetParticipants} />
               </div>
@@ -302,7 +302,7 @@ export default function ActivityFeed({ objectType, recordId, record, allowTasks 
             </div>
           )}
 
-          <div className="flex flex-wrap items-center gap-2.5 pt-1">
+          <div className="flex flex-wrap items-center gap-3 pt-2">
             <Button size="sm" onClick={submit} disabled={submitDisabled}>
               {busy ? <span className="spinner light" style={{ width: 14, height: 14 }} /> : 'פרסם'}
             </Button>

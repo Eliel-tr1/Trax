@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
+import { useRefresh } from 'ra-core'
 import { supabase } from '../lib/supabase'
 import { updateField, loadOptions } from '../lib/api'
 import {
@@ -19,18 +20,20 @@ import { registrationColumns } from './Registrations'
 
 export default function JourneyDetail() {
   const { id } = useParams()
+  const refresh = useRefresh()
   const [j, setJ] = useState(null)
   const [regs, setRegs] = useState([])
   const [passengersByReg, setPassengersByReg] = useState({})
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
-  const [users, setUsers] = useState([])
+  const [opts, setOpts] = useState({})
+  const users = opts.users || []
 
   const load = async () => {
     setLoading(true)
     const { data } = await supabase.from('journeys').select('*').eq('id', id).single()
     setJ(data)
-    loadOptions().then(o => setUsers(o.users || []))
+    loadOptions().then(setOpts)
     const { data: r } = await supabase.from('registrations')
       .select('id, registration_name, status, amount_paid, currency')
       .eq('journey_id', id).is('deleted_at', null).order('created_at', { ascending: false })
@@ -75,7 +78,7 @@ export default function JourneyDetail() {
   const related = [
     { key: 'registrations', label: 'הרשמות', count: regs.length, rows: regs, onOpen: r => `/registrations/${r.id}`,
       resource: 'registrations', fk: 'journey_id', recordId: id,
-      listColumns: registrationColumns() },
+      listColumns: registrationColumns(opts, refresh) },
   ]
 
   return (
@@ -93,7 +96,6 @@ export default function JourneyDetail() {
       <div className="card">
         <div className="field-grid">
           <EditField label="שם היציאה" value={j.name} onSave={v => save('name', v)} />
-          <EditField label="יחידה עסקית" value={j.business_unit} readOnly readOnlyReason="נקבע בעת יצירת המסע ולא ניתן לשינוי" />
           <EditField label="יעד" value={j.destination} type="select" options={enumOpts(JOURNEY_DESTINATIONS)} onSave={v => save('destination', v)} />
           <EditField label="תאריך יציאה" value={j.departure_date} display={formatDate(j.departure_date)} type="date" onSave={v => save('departure_date', v)} />
           <EditField label="תאריך חזרה" value={j.return_date} display={formatDate(j.return_date)} type="date" onSave={v => save('return_date', v)} />
@@ -113,7 +115,7 @@ export default function JourneyDetail() {
 
         <FieldTabs tabs={[
           {
-            key: 'system', label: 'שדות מערכת', content: <SystemFieldsTab record={j} users={users} />,
+            key: 'system', label: 'שדות מערכת', content: <SystemFieldsTab record={j} users={users} onSaveBusinessUnit={v => save('business_unit', v)} />,
           },
         ]} />
       </div>

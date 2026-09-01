@@ -48,7 +48,21 @@ export const BulkDeleteButton = <
   className,
   ...props
 }: BulkDeleteButtonProps<RecordType, MutationOptionsError>) => {
-  const { handleDelete, isPending } = useBulkDeleteController(props);
+  /* ra-core's default mutationMode is 'undoable': the row vanishes from the
+     list immediately (an optimistic cache update), but the actual
+     dataProvider.deleteMany() call is only queued — it's meant to be fired
+     a few seconds later by ra-core's own <Notification/> component (or
+     cancelled if the user clicks "undo" on it). This app renders its own
+     Notifications.jsx (the bell/toast system used everywhere else), never
+     the shadcn-admin-kit <Notification/> from components/admin/layout.tsx —
+     so nothing ever dequeues the pending mutation, and the real UPDATE
+     (deleted_at = now()) never reaches the database. Confirmed live: the
+     row disappears on click, but a raw PostgREST replay of the exact same
+     UPDATE the dataProvider issues succeeds and persists deleted_at fine —
+     so this is purely the undo-queue never being drained, not RLS or the
+     dataProvider itself. 'pessimistic' waits for the real server response
+     before updating the list, which is what "delete" should mean here. */
+  const { handleDelete, isPending } = useBulkDeleteController({ mutationMode: 'pessimistic', ...props });
   const resource = useResourceContext(props);
   const { selectedIds } = useListContext();
   const getResourceLabel = useGetResourceLabel();

@@ -11,7 +11,6 @@ import RecordLayout from '../components/RecordLayout'
 import EditField from '../components/EditField'
 import UserPicker from '../components/UserPicker'
 import { PhoneDisplay } from '../components/PhoneInput'
-import { MeetingFormModal } from './Meetings'
 import { salesColumns } from './Sales'
 import { registrationColumns } from './Registrations'
 import { meetingsColumns } from './Meetings'
@@ -33,15 +32,15 @@ export default function CustomerDetail() {
   const [meetings, setMeetings] = useState([])
   const [calls, setCalls] = useState([])
   const [sec, setSec] = useState('פרטים')
-  const [showNewMeeting, setShowNewMeeting] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [users, setUsers] = useState([])
+  const [opts, setOpts] = useState({})
+  const users = opts.users || []
 
   const load = async () => {
     setLoading(true)
     const { data } = await supabase.from('customers').select('*').eq('id', id).single()
     setC(data)
-    loadOptions().then(o => setUsers(o.users || []))
+    loadOptions().then(setOpts)
     const [{ data: s }, { data: ct }, { data: reg }, { data: mt }, { data: pc }] = await Promise.all([
       supabase.from('sales').select('id, deal_name, stage').eq('customer_id', id).is('deleted_at', null).order('created_at', { ascending: false }),
       supabase.from('contacts').select('*').eq('customer_id', id).order('created_at', { ascending: false }),
@@ -74,10 +73,10 @@ export default function CustomerDetail() {
   const related = [
     { key: 'sales', label: 'מכירות', count: sales.length, rows: sales, onOpen: r => `/sales/${r.id}`,
       resource: 'sales', fk: 'customer_id', recordId: id,
-      listColumns: salesColumns(users, refresh) },
+      listColumns: salesColumns(opts, refresh) },
     { key: 'registrations', label: 'הרשמות', count: registrations.length, rows: registrations, onOpen: r => `/registrations/${r.id}`,
       resource: 'registrations', fk: 'customer_id', recordId: id,
-      listColumns: registrationColumns() },
+      listColumns: registrationColumns(opts, refresh) },
     { key: 'contacts', label: 'אנשי קשר', count: contacts.length, rows: contacts,
       columns: [{ label: 'שם', get: r => r.name }, { label: 'טלפון', get: r => <PhoneDisplay value={r.phone} /> }, { label: 'תפקיד', get: r => r.role || '-' }] },
     // Resource-mode chips (paginated, sortable, exportable — the same
@@ -89,10 +88,10 @@ export default function CustomerDetail() {
     // (related_type + related_id, not a single FK column).
     { key: 'meetings', label: 'פגישות', count: meetings.length, onOpen: r => `/meetings/${r.id}`,
       resource: 'meetings', filter: { related_type: 'customer', related_id: id },
-      listColumns: meetingsColumns() },
+      listColumns: meetingsColumns(opts, refresh) },
     { key: 'calls', label: 'שיחות', count: calls.length, onOpen: r => `/phone-calls/${r.id}`,
       resource: 'phone_calls', filter: { related_type: 'customer', related_id: id },
-      listColumns: phoneCallsColumns(users) },
+      listColumns: phoneCallsColumns(users, refresh) },
   ]
 
   // mobile_phone is stored E.164 (e.g. "+972501234567") via PhoneInput —
@@ -103,7 +102,6 @@ export default function CustomerDetail() {
 
   const actions = [
     ...(waHref ? [{ icon: 'message', title: 'וואטסאפ', href: waHref }] : []),
-    { icon: 'calendar', title: 'פגישה חדשה', onClick: () => setShowNewMeeting(true) },
   ]
 
   return (
@@ -124,7 +122,6 @@ export default function CustomerDetail() {
           <EditField label="שם משפחה" value={c.last_name} onSave={v => save('last_name', v)} />
           <EditField label="טלפון נייד" value={c.mobile_phone} type="phone" onSave={v => save('mobile_phone', v)} />
           <EditField label="אימייל" value={c.email} ltr onSave={v => save('email', v)} />
-          <EditField label="יחידה עסקית" value={c.business_unit} readOnly readOnlyReason="נקבע בעת יצירת הלקוח ולא ניתן לשינוי" />
           <EditField label="סטטוס לקוח" value={c.status} type="select" options={enumOpts(CUSTOMER_STATUSES)} required
             display={<StatusBadge value={c.status} field="status" resource="customer" />} onSave={v => save('status', v)} />
           <EditField label="תאריך פנייה ראשונה" value={c.first_contact_at} display={formatDate(c.first_contact_at)} readOnly readOnlyReason="נחתם אוטומטית ביצירת הרשומה" />
@@ -148,7 +145,7 @@ export default function CustomerDetail() {
 
         <FieldTabs tabs={[
           {
-            key: 'system', label: 'שדות מערכת', content: <SystemFieldsTab record={c} users={users} />,
+            key: 'system', label: 'שדות מערכת', content: <SystemFieldsTab record={c} users={users} onSaveBusinessUnit={v => save('business_unit', v)} />,
           },
           // Same "נתונים שיווקיים" tab pattern SaleDetail.jsx uses for its
           // marketing fields — customers only carry lead_source/campaign
@@ -176,10 +173,6 @@ export default function CustomerDetail() {
           },
         ]} />
       </div>
-      {showNewMeeting && (
-        <MeetingFormModal defaultRelatedType="customer" defaultRelatedId={id} defaultUnit={c.business_unit}
-          onClose={() => setShowNewMeeting(false)} onCreated={() => { setShowNewMeeting(false); load() }} />
-      )}
     </RecordLayout>
   )
 }

@@ -31,6 +31,17 @@ export default function EditableCell({ row, field, table = 'customers', mode = '
     } catch { /* keep old */ } finally { setSaving(false); setEditing(false) }
   }
 
+  // Checkbox fields commit immediately on click, same as EditField's pattern
+  // — no separate "editing" state, there's nothing to type.
+  if (type === 'checkbox') {
+    return (
+      <button className={`badge ${value ? 'ok' : 'gray'}`} style={{ border: 'none', cursor: 'pointer' }}
+        disabled={saving} onClick={e => { e.stopPropagation(); save(!value) }}>
+        {value ? '✓ כן' : '✗ לא'}
+      </button>
+    )
+  }
+
   if (editing && mode === 'select') {
     return (
       <select
@@ -56,9 +67,14 @@ export default function EditableCell({ row, field, table = 'customers', mode = '
   }
 
   if (editing) {
+    // date -> <input type=date>, datetime -> <input type=datetime-local>
+    // (matches EditField's own type mapping); datetime values come in as
+    // full ISO timestamps, sliced to the minute the input control expects.
+    const inputType = type === 'number' ? 'number' : type === 'date' ? 'date' : type === 'datetime' ? 'datetime-local' : 'text'
+    const initial = type === 'datetime' && value ? String(value).slice(0, 16) : (value ?? '')
     return (
       <input
-        className="input" style={{ padding: '4px 8px', fontSize: '0.85rem' }} autoFocus type={type === 'number' ? 'number' : 'text'} defaultValue={value ?? ''}
+        className="input" style={{ padding: '4px 8px', fontSize: '0.85rem' }} autoFocus type={inputType} defaultValue={initial}
         onClick={e => e.stopPropagation()}
         onBlur={e => save(type === 'number' ? (e.target.value === '' ? '' : Number(e.target.value)) : e.target.value.trim())}
         onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') setEditing(false) }}

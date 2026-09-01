@@ -1,6 +1,7 @@
 import EditField from './EditField'
 import UserAvatar from './UserAvatar'
 import { formatDateTime } from '../lib/format'
+import { BUSINESS_UNITS, enumOpts } from '../lib/constants'
 
 // Shared content for every record-detail page's "שדות מערכת" FieldTabs tab:
 // created/updated at+by, last-status-change timestamp (when the table has a
@@ -10,7 +11,7 @@ import { formatDateTime } from '../lib/format'
 // automation-created rows. First built inline for SaleDetail.jsx, pulled
 // out here so every other *Detail.jsx page renders the identical fields the
 // identical way instead of re-deriving the created_by/updated_by lookup.
-export default function SystemFieldsTab({ record, users }) {
+export default function SystemFieldsTab({ record, users, onSaveBusinessUnit }) {
   const userFor = (id) => (id ? users?.find(u => u.id === id) : null)
   const byLine = (id) => id
     ? <UserAvatar user={userFor(id)} showName />
@@ -21,10 +22,16 @@ export default function SystemFieldsTab({ record, users }) {
       {/* Not every table carries business_unit (registrations, for one,
           derives its unit from journey_id — see docs/domain-model.md) —
           `'business_unit' in record` skips it cleanly rather than every
-          page having to know which tables have the column. Locked: it's
-          set once at creation and never changes (data/001_init_schema.sql). */}
+          page having to know which tables have the column. This is the
+          ONLY place business_unit is rendered for any entity (previously
+          CustomerDetail/JourneyDetail also rendered it — as read-only —
+          directly in the main field-grid, so it showed up twice on those
+          two screens). Editable via the select below when the caller wires
+          up onSaveBusinessUnit; falls back to read-only display otherwise. */}
       {'business_unit' in record && (
-        <EditField label="יחידה עסקית" value={record.business_unit} readOnly readOnlyReason="נקבע בעת יצירת הרשומה ולא ניתן לשינוי" />
+        onSaveBusinessUnit
+          ? <EditField label="יחידה עסקית" value={record.business_unit} type="select" options={enumOpts(BUSINESS_UNITS)} required onSave={onSaveBusinessUnit} />
+          : <EditField label="יחידה עסקית" value={record.business_unit} readOnly readOnlyReason="אין אפשרות עריכה עבור סוג רשומה זה" />
       )}
       <EditField label="נוצר בתאריך" value={record.created_at} display={formatDateTime(record.created_at)}
         readOnly readOnlyReason="נחתם אוטומטית ביצירת הרשומה" />

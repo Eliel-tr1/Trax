@@ -17,6 +17,7 @@ export const PREFERRED_LANGUAGES = ['עברית', 'אנגלית']
 export const SALE_STAGES = [
   'ליד חדש',
   'נוצר קשר על ידי AI',
+  'ממתין לתשלום',
   'ללמ 1',
   'ללמ 2',
   'ללמ 3',

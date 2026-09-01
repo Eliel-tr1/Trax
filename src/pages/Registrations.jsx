@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useRefresh } from 'ra-core'
 import { REGISTRATION_STATUSES, enumOpts } from '../lib/constants'
-import { extraHiddenColumns } from '../lib/schema'
-import { formatCurrency } from '../lib/format'
+import { extraHiddenColumns, metadataColumns } from '../lib/schema'
+import { formatCurrency, formatDateTime } from '../lib/format'
+import { loadOptions } from '../lib/api'
 import { useBusinessUnitStore } from '../stores/businessUnitStore'
 import useSchemaFilterGroups from '../hooks/useSchemaFilterGroups'
 import ResourceList from '../components/ResourceList'
@@ -24,8 +25,10 @@ const UNPAID_STATUSES = ['משוריין', 'שולמה מקדמה']
 // instead of each detail page hand-rolling its own 2-3-column subset (which
 // also meant the columns picker there could only ever hide those 2-3
 // columns, never add any other real column — see the fix on those pages).
-export function registrationColumns() {
+export function registrationColumns(opts = {}, refresh) {
   return [
+    { source: 'created_at', label: 'נוצר בתאריך', csv: r => r.created_at,
+      render: r => <span className="small">{formatDateTime(r.created_at)}</span> },
     { source: 'registration_name', label: 'שם ההרשמה', csv: r => r.registration_name,
       render: r => <span style={{ fontWeight: 600, color: 'var(--mp)' }}>{r.registration_name || '-'}</span> },
     { source: 'customer_id', label: 'לקוח', csv: r => r.customer ? `${r.customer.first_name} ${r.customer.last_name}` : '',
@@ -37,7 +40,8 @@ export function registrationColumns() {
         display={v => <StatusBadge value={v} field="status" resource="registration" />} /> },
     { source: 'amount_paid', label: 'סכום ששולם', csv: r => r.amount_paid,
       render: r => <span className="small">{formatCurrency(r.amount_paid, r.currency)}</span> },
-    ...extraHiddenColumns('registration', ['registration_name', 'customer_id', 'journey_id', 'status', 'amount_paid']),
+    ...extraHiddenColumns('registration', ['created_at', 'registration_name', 'customer_id', 'journey_id', 'status', 'amount_paid'], { table: 'registrations', opts, refresh }),
+    ...metadataColumns('registration', ['created_at'], { users: opts.users || [] }),
   ]
 }
 
@@ -45,9 +49,13 @@ export default function Registrations() {
   const nav = useNavigate()
   const unit = useBusinessUnitStore(s => s.unit)
   const [showNew, setShowNew] = useState(false)
+  const [opts, setOpts] = useState({})
+  const refresh = useRefresh()
   const filterGroups = useSchemaFilterGroups('registration')
 
-  const columns = registrationColumns()
+  useEffect(() => { loadOptions().then(setOpts) }, [])
+
+  const columns = registrationColumns(opts, refresh)
 
   const presets = [
     { key: 'all', label: 'כל ההרשמות' },
@@ -60,7 +68,7 @@ export default function Registrations() {
         emptyLabel="הרשמות"
         resource="registrations" storeKey="registrations" exportName="registrations"
         filter={{ 'journey.business_unit': unit }}
-        sort={{ field: 'registered_at', order: 'DESC' }}
+        sort={{ field: 'created_at', order: 'DESC' }}
         columns={columns} presets={presets}
         search="שם ההרשמה / מספר חשבונית"
         facets={[{ field: 'status', title: 'סטטוס הרשמה', options: statusOpts }]}

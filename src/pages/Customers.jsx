@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useRefresh } from 'ra-core'
 import { CUSTOMER_STATUSES, LEAD_SOURCES, enumOpts } from '../lib/constants'
-import { extraHiddenColumns } from '../lib/schema'
-import { formatDate } from '../lib/format'
+import { extraHiddenColumns, metadataColumns } from '../lib/schema'
+import { formatDate, formatDateTime } from '../lib/format'
 import { loadOptions } from '../lib/api'
 import { useBusinessUnitStore } from '../stores/businessUnitStore'
 import useSchemaFilterGroups from '../hooks/useSchemaFilterGroups'
@@ -27,13 +27,16 @@ export default function Customers() {
   const nav = useNavigate()
   const unit = useBusinessUnitStore(s => s.unit)
   const [showNew, setShowNew] = useState(false)
-  const [users, setUsers] = useState([])
+  const [opts, setOpts] = useState({})
+  const users = opts.users || []
   const refresh = useRefresh()
   const filterGroups = useSchemaFilterGroups('customer', ['business_unit'])
 
-  useEffect(() => { loadOptions().then(o => setUsers(o.users || [])) }, [])
+  useEffect(() => { loadOptions().then(setOpts) }, [])
 
   const columns = [
+    { source: 'created_at', label: 'נוצר בתאריך', csv: r => r.created_at,
+      render: r => <span className="small">{formatDateTime(r.created_at)}</span> },
     { source: 'first_name', label: 'שם', csv: r => `${r.first_name} ${r.last_name}`,
       render: r => <span style={{ fontWeight: 600, color: 'var(--mp)' }}>{r.first_name} {r.last_name}</span> },
     { source: 'mobile_phone', label: 'טלפון', csv: r => r.mobile_phone,
@@ -53,7 +56,10 @@ export default function Customers() {
         onSaved={() => refresh()} /> },
     // Every remaining customer schema field, hidden by default — makes the
     // columns picker offer the full field set, not just this curated view.
-    ...extraHiddenColumns('customer', ['first_name', 'mobile_phone', 'email', 'lead_source', 'campaign', 'status', 'first_contact_at', 'account_manager_id']),
+    // ctx makes these real inline-editable cells (field-parity fix), not
+    // just plain text.
+    ...extraHiddenColumns('customer', ['created_at', 'first_name', 'mobile_phone', 'email', 'lead_source', 'campaign', 'status', 'first_contact_at', 'account_manager_id'], { table: 'customers', users, opts, refresh }),
+    ...metadataColumns('customer', ['created_at'], { users }),
   ]
 
   const presets = [
@@ -67,7 +73,7 @@ export default function Customers() {
         emptyLabel="לקוחות"
         resource="customers" storeKey="customers" exportName="customers"
         filter={{ business_unit: unit }}
-        sort={{ field: 'first_contact_at', order: 'DESC' }}
+        sort={{ field: 'created_at', order: 'DESC' }}
         columns={columns} presets={presets}
         search="שם / טלפון / אימייל"
         facets={[

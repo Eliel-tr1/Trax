@@ -4,7 +4,8 @@ import { useRefresh } from 'ra-core'
 import { supabase } from '../lib/supabase'
 import { loadOptions } from '../lib/api'
 import { toast } from '../components/Toaster'
-import { MEETING_TYPES, enumOpts } from '../lib/constants'
+import { MEETING_TYPES, MEETING_STATUSES, enumOpts } from '../lib/constants'
+import { extraHiddenColumns, metadataColumns } from '../lib/schema'
 import { formatDateTime } from '../lib/format'
 import { useBusinessUnitStore } from '../stores/businessUnitStore'
 import useSchemaFilterGroups from '../hooks/useSchemaFilterGroups'
@@ -19,12 +20,18 @@ import { MultiUserPicker } from '../components/UserPicker'
 import EntityPicker from '../components/EntityPicker'
 
 const typeOpts = enumOpts(MEETING_TYPES)
+const statusOpts = enumOpts(MEETING_STATUSES)
 
 // Exported so nested "פגישות" chips (CustomerDetail/SaleDetail's related
 // panel) use the identical column set as the standalone Meetings screen —
 // see the same comment on Registrations.jsx's registrationColumns().
-export function meetingsColumns() {
+// opts/refresh: same field-parity ctx every other *Columns() builder takes
+// now — meetings previously had NO extraHiddenColumns() tail at all, so its
+// columns picker could only ever offer the 8 fields hardcoded below.
+export function meetingsColumns(opts = {}, refresh) {
   return [
+    { source: 'created_at', label: 'נוצר בתאריך', csv: r => r.created_at,
+      render: r => <span className="small">{formatDateTime(r.created_at)}</span> },
     { source: 'subject', label: 'נושא', csv: r => r.subject,
       render: r => <span style={{ fontWeight: 600, color: 'var(--mp)' }}>{r.subject}</span> },
     { source: 'related_id', label: 'משויך ל', sortable: false, csv: r => r.related_id,
@@ -35,18 +42,28 @@ export function meetingsColumns() {
       render: r => r.duration_minutes ?? '-' },
     { source: 'type', label: 'סוג', csv: r => r.type,
       render: r => <Cell row={r} field="type" mode="select" options={typeOpts} display={v => v || '-'} /> },
+    // Marking related_type='sale' rows 'לא התקיימה' here auto-follows-up the
+    // linked sale (stage -> פולואפ, note, task) via a DB trigger — see
+    // data/023_meeting_noshow_and_customer_auto_sale.sql.
+    { source: 'status', label: 'סטטוס', csv: r => r.status,
+      render: r => <Cell row={r} field="status" mode="select" options={statusOpts} display={v => v || '-'} /> },
     { source: 'summary', label: 'סיכום', hidden: true, csv: r => r.summary, render: r => r.summary || '-' },
     { source: 'business_unit', label: 'יחידה עסקית', hidden: true, csv: r => r.business_unit, render: r => r.business_unit || '-' },
+    ...extraHiddenColumns('meeting', ['created_at', 'subject', 'start_at', 'duration_minutes', 'type', 'status', 'summary'], { table: 'meetings', opts, refresh }),
+    ...metadataColumns('meeting', ['created_at'], { users: opts.users || [] }),
   ]
 }
 
 export default function Meetings() {
   const nav = useNavigate()
   const unit = useBusinessUnitStore(s => s.unit)
-  const [showNew, setShowNew] = useState(false)
+  const [opts, setOpts] = useState({})
+  const refresh = useRefresh()
   const filterGroups = useSchemaFilterGroups('meeting', ['business_unit'])
 
-  const columns = meetingsColumns()
+  useEffect(() => { loadOptions().then(setOpts) }, [])
+
+  const columns = meetingsColumns(opts, refresh)
 
   return (
     <>
@@ -54,19 +71,16 @@ export default function Meetings() {
         emptyLabel="פגישות"
         resource="meetings" storeKey="meetings" exportName="meetings"
         filter={{ business_unit: unit }}
-        sort={{ field: 'start_at', order: 'DESC' }}
+        sort={{ field: 'created_at', order: 'DESC' }}
         columns={columns}
         search="נושא"
         facets={[{ field: 'type', title: 'סוג', options: typeOpts }]}
         filters={filterGroups}
         rowPath={r => `/meetings/${r.id}`}
         bulkActions={<><BulkEditButton resource="meeting" table="meetings" /><BulkDeleteButton /></>}
-        actions={<button className="btn sm" onClick={() => setShowNew(true)}><Icon name="plus" size={15} /> פגישה חדשה</button>}
+        /* No header create button — meetings are created from a record's
+           "פעילות" activity area (client request: no duplicate entry point). */
       />
-      {showNew && (
-        <MeetingFormModal defaultUnit={unit} onClose={() => setShowNew(false)}
-          onCreated={row => nav(`/meetings/${row.id}`)} />
-      )}
     </>
   )
 }

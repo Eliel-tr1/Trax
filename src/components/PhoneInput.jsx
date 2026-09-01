@@ -38,7 +38,7 @@ export default function PhoneInput({ value, onChange, onBlur, disabled, readOnly
       readOnly={readOnly}
       placeholder={placeholder || 'מספר טלפון'}
       className={`phone-input ${className || ''}`}
-      countrySelectComponent={CountrySelect}
+      countrySelectComponent={(props) => <CountrySelect {...props} phoneValue={value} onPhoneChange={onChange} />}
       numberInputProps={{ className: 'input phone-input-number', dir: 'ltr' }}
     />
   )
@@ -75,7 +75,23 @@ function useCountryOf(e164) {
 // opens a searchable (name OR dial-code) list, each row showing its flag
 // next to the country name — react-phone-number-input calls this with
 // {value, onChange, options, disabled, readOnly}.
-function CountrySelect({ value, onChange, options, disabled, readOnly }) {
+//
+// `phoneValue`/`onPhoneChange` (threaded in from PhoneInput's own `value`/
+// `onChange`, not part of react-phone-number-input's own contract) let us
+// bypass the library's default country-switch behaviour: internally, its
+// `onCountryChange` handler discards the whole number whenever the number is
+// stored in international ("+...") form and its calling code doesn't match
+// the newly picked country (see getPhoneDigitsForNewCountry's `return ''`
+// for that case in node_modules/react-phone-number-input) — which is always
+// true here since PhoneInput's value is always E.164. That's the bug behind
+// "switching country empties an existing number". Instead of calling the
+// library's onChange (which drives that logic), we recompute the E.164
+// value ourselves — same national digits, new country's calling code — and
+// hand it to the OUTER onChange directly; react-phone-number-input then
+// re-derives the selected country from that new value on its own, so the
+// flag still updates correctly without ever going through the code path
+// that wipes the digits.
+function CountrySelect({ value, onChange, options, disabled, readOnly, phoneValue, onPhoneChange }) {
   const [open, setOpen] = useState(false)
   const countries = useMemo(
     () => options.filter(o => o.value && !o.divider).map(o => ({
@@ -87,6 +103,24 @@ function CountrySelect({ value, onChange, options, disabled, readOnly }) {
   )
   const current = countries.find(c => c.code === value)
   const Flag = current && flags[current.code]
+
+  // See the comment above CountrySelect: rebuild E.164 with the new
+  // country's calling code instead of letting the library's own
+  // onCountryChange run (it would drop the digits in this exact case).
+  const selectCountry = (newCode) => {
+    const oldDigits = (phoneValue || '').replace(/\D/g, '')
+    // Nothing typed yet: no digits to preserve, so let the library handle it
+    // normally — that's also what keeps the internal "selected country"
+    // state (and therefore the flag) in sync when the outer E.164 value
+    // isn't actually changing.
+    if (!onPhoneChange || !oldDigits) { onChange(newCode); return }
+    const oldCallingCode = current ? getCountryCallingCode(current.code) : ''
+    const nationalDigits = oldCallingCode && oldDigits.startsWith(oldCallingCode)
+      ? oldDigits.slice(oldCallingCode.length)
+      : oldDigits
+    const newCallingCode = getCountryCallingCode(newCode)
+    onPhoneChange(nationalDigits ? `+${newCallingCode}${nationalDigits}` : `+${newCallingCode}`)
+  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -111,7 +145,7 @@ function CountrySelect({ value, onChange, options, disabled, readOnly }) {
               {countries.map(c => {
                 const CFlag = flags[c.code]
                 return (
-                  <CommandItem key={c.code} value={c.code} onSelect={() => { onChange(c.code); setOpen(false) }}>
+                  <CommandItem key={c.code} value={c.code} onSelect={() => { selectCountry(c.code); setOpen(false) }}>
                     <span style={{ width: 18, display: 'inline-flex', flexShrink: 0 }}>{CFlag && <CFlag title={c.name} />}</span>
                     <span style={{ flex: 1 }}>{c.name}</span>
                     <span className="muted small" dir="ltr">{c.dial}</span>

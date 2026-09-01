@@ -163,7 +163,7 @@
   }
 
   /* ---------- Forms ---------- */
-  .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  .field { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
   /* --dp is the FIXED brand deep colour (logo). It is deliberately not
      re-themed, so it must not be used for text that needs to stay readable
      on dark surfaces — labels use the theme-aware text token instead. */
@@ -328,15 +328,21 @@
   }
 
   /* ---------- Record layout ---------- */
-  .ef { display: flex; flex-direction: column; gap: 3px; padding: 7px 0; border-bottom: 1px solid var(--border-soft); }
+  .ef { display: flex; flex-direction: column; gap: 3px; padding: 7px 0; border-bottom: 1px solid var(--border-soft); min-width: 0; }
   /* --text-3 is the faintest tier — too low contrast for body text. Field
      labels carry real information, so they use --text-2. --text-3 stays for
      decorative placeholders. */
   .ef-label { font-size: 0.76rem; color: var(--text-2); font-weight: 600; }
-  .ef-val { font-size: 0.9rem; font-weight: 600; color: var(--text); min-height: 20px; }
+  /* overflow-wrap so an unbroken long value (a URL like execution_url with
+     no spaces) wraps inside its cell instead of forcing the grid track —
+     and the whole record layout — wide. min-width: 0 on the grid items
+     above matters too: a `1fr` grid track still respects each item's
+     min-content width by default, and an unbroken string's min-content IS
+     its full length, so without it the wrap rule alone doesn't help. */
+  .ef-val { font-size: 0.9rem; font-weight: 600; color: var(--text); min-height: 20px; overflow-wrap: anywhere; }
   .ef-val.cell-edit { cursor: text; }
-  .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; }
-  @media (max-width: 640px){ .field-grid { grid-template-columns: 1fr; } }
+  .field-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px 28px; }
+  @media (max-width: 640px){ .field-grid { grid-template-columns: minmax(0, 1fr); } }
 
   .rec-header { background: var(--surface); border: 1px solid var(--border-soft); border-radius: var(--r); padding: 16px 18px; margin-bottom: 14px; box-shadow: var(--sh1); }
   .rec-title { font-size: 1.15rem; font-weight: 800; color: var(--heading); }

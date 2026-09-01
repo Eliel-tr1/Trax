@@ -15,6 +15,9 @@ import {
   CALL_DIRECTIONS, CALL_RESULTS, enumOpts,
 } from './constants'
 import { formatDate, formatDateTime, formatNumber } from './format'
+import UserEditableCell from '../components/UserEditableCell'
+import ReferenceEditableCell from '../components/ReferenceEditableCell'
+import EditableCell from '../components/EditableCell'
 
 // field types: text | number | date | datetime | checkbox | textarea | select | phone
 // select: `options` = static [{value,label}] OR `optionsFrom` = dynamic key
@@ -218,18 +221,127 @@ function renderScalarText(v, field) {
 // page's `columns` array to append every schema field not already covered
 // (matched by column `source`), marked `hidden: true` so the visible set is
 // unchanged, but now toggleable from the columns picker.
-export function extraHiddenColumns(type, existingSources) {
+//
+// ctx wires these up as REAL inline-editable cells (same click-to-edit
+// pattern as the page's own curated columns), not just plain text — a
+// field editable on the record's detail page must also be editable from
+// here, per the field-parity fix. ctx: { table, users, opts, refresh }.
+// `table` defaults to the schema's own table name. Without a `refresh`
+// callback (a caller that hasn't been wired up, or a read-only/export-only
+// consumer) this falls back to the old plain-text render, since a save
+// path with nowhere to report success/failure back to isn't safe to offer.
+export function extraHiddenColumns(type, existingSources, ctx = {}) {
   const def = SCHEMA[type]
   if (!def) return []
   const seen = existingSources instanceof Set ? existingSources : new Set(existingSources || [])
+  const { table = def.table, users = [], opts = {}, refresh } = ctx
+  const onSaved = refresh ? () => refresh() : undefined
+  const refLabel = (resource, id) => {
+    const x = (opts[resource] || []).find(i => i.id === id)
+    return x ? (x.name || x.deal_name || `${x.first_name || ''} ${x.last_name || ''}`.trim()) : ''
+  }
+
   return def.fields
     .filter(f => !seen.has(f.key))
-    .map(f => ({
-      source: f.key,
-      label: f.label,
-      hidden: true,
-      sortable: f.type !== 'textarea',
-      csv: r => r[f.key],
-      render: r => createElement('span', { className: 'small' }, renderScalarText(r[f.key], f)),
-    }))
+    .map(f => {
+      const base = { source: f.key, label: f.label, hidden: true, sortable: f.type !== 'textarea' }
+
+      if (!refresh) {
+        return { ...base, csv: r => r[f.key], render: r => createElement('span', { className: 'small' }, renderScalarText(r[f.key], f)) }
+      }
+
+      if (f.optionsFrom === 'users') {
+        return {
+          ...base,
+          csv: r => users.find(u => u.id === r[f.key])?.full_name || '',
+          render: r => createElement(UserEditableCell, { row: r, table, field: f.key, users, onSaved, placeholder: `בחרו ${f.label}` }),
+        }
+      }
+      if (f.optionsFrom) {
+        return {
+          ...base,
+          csv: r => refLabel(f.optionsFrom, r[f.key]),
+          render: r => createElement(ReferenceEditableCell, { row: r, table, field: f.key, resource: f.optionsFrom, items: opts[f.optionsFrom], onSaved, placeholder: `בחרו ${f.label}` }),
+        }
+      }
+      if (f.type === 'checkbox') {
+        return { ...base, csv: r => r[f.key] ? 'כן' : 'לא', render: r => createElement(EditableCell, { row: r, table, field: f.key, type: 'checkbox', onSaved }) }
+      }
+      if (f.type === 'select') {
+        return {
+          ...base,
+          csv: r => r[f.key],
+          render: r => createElement(EditableCell, { row: r, table, field: f.key, mode: 'select', options: fieldOptions(f, opts), required: f.required, onSaved }),
+        }
+      }
+      // date | datetime | number | phone | text | textarea
+      return {
+        ...base,
+        csv: r => r[f.key],
+        render: r => createElement(EditableCell, { row: r, table, field: f.key, type: f.type === 'textarea' ? 'text' : f.type, onSaved }),
+      }
+    })
+}
+
+// Tables that carry the standard audit-trail columns from
+// data/004_audit_fields.sql (created_by/updated_by/execution_url, on top of
+// created_at/updated_at). contacts also has them but has no list screen
+// (SCHEMA.contact.listPath is null), so it's omitted here.
+const AUDIT_TABLES = new Set(['customers', 'sales', 'journeys', 'registrations', 'tasks', 'meetings', 'phone_calls'])
+// Tables that additionally carry status_changed_at (data/011_status_tab_and_shared_views.sql).
+const STATUS_CHANGED_TABLES = new Set(['customers', 'sales', 'journeys', 'registrations', 'tasks'])
+
+// Metadata/system columns (created_by, updated_at/by, execution_url,
+// status_changed_at) — same "offer everything in the columns picker" fix as
+// extraHiddenColumns, but for the audit-trail fields that live outside
+// SCHEMA.fields entirely (they're system-written, never part of the create/
+// edit form). Read-only: these are stamped by DB triggers, not user edits.
+// Callers should also add their own visible `created_at` column (per the
+// "נוצר בתאריך first column" rule) and include 'created_at' in
+// existingSources so it isn't duplicated here.
+export function metadataColumns(type, existingSources, ctx = {}) {
+  const def = SCHEMA[type]
+  if (!def) return []
+  const seen = existingSources instanceof Set ? existingSources : new Set(existingSources || [])
+  const { users = [] } = ctx
+  const userLabel = (id) => id ? (users.find(u => u.id === id)?.full_name || '-') : 'מערכת'
+  const cols = []
+
+  if (AUDIT_TABLES.has(def.table)) {
+    if (!seen.has('created_at')) cols.push({
+      source: 'created_at', label: 'נוצר בתאריך', hidden: true, sortable: true,
+      csv: r => r.created_at,
+      render: r => createElement('span', { className: 'small' }, formatDateTime(r.created_at)),
+    })
+    if (!seen.has('created_by')) cols.push({
+      source: 'created_by', label: 'נוצר על ידי', hidden: true, sortable: false,
+      csv: r => userLabel(r.created_by),
+      render: r => createElement('span', { className: 'small' }, userLabel(r.created_by)),
+    })
+    if (!seen.has('updated_at')) cols.push({
+      source: 'updated_at', label: 'עודכן בתאריך', hidden: true, sortable: true,
+      csv: r => r.updated_at,
+      render: r => createElement('span', { className: 'small' }, formatDateTime(r.updated_at)),
+    })
+    if (!seen.has('updated_by')) cols.push({
+      source: 'updated_by', label: 'עודכן על ידי', hidden: true, sortable: false,
+      csv: r => userLabel(r.updated_by),
+      render: r => createElement('span', { className: 'small' }, userLabel(r.updated_by)),
+    })
+    if (!seen.has('execution_url')) cols.push({
+      source: 'execution_url', label: 'קישור להרצה', hidden: true, sortable: false,
+      csv: r => r.execution_url || '',
+      render: r => r.execution_url
+        ? createElement('a', { href: r.execution_url, target: '_blank', rel: 'noreferrer', onClick: e => e.stopPropagation() }, 'צפייה בהרצה ↗')
+        : createElement('span', { className: 'small' }, '-'),
+    })
+  }
+  if (STATUS_CHANGED_TABLES.has(def.table) && !seen.has('status_changed_at')) {
+    cols.push({
+      source: 'status_changed_at', label: 'סטטוס שונה בתאריך', hidden: true, sortable: true,
+      csv: r => r.status_changed_at,
+      render: r => createElement('span', { className: 'small' }, formatDateTime(r.status_changed_at)),
+    })
+  }
+  return cols
 }

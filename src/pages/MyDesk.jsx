@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/authStore'
 import { useBusinessUnitStore } from '../stores/businessUnitStore'
 import { formatCurrency, formatDate, formatDateTime, formatDuration } from '../lib/format'
-import { SALE_STAGES_CLOSED } from '../lib/constants'
+import { SALE_STAGES_CLOSED, SALE_STAGES, CUSTOMER_STATUSES, REGISTRATION_STATUSES, TASK_STATUSES, enumOpts } from '../lib/constants'
+import EditableCell from '../components/EditableCell'
+import EditField from '../components/EditField'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { DvizRoot, DvizStyles, StatTile } from '../components/dashboard/DashboardCharts'
@@ -29,6 +32,14 @@ const PAID_IN_FULL = 'שולם במלואו'
 const CANCELLED_REG = 'בוטל'
 const NEW_LEAD = 'ליד חדש'
 const WON_STAGE = 'נסגר בהצלחה'
+
+// Inline-edit pickers on this screen reuse the exact option lists the real
+// list screens use (constants.js), so what's editable here matches what's
+// editable there — no second source of truth.
+const stageOpts = enumOpts(SALE_STAGES)
+const CUSTOMER_STATUSES_OPTS = enumOpts(CUSTOMER_STATUSES)
+const REG_STATUSES = enumOpts(REGISTRATION_STATUSES)
+const TASK_STATUS_OPTS = enumOpts(TASK_STATUSES)
 
 function startOfDayIso(d = new Date()) { const c = new Date(d); c.setHours(0, 0, 0, 0); return c.toISOString() }
 function endOfDayIso(d = new Date()) { const c = new Date(d); c.setHours(23, 59, 59, 999); return c.toISOString() }
@@ -149,7 +160,7 @@ function MetricsRow({ userId, unit, refreshKey }) {
   )
 }
 
-/* ------------------------------------------------------------- list shell */
+/* ------------------------------------------------------------ list shell */
 
 function ListCard({ title, count, children, empty }) {
   return (
@@ -167,8 +178,21 @@ function ListCard({ title, count, children, empty }) {
   )
 }
 
-function Row({ children }) {
-  return <div className="bg-muted/40 flex items-center gap-2 rounded-md border-s-4 p-2" style={{ borderInlineStartColor: 'var(--mp)', fontSize: '0.86rem' }}>{children}</div>
+/* A My Desk row is now TWO zones: the whole row navigates to its own record
+   (never to the entity's list — that was the old <a href="#/tasks"> bug),
+   while individual editable cells stop the propagation and edit in place.
+   `to` is the record path; editable children are rendered through
+   EditableCell etc., which already stopPropagation on their click. */
+function Row({ to, children }) {
+  const nav = useNavigate()
+  return (
+    <div role="link" tabIndex={0} className="bg-muted/40 flex items-center gap-2 rounded-md border-s-4 p-2"
+      style={{ borderInlineStartColor: 'var(--mp)', fontSize: '0.86rem', cursor: 'pointer' }}
+      onClick={() => to && nav(to)}
+      onKeyDown={e => { if (e.key === 'Enter' && to) nav(to) }}>
+      {children}
+    </div>
+  )
 }
 
 /* ------------------------------------------------------------- new leads */
@@ -180,7 +204,7 @@ function NewLeadsCard({ userId, unit, refreshKey }) {
     let cancelled = false
     setRows(null)
     supabase.from('customers')
-      .select('id, first_name, last_name, mobile_phone, lead_source, first_contact_at')
+      .select('id, first_name, last_name, mobile_phone, lead_source, status, first_contact_at')
       .eq('owner_id', userId).eq('business_unit', unit).eq('status', NEW_LEAD).is('deleted_at', null)
       .order('first_contact_at', { ascending: false }).limit(30)
       .then(({ data }) => { if (!cancelled) setRows(data || []) })
@@ -193,9 +217,11 @@ function NewLeadsCard({ userId, unit, refreshKey }) {
     <ListCard title="לידים חדשים" count={rows.length} empty="אין לידים חדשים כרגע">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 320, overflowY: 'auto' }}>
         {rows.map(c => (
-          <Row key={c.id}>
-            <a href={`#/customers/${c.id}`} style={{ flex: 1, fontWeight: 600, color: 'inherit' }}>{c.first_name} {c.last_name}</a>
+          <Row key={c.id} to={`/customers/${c.id}`}>
+            <span style={{ flex: 1, fontWeight: 600 }}>{c.first_name} {c.last_name}</span>
             {c.lead_source && <span className="badge gray">{c.lead_source}</span>}
+            <EditableCell row={c} table="customers" field="status" mode="select"
+              options={CUSTOMER_STATUSES_OPTS} required onSaved={refresh} display={v => v && <span className="badge">{v}</span>} />
             <span className="muted small">{formatDate(c.first_contact_at)}</span>
           </Row>
         ))}
@@ -226,10 +252,12 @@ function FollowUpCard({ userId, unit, refreshKey }) {
     <ListCard title="לידים בפולואפ" count={rows.length} empty="אין עסקאות שממתינות לפולואפ">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 320, overflowY: 'auto' }}>
         {rows.map(s => (
-          <Row key={s.id}>
-            <a href={`#/sales/${s.id}`} style={{ flex: 1, fontWeight: 600, color: 'inherit' }}>{s.deal_name || 'עסקה ללא שם'}</a>
-            <span className="badge warn">{s.stage}</span>
-            {s.next_call_at && <span className="muted small">{formatDateTime(s.next_call_at)}</span>}
+          <Row key={s.id} to={`/sales/${s.id}`}>
+            <span style={{ flex: 1, fontWeight: 600 }}>{s.deal_name || 'עסקה ללא שם'}</span>
+            <EditableCell row={s} table="sales" field="stage" mode="select"
+              options={stageOpts} required onSaved={refresh} display={v => v && <span className="badge warn">{v}</span>} />
+            <EditableCell row={s} table="sales" field="next_call_at" type="datetime" onSaved={refresh}
+              display={v => v && <span className="muted small">{formatDateTime(v)}</span>} />
           </Row>
         ))}
       </div>
@@ -268,9 +296,10 @@ function PendingPaymentCard({ userId, unit, refreshKey }) {
     <ListCard title="הרשמות שממתינות לתשלום" count={rows.length} empty="אין הרשמות שממתינות לתשלום">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 320, overflowY: 'auto' }}>
         {rows.map(r => (
-          <Row key={r.id}>
-            <a href={`#/registrations/${r.id}`} style={{ flex: 1, fontWeight: 600, color: 'inherit' }}>{r.registration_name || 'הרשמה'}</a>
-            <span className="badge warn">{r.status}</span>
+          <Row key={r.id} to={`/registrations/${r.id}`}>
+            <span style={{ flex: 1, fontWeight: 600 }}>{r.registration_name || 'הרשמה'}</span>
+            <EditableCell row={r} table="registrations" field="status" mode="select"
+              options={REG_STATUSES} required onSaved={refresh} display={v => v && <span className="badge warn">{v}</span>} />
             <span className="muted small">{formatCurrency(r.amount_paid, r.currency)}</span>
           </Row>
         ))}
@@ -301,10 +330,13 @@ function OpenTasksCard({ userId, unit, refreshKey }) {
     <ListCard title="משימות פתוחות" count={rows.length} empty="אין משימות פתוחות">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 320, overflowY: 'auto' }}>
         {rows.map(t => (
-          <Row key={t.id}>
-            <a href="#/tasks" style={{ flex: 1, fontWeight: 600, color: 'inherit' }}>{t.subject}</a>
+          <Row key={t.id} to={`/tasks/${t.id}`}>
+            <span style={{ flex: 1, fontWeight: 600 }}>{t.subject}</span>
+            <EditableCell row={t} table="tasks" field="status" mode="select"
+              options={TASK_STATUS_OPTS} required onSaved={refresh} display={v => v && <span className="badge gray">{v}</span>} />
             {t.priority && <span className="badge gray">{t.priority}</span>}
-            <span className="muted small">{formatDateTime(t.due_at)}</span>
+            <EditableCell row={t} table="tasks" field="due_at" type="datetime" onSaved={refresh}
+              display={v => v && <span className="muted small">{formatDateTime(v)}</span>} />
           </Row>
         ))}
       </div>
@@ -335,8 +367,8 @@ function MeetingsTodayCard({ userId, unit, refreshKey }) {
     <ListCard title="פגישות היום" count={rows.length} empty="אין פגישות היום">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 320, overflowY: 'auto' }}>
         {rows.map(m => (
-          <Row key={m.id}>
-            <a href={`#/meetings/${m.id}`} style={{ flex: 1, fontWeight: 600, color: 'inherit' }}>{m.subject}</a>
+          <Row key={m.id} to={`/meetings/${m.id}`}>
+            <span style={{ flex: 1, fontWeight: 600 }}>{m.subject}</span>
             {m.type && <span className="badge gray">{m.type}</span>}
             <span className="muted small">{formatDateTime(m.start_at)}</span>
           </Row>

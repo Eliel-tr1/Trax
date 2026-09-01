@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useRefresh } from 'ra-core'
 import { JOURNEY_STATUSES, JOURNEY_DESTINATIONS, enumOpts } from '../lib/constants'
-import { extraHiddenColumns } from '../lib/schema'
-import { formatDate, formatCurrency } from '../lib/format'
+import { extraHiddenColumns, metadataColumns } from '../lib/schema'
+import { formatDate, formatDateTime, formatCurrency } from '../lib/format'
+import { loadOptions } from '../lib/api'
 import { useBusinessUnitStore } from '../stores/businessUnitStore'
 import useSchemaFilterGroups from '../hooks/useSchemaFilterGroups'
 import ResourceList from '../components/ResourceList'
@@ -26,9 +27,15 @@ export default function Journeys() {
   const nav = useNavigate()
   const unit = useBusinessUnitStore(s => s.unit)
   const [showNew, setShowNew] = useState(false)
+  const [opts, setOpts] = useState({})
+  const refresh = useRefresh()
   const filterGroups = useSchemaFilterGroups('journey', ['business_unit'])
 
+  useEffect(() => { loadOptions().then(setOpts) }, [])
+
   const columns = [
+    { source: 'created_at', label: 'נוצר בתאריך', csv: r => r.created_at,
+      render: r => <span className="small">{formatDateTime(r.created_at)}</span> },
     { source: 'name', label: 'שם היציאה', csv: r => r.name,
       render: r => <span style={{ fontWeight: 600, color: 'var(--mp)' }}>{r.name}</span> },
     { source: 'destination', label: 'יעד', csv: r => r.destination,
@@ -42,7 +49,8 @@ export default function Journeys() {
       render: r => <span className="small">{r.seats_sold} / {r.seats_total}</span> },
     { source: 'seats_available', label: 'מקומות פנויים', sortable: true, csv: r => r.seats_available,
       render: r => <span className="small">{r.seats_available}</span> },
-    ...extraHiddenColumns('journey', ['name', 'destination', 'departure_date', 'status', 'seats_sold', 'seats_available']),
+    ...extraHiddenColumns('journey', ['created_at', 'name', 'destination', 'departure_date', 'status', 'seats_sold', 'seats_available'], { table: 'journeys', opts, refresh }),
+    ...metadataColumns('journey', ['created_at'], { users: opts.users || [] }),
   ]
 
   const presets = [
@@ -58,7 +66,7 @@ export default function Journeys() {
         emptyLabel="מסעות"
         resource="journeys" storeKey="journeys" exportName="journeys"
         filter={{ business_unit: unit }}
-        sort={{ field: 'departure_date', order: 'ASC' }}
+        sort={{ field: 'created_at', order: 'DESC' }}
         columns={columns} presets={presets}
         search="שם היציאה / יעד"
         facets={[

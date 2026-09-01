@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useRefresh } from 'ra-core'
 import { SALE_STAGES, SALE_STAGES_CLOSED, LOSS_REASONS, enumOpts } from '../lib/constants'
-import { extraHiddenColumns } from '../lib/schema'
-import { formatDate } from '../lib/format'
+import { extraHiddenColumns, metadataColumns } from '../lib/schema'
+import { formatDateTime } from '../lib/format'
 import { loadOptions } from '../lib/api'
 import { useBusinessUnitStore } from '../stores/businessUnitStore'
 import { useAuthStore } from '../stores/authStore'
@@ -13,6 +13,7 @@ import { BulkDeleteButton } from '../components/admin/bulk-delete-button'
 import BulkEditButton from '../components/list/BulkEditButton'
 import EditableCell from '../components/EditableCell'
 import UserEditableCell from '../components/UserEditableCell'
+import ReferenceEditableCell from '../components/ReferenceEditableCell'
 import RecordFormModal from '../components/RecordFormModal'
 import Icon from '../components/Icon'
 import StatusBadge from '../components/StatusBadge'
@@ -20,12 +21,16 @@ import StatusBadge from '../components/StatusBadge'
 const stageOpts = enumOpts(SALE_STAGES)
 const OPEN_STAGES = SALE_STAGES.filter(s => !SALE_STAGES_CLOSED.includes(s))
 
-// Exported (users/refresh passed in, since the owner_id column is editable
-// and needs both) so a nested "מכירות" chip (CustomerDetail's related
+// Exported (opts/refresh passed in, since owner_id/journey_id are editable
+// and need both) so a nested "מכירות" chip (CustomerDetail's related
 // panel) uses the identical column set as the standalone Sales screen —
 // see the same comment on Registrations.jsx's registrationColumns().
-export function salesColumns(users, refresh) {
+export function salesColumns(opts, refresh) {
+  const users = opts.users || []
+  const journeys = opts.journeys || []
   return [
+    { source: 'created_at', label: 'נוצר בתאריך', csv: r => r.created_at,
+      render: r => <span className="small">{formatDateTime(r.created_at)}</span> },
     { source: 'deal_name', label: 'עסקה', csv: r => r.deal_name,
       render: r => <span style={{ fontWeight: 600, color: 'var(--mp)' }}>{r.deal_name || '-'}</span> },
     { source: 'customer_id', label: 'לקוח', csv: r => r.customer ? `${r.customer.first_name} ${r.customer.last_name}` : '',
@@ -38,10 +43,16 @@ export function salesColumns(users, refresh) {
     { source: 'owner_id', label: 'נציג מכירות', csv: r => users.find(u => u.id === r.owner_id)?.full_name || '',
       render: r => <UserEditableCell row={r} table="sales" field="owner_id" users={users} placeholder="בחרו נציג מכירות"
         onSaved={() => refresh()} /> },
+    // Was showing the raw journey_id (never resolved to a name) and had no
+    // inline edit at all — SaleDetail.jsx already lets you set this via
+    // EntityPicker, so the table gets the same ReferenceEditableCell
+    // pattern owner_id/account_manager_id use for user references.
+    { source: 'journey_id', label: 'מסע מבוקש', csv: r => journeys.find(j => j.id === r.journey_id)?.name || '',
+      render: r => <ReferenceEditableCell row={r} table="sales" field="journey_id" resource="journeys" items={journeys}
+        placeholder="בחרו מסע" onSaved={() => refresh()} /> },
     { source: 'loss_reason', label: 'סיבת אי סגירה', hidden: true, csv: r => r.loss_reason, render: r => r.loss_reason || '-' },
-    { source: 'created_at', label: 'נוצר', csv: r => r.created_at,
-      render: r => <span className="small">{formatDate(r.created_at)}</span> },
-    ...extraHiddenColumns('sale', ['deal_name', 'customer_id', 'stage', 'channel', 'lead_source', 'owner_id', 'loss_reason']),
+    ...extraHiddenColumns('sale', ['created_at', 'deal_name', 'customer_id', 'stage', 'channel', 'lead_source', 'owner_id', 'journey_id', 'loss_reason'], { table: 'sales', users, opts, refresh }),
+    ...metadataColumns('sale', ['created_at'], { users }),
   ]
 }
 
@@ -50,13 +61,14 @@ export default function Sales() {
   const unit = useBusinessUnitStore(s => s.unit)
   const user = useAuthStore(s => s.user)
   const [showNew, setShowNew] = useState(false)
-  const [users, setUsers] = useState([])
+  const [opts, setOpts] = useState({})
+  const users = opts.users || []
   const refresh = useRefresh()
   const filterGroups = useSchemaFilterGroups('sale', ['business_unit'])
 
-  useEffect(() => { loadOptions().then(o => setUsers(o.users || [])) }, [])
+  useEffect(() => { loadOptions().then(setOpts) }, [])
 
-  const columns = salesColumns(users, refresh)
+  const columns = salesColumns(opts, refresh)
 
   const presets = [
     { key: 'all', label: 'הכול' },
@@ -70,7 +82,7 @@ export default function Sales() {
         emptyLabel="מכירות"
         resource="sales" storeKey="sales" exportName="sales"
         filter={{ business_unit: unit }}
-        sort={{ field: 'next_call_at', order: 'ASC' }}
+        sort={{ field: 'created_at', order: 'DESC' }}
         columns={columns} presets={presets}
         search="שם עסקה / קמפיין"
         facets={[

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useRefresh } from 'ra-core'
 import { CALL_DIRECTIONS, CALL_RESULTS, enumOpts } from '../lib/constants'
-import { extraHiddenColumns } from '../lib/schema'
+import { extraHiddenColumns, metadataColumns } from '../lib/schema'
 import { formatDateTime } from '../lib/format'
 import { useBusinessUnitStore } from '../stores/businessUnitStore'
 import { loadOptions } from '../lib/api'
@@ -10,8 +10,8 @@ import ResourceList from '../components/ResourceList'
 import { BulkDeleteButton } from '../components/admin/bulk-delete-button'
 import BulkEditButton from '../components/list/BulkEditButton'
 import EditableCell from '../components/EditableCell'
+import UserEditableCell from '../components/UserEditableCell'
 import RelatedLink from '../components/RelatedLink'
-import UserAvatar from '../components/UserAvatar'
 import StatusBadge from '../components/StatusBadge'
 
 const directionOpts = enumOpts(CALL_DIRECTIONS)
@@ -27,12 +27,19 @@ const resultOpts = enumOpts(CALL_RESULTS)
 // the identical column set as the standalone PhoneCalls screen — see the
 // same comment on Registrations.jsx's registrationColumns(). Takes `users`
 // (loadOptions()'s users list) since assigned_user_id resolves a name/avatar
-// from it — the caller is expected to have already loaded it.
-export function phoneCallsColumns(users) {
+// from it — the caller is expected to have already loaded it. `refresh` is
+// optional so the (rare) caller that only wants read-only CSV/labels can
+// still omit it — passing it turns assigned_user_id into the same inline
+// UserEditableCell pattern owner_id/assignee_id/account_manager_id use
+// everywhere else (PhoneCallDetail already lets you set this via UserPicker,
+// so the table gets the same edit path).
+export function phoneCallsColumns(users, refresh) {
   const userFor = (id) => users.find(u => u.id === id)
   const nameFor = (id) => userFor(id)?.full_name || '-'
 
   return [
+    { source: 'created_at', label: 'נוצר בתאריך', csv: r => r.created_at,
+      render: r => <span className="small">{formatDateTime(r.created_at)}</span> },
     { source: 'related_id', label: 'לקוח', sortable: false, csv: r => r.related_id,
       render: r => <RelatedLink relatedType={r.related_type} relatedId={r.related_id} showType={false} /> },
     { source: 'direction', label: 'כיוון', csv: r => r.direction,
@@ -45,30 +52,34 @@ export function phoneCallsColumns(users) {
       render: r => <Cell row={r} field="result" mode="select" options={resultOpts}
         display={v => <StatusBadge value={v} field="result" resource="phone_call" />} /> },
     { source: 'assigned_user_id', label: 'נציג משויך', sortable: false, csv: r => nameFor(r.assigned_user_id),
-      render: r => r.assigned_user_id ? <UserAvatar user={userFor(r.assigned_user_id)} /> : <span className="muted">לא שויך</span> },
+      render: r => refresh
+        ? <UserEditableCell row={r} table="phone_calls" field="assigned_user_id" users={users} placeholder="בחרו נציג" onSaved={() => refresh()} />
+        : <span className="muted">{nameFor(r.assigned_user_id)}</span> },
     { source: 'recording_url', label: 'הקלטה', hidden: true, sortable: false, csv: r => r.recording_url,
       render: r => r.recording_url ? <a href={r.recording_url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}>▶ האזנה</a> : '-' },
     { source: 'summary', label: 'סיכום AI', hidden: true, sortable: false, csv: r => r.summary,
       render: r => r.summary ? <span className="small">{r.summary}</span> : '-' },
     { source: 'business_unit', label: 'יחידה עסקית', hidden: true, csv: r => r.business_unit, render: r => r.business_unit || '-' },
-    ...extraHiddenColumns('phone_call', ['related_id', 'direction', 'occurred_at', 'duration_seconds', 'result', 'assigned_user_id', 'recording_url', 'summary', 'business_unit']),
+    ...extraHiddenColumns('phone_call', ['created_at', 'related_id', 'direction', 'occurred_at', 'duration_seconds', 'result', 'assigned_user_id', 'recording_url', 'summary', 'business_unit'], { table: 'phone_calls', users, refresh }),
+    ...metadataColumns('phone_call', ['created_at'], { users }),
   ]
 }
 
 export default function PhoneCalls() {
   const unit = useBusinessUnitStore(s => s.unit)
   const [users, setUsers] = useState([])
+  const refresh = useRefresh()
   const filterGroups = useSchemaFilterGroups('phone_call', ['business_unit'])
   useEffect(() => { loadOptions().then(o => setUsers(o.users || [])) }, [])
 
-  const columns = phoneCallsColumns(users)
+  const columns = phoneCallsColumns(users, refresh)
 
   return (
     <ResourceList
       emptyLabel="שיחות טלפון"
       resource="phone_calls" storeKey="phone_calls" exportName="phone_calls"
       filter={{ business_unit: unit }}
-      sort={{ field: 'occurred_at', order: 'DESC' }}
+      sort={{ field: 'created_at', order: 'DESC' }}
       columns={columns}
       search={false}
       facets={[

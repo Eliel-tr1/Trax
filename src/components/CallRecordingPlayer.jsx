@@ -77,11 +77,6 @@ export default function CallRecordingPlayer({ url }) {
             </div>
           </div>
         </div>
-        <div style={{ marginTop: 4 }}>
-          <a href={url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="small" style={{ color: 'var(--text-3)' }}>
-            פתיחה בכרטיסייה נפרדת
-          </a>
-        </div>
       </div>
     </div>
   )

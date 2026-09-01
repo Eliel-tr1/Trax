@@ -146,7 +146,7 @@ export default function SaleDetail() {
 
         <FieldTabs tabs={[
           {
-            key: 'system', label: 'נתוני מערכת', content: <SystemFieldsTab record={s} users={opts.users} />,
+            key: 'system', label: 'נתוני מערכת', content: <SystemFieldsTab record={s} users={opts.users} onSaveBusinessUnit={v => save('business_unit', v)} />,
           },
           {
             key: 'marketing', label: 'נתונים שיווקיים', content: <>

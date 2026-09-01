@@ -60,7 +60,16 @@ function Body({ columns, rowPath, bulkActions, emptyLabel }) {
           hiddenColumns={columns.filter(c => c.hidden).map(c => c.source || c.label)}
         >
           {columns.map(c => (
-            <DataTable.Col key={c.source || c.label} source={c.sortable === false ? undefined : c.source}
+            // `source` must always be the column's real source, even when
+            // it's not sortable — DataTable.Col's hidden-columns check
+            // matches against `source`, and `disableSort` alone already
+            // suppresses the sort button (data-table.tsx's condition is
+            // `!disableSort && source`). Nulling source here used to also
+            // null it for THAT check, so any hidden:true + sortable:false
+            // column (e.g. a textarea field, or an unsortable reference
+            // column) could never actually be hidden — it always rendered,
+            // picker toggle or not.
+            <DataTable.Col key={c.source || c.label} source={c.source}
               label={c.label} disableSort={c.sortable === false} render={c.render} />
           ))}
         </DataTable>
