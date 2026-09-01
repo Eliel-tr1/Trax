@@ -6,7 +6,7 @@ import tailwindcss from '@tailwindcss/vite'
 // Deployed at ai.vitrue.co.il/trax-crm/ over SFTP (see deploy.js).
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  base: '/trax-crm/',
+  base: '/trax-crm-backup/',
   resolve: {
     // '@' is what ported shadcn/admin components import from.
     alias: { '@': path.resolve(__dirname, './src') },
