@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useRefresh } from 'ra-core'
 import { CUSTOMER_STATUSES, LEAD_SOURCES, enumOpts } from '../lib/constants'
 import { extraHiddenColumns, metadataColumns } from '../lib/schema'
@@ -26,6 +26,7 @@ function daysAgoIso(n) {
 export default function Customers() {
   const nav = useNavigate()
   const unit = useBusinessUnitStore(s => s.unit)
+  const drillFilter = useDrillInitialFilter()
   const [showNew, setShowNew] = useState(false)
   const [opts, setOpts] = useState({})
   const users = opts.users || []
@@ -73,6 +74,7 @@ export default function Customers() {
         emptyLabel="לקוחות"
         resource="customers" storeKey="customers" exportName="customers"
         filter={{ business_unit: unit }}
+        initialFilter={drillFilter}
         sort={{ field: 'created_at', order: 'DESC' }}
         columns={columns} presets={presets}
         search="שם / טלפון / אימייל"
@@ -96,4 +98,12 @@ export default function Customers() {
 function Cell({ row, field, mode, options, display, required }) {
   const refresh = useRefresh()
   return <EditableCell row={row} table="customers" field={field} mode={mode} options={options} display={display} required={required} onSaved={() => refresh()} />
+}
+
+/* Drill-down support: the Dashboard navigates here with location.state.
+   initialFilter — the table opens pre-filtered with the exact cut the
+   dashboard tile counted (user can adjust/clear via the toolbar after). */
+export function useDrillInitialFilter() {
+  const location = useLocation()
+  return location.state?.initialFilter || undefined
 }

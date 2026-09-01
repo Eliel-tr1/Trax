@@ -81,7 +81,7 @@ function Body({ columns, rowPath, bulkActions, emptyLabel }) {
 export default function ResourceList({
   resource, storeKey, sort, perPage = 50, filter, filterDefault, columns,
   presets, facets, filters, search, extra, actions, rowPath, bulkActions, exportName,
-  emptyLabel,
+  emptyLabel, initialFilter,
 }) {
   // DataTable defaults its own storeKey to `${resource}.datatable` when
   // ResourceList doesn't pass one down (it doesn't) — ColumnLayoutSync and
@@ -94,7 +94,7 @@ export default function ResourceList({
     // comment: two list screens at the same position in the tree would
     // otherwise fight over URL sync during navigation transitions.
     <ListBase key={resource} resource={resource} sort={sort} perPage={perPage} filter={filter}
-      filterDefaultValues={filterDefault} storeKey={storeKey || resource}
+      filterDefaultValues={{ ...(filterDefault || {}), ...(initialFilter || {}) }} storeKey={storeKey || resource}
       disableSyncWithLocation>
       <ColumnLayoutSync resource={resource} datatableStoreKey={datatableStoreKey} />
       <Toolbar

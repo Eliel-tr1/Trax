@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/authStore'
 import { useBusinessUnitStore } from '../stores/businessUnitStore'
@@ -290,6 +290,24 @@ function applyCommonFilters(q, { ownerId, journeyId, source, campaign, utm, rang
 function SalesTab({ unit, rangeFrom, rangeTo, ownerId, journeyId, source, campaign, utm, reps, animKey }) {
   const [sales, setSales] = useState(null)
   const animate = useEntrance(animKey, !!sales)
+  const nav = useNavigate()
+
+  /* Drill-down: every clickable chart/tile navigates to the owning entity's
+     list screen with the SAME filter shape this tab queried, passed as
+     initialFilter so the table opens pre-filtered (user can clear/adjust it
+     with the normal toolbar afterwards). Date-range filters ride along as
+     created_at@gte/@lte so "עסקאות שנסגרו" always matches what the tile
+     counted. */
+  const drill = (extra) => nav('/sales', { state: { initialFilter: {
+    ...(ownerId ? { owner_id: ownerId } : {}),
+    ...(journeyId ? { journey_id: journeyId } : {}),
+    ...(source ? { lead_source: source } : {}),
+    ...(campaign ? { campaign } : {}),
+    ...(utm ? { utm_source: utm } : {}),
+    ...(rangeFrom ? { 'created_at@gte': rangeFrom } : {}),
+    ...(rangeTo ? { 'created_at@lte': rangeTo } : {}),
+    ...extra,
+  } } })
 
   useEffect(() => {
     setSales(null)
@@ -347,23 +365,25 @@ function SalesTab({ unit, rangeFrom, rangeTo, ownerId, journeyId, source, campai
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
           <StatTile label="הכנסה מעסקאות שנסגרו" value={<CurrencyBreakdown byCurrency={revenueByCurrency} label="הכנסה לפי מטבע" />} />
-          <StatTile label="עסקאות שנסגרו בהצלחה" value={won.length} tooltip="מספר עסקאות בשלב נסגר בהצלחה בטווח שנבחר" />
-          <StatTile label="עסקאות שהופסדו" value={lost.length} tooltip="מספר עסקאות בשלב עסקה הופסדה בטווח שנבחר" />
+          <StatTile label="עסקאות שנסגרו בהצלחה" value={won.length} tooltip="מספר עסקאות בשלב נסגר בהצלחה בטווח שנבחר" onClick={() => drill({ stage: 'נסגר בהצלחה' })} />
+          <StatTile label="עסקאות שהופסדו" value={lost.length} tooltip="מספר עסקאות בשלב עסקה הופסדה בטווח שנבחר" onClick={() => drill({ stage: 'עסקה הופסדה' })} />
           <StatTile label="יחס סגירה" value={`${winRate}%`} tooltip={`${won.length} מתוך ${won.length + lost.length} עסקאות שנסגרו`} />
           <StatTile label="גודל עסקה ממוצע" value={<CurrencyBreakdown byCurrency={avgDealByCurrency} label="גודל עסקה ממוצע לפי מטבע" />} />
           <StatTile label="אורך מחזור מכירה ממוצע" value={`${avgCycle} ימים`} tooltip="מבוסס על הפרש בין תאריך יצירה לעדכון אחרון בעסקאות שנסגרו בהצלחה, קירוב, אין שדה תאריך סגירה ייעודי" />
-          <StatTile label="עסקאות בתהליך" value={inProgress.length} tooltip="עסקאות שעדיין לא נסגרו ולא הופסדו, בכל שלבי המשפך" />
-          <StatTile label="שווי עסקאות פתוחות" value={<CurrencyBreakdown byCurrency={pipelineByCurrency} label="סך שווי העסקאות הפתוחות לפי מטבע" />} tooltip="סכום השווי הצפוי של כל העסקאות בתהליך, לפני סגירה" />
+          <StatTile label="עסקאות בתהליך" value={inProgress.length} tooltip="עסקאות שעדיין לא נסגרו ולא הופסדו, בכל שלבי המשפך" onClick={() => drill({ 'stage@in': SALE_STAGES.filter(st => !SALE_STAGES_CLOSED.includes(st)) })} />
+          <StatTile label="שווי עסקאות פתוחות" value={<CurrencyBreakdown byCurrency={pipelineByCurrency} label="סך שווי העסקאות הפתוחות לפי מטבע" />} tooltip="סכום השווי הצפוי של כל העסקאות בתהליך, לפני סגירה" onClick={() => drill({ 'stage@in': SALE_STAGES.filter(st => !SALE_STAGES_CLOSED.includes(st)) })} />
         </div>
 
         <div className="grid gap-4 lg:grid-cols-2">
           <Card>
             <CardHeader><CardTitle className="text-sm">משפך עסקאות לפי שלב</CardTitle></CardHeader>
-            <CardContent><FunnelChart stages={funnelStages} animate={animate} /></CardContent>
+            <CardContent><FunnelChart stages={funnelStages} animate={animate}
+              onItemClick={s => drill({ stage: s.label })} /></CardContent>
           </Card>
           <Card>
             <CardHeader><CardTitle className="text-sm">סיבות אי סגירה</CardTitle></CardHeader>
-            <CardContent><BarChart items={lossReasons} animate={animate} /></CardContent>
+            <CardContent><BarChart items={lossReasons} animate={animate}
+              onItemClick={it => drill({ stage: 'עסקה הופסדה', loss_reason: it.label === 'לא צוין' ? '' : it.label })} /></CardContent>
           </Card>
         </div>
 
@@ -401,6 +421,19 @@ function MarketingTab({ unit, rangeFrom, rangeTo, ownerId, journeyId, source, ca
   const [customers, setCustomers] = useState(null)
   const [sales, setSales] = useState(null)
   const animate = useEntrance(animKey, !!customers && !!sales)
+  const nav = useNavigate()
+
+  /* Drill-down to the CUSTOMERS list — this tab's charts all count leads,
+     so every click lands on /customers with the same filter shape. */
+  const drillCustomers = (extra) => nav('/customers', { state: { initialFilter: {
+    ...(ownerId ? { owner_id: ownerId } : {}),
+    ...(source ? { lead_source: source } : {}),
+    ...(campaign ? { campaign } : {}),
+    ...(utm ? { utm_source: utm } : {}),
+    ...(rangeFrom ? { 'created_at@gte': rangeFrom } : {}),
+    ...(rangeTo ? { 'created_at@lte': rangeTo } : {}),
+    ...extra,
+  } } })
 
   useEffect(() => {
     setCustomers(null); setSales(null)
@@ -455,26 +488,42 @@ function MarketingTab({ unit, rangeFrom, rangeTo, ownerId, journeyId, source, ca
     <DvizRoot className="dviz-fade-in">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div className="grid gap-4 sm:grid-cols-3">
-          <StatTile label="לידים חדשים בטווח" value={customers.length} />
-          <StatTile label="עסקאות מלידים בטווח" value={sales.length} />
+          <StatTile label="לידים חדשים בטווח" value={customers.length} onClick={() => drillCustomers({})} />
+          <StatTile label="עסקאות מלידים בטווח" value={sales.length} onClick={() => nav('/sales', { state: { initialFilter: {
+            ...(ownerId ? { owner_id: ownerId } : {}),
+            ...(source ? { lead_source: source } : {}),
+            ...(campaign ? { campaign } : {}),
+            ...(utm ? { utm_source: utm } : {}),
+            ...(rangeFrom ? { 'created_at@gte': rangeFrom } : {}),
+            ...(rangeTo ? { 'created_at@lte': rangeTo } : {}),
+          } } })} />
           <StatTile label="יחס המרה כולל לעסקה שנסגרה" value={`${sales.length ? Math.round((sales.filter(s => s.stage === 'נסגר בהצלחה').length / sales.length) * 1000) / 10 : 0}%`} tooltip="עסקאות שנסגרו בהצלחה מתוך כלל העסקאות בטווח" />
         </div>
 
         <div className="grid gap-4 lg:grid-cols-2">
           <Card>
             <CardHeader><CardTitle className="text-sm">לידים לפי מקור וקמפיין (UTM)</CardTitle></CardHeader>
-            <CardContent><BarChart items={bySourceCampaign} animate={animate} /></CardContent>
+            <CardContent><BarChart items={bySourceCampaign} animate={animate}
+              onItemClick={it => {
+                const [src, camp] = it.label.split(' · ')
+                drillCustomers({
+                  ...(src && src !== 'לא צוין' ? { lead_source: src } : {}),
+                  ...(camp && camp !== 'ללא קמפיין' ? { campaign: camp } : {}),
+                })
+              }} /></CardContent>
           </Card>
           <Card>
             <CardHeader><CardTitle className="text-sm">יחס המרה לעסקה שנסגרה, לפי ערוץ</CardTitle></CardHeader>
-            <CardContent><BarChart items={conversionByChannel} animate={animate} unit="%" /></CardContent>
+            <CardContent><BarChart items={conversionByChannel} animate={animate} unit="%"
+              onItemClick={it => it.onClick !== false && drillCustomers(it.label !== 'לא צוין' ? { lead_source: it.label } : {})} /></CardContent>
           </Card>
         </div>
 
         <div className="grid gap-4 lg:grid-cols-2">
           <Card>
             <CardHeader><CardTitle className="text-sm">משפך סטטוס לקוח</CardTitle></CardHeader>
-            <CardContent><FunnelChart stages={statusFunnel} animate={animate} /></CardContent>
+            <CardContent><FunnelChart stages={statusFunnel} animate={animate}
+              onItemClick={s => drillCustomers({ status: s.label })} /></CardContent>
           </Card>
           <Card>
             <CardHeader><CardTitle className="text-sm">שלושת המקורות המובילים</CardTitle></CardHeader>
@@ -482,9 +531,11 @@ function MarketingTab({ unit, rangeFrom, rangeTo, ownerId, journeyId, source, ca
               {topSources.length === 0 ? <div className="dviz-empty">אין נתונים</div> : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {topSources.map((s, i) => (
-                    <div key={s.label} className="dviz-rank-row">
+                    <div key={s.label} className="dviz-rank-row dviz-row-clickable" role="link"
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => drillCustomers(s.label !== 'לא צוין' ? { lead_source: s.label } : {})}>
                       <span className="dviz-rank-badge">{i + 1}</span>
-                      <span className="dviz-rank-label">{s.label}</span>
+                      <span className="dviz-rank-label"><u style={{ textDecorationThickness: '1px', textUnderlineOffset: 3 }}>{s.label}</u></span>
                       <span className="dviz-rank-value">{s.value} לידים</span>
                       <span className="muted small">{customers.length ? Math.round((s.value / customers.length) * 100) : 0}%</span>
                     </div>

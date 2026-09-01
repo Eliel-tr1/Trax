@@ -54,9 +54,12 @@ export function useEntrance(animKey, active = true) {
   return ready
 }
 
-export function StatTile({ label, value, sub, tooltip }) {
+export function StatTile({ label, value, sub, tooltip, onClick }) {
   const el = (
-    <div className="dviz-tile">
+    <div className={`dviz-tile ${onClick ? 'dviz-tile-clickable' : ''}`} onClick={onClick}
+      role={onClick ? 'link' : undefined} tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e => { if (e.key === 'Enter') onClick() }) : undefined}
+      title={onClick ? 'לחצו לצפייה ברשימה' : undefined}>
       <div className="dviz-tile-label">{label}</div>
       <div className="dviz-tile-value">{value}</div>
       {sub && <div className="dviz-tile-sub">{sub}</div>}
@@ -74,7 +77,7 @@ export function StatTile({ label, value, sub, tooltip }) {
 // Horizontal bar list — categorical identity per label, direct value label,
 // hover tooltip with the exact breakdown, animated width draw-in gated by
 // `animate`.
-export function BarChart({ items, animate = true, unit = '', formatValue, showLegend = false }) {
+export function BarChart({ items, animate = true, unit = '', formatValue, showLegend = false, onItemClick }) {
   const max = Math.max(...items.map(i => i.value), 1)
   const fmt = formatValue || ((v) => `${v}${unit}`)
   if (!items.length) return <div className="dviz-empty">אין נתונים</div>
@@ -83,11 +86,15 @@ export function BarChart({ items, animate = true, unit = '', formatValue, showLe
       {items.map((it, i) => {
         const color = it.color || colorFor(it.label)
         const pct = max ? (it.value / max) * 100 : 0
+        const clickable = onItemClick && it.onClick !== false
         return (
           <Tooltip key={it.label ?? i}>
             <TooltipTrigger asChild>
-              <div className="dviz-bar-row">
-                <span className="dviz-bar-label">{it.label}</span>
+              <div className={`dviz-bar-row ${clickable ? 'dviz-row-clickable' : ''}`}
+                onClick={clickable ? () => onItemClick(it) : undefined}
+                role={clickable ? 'link' : undefined}
+                style={clickable ? { cursor: 'pointer' } : undefined}>
+                <span className="dviz-bar-label">{it.clickable === false ? it.label : (clickable ? <u style={{ textDecorationThickness: '1px', textUnderlineOffset: 3 }}>{it.label}</u> : it.label)}</span>
                 <div className="dviz-bar-track">
                   <div
                     className="dviz-bar-fill"
@@ -122,7 +129,7 @@ export function BarChart({ items, animate = true, unit = '', formatValue, showLe
 // reads as shrinking bar width, not court height. Sequential blue ramp
 // (magnitude, not identity — see dataviz skill's color-formula: identity is
 // categorical, magnitude/progress is sequential).
-export function FunnelChart({ stages, animate = true }) {
+export function FunnelChart({ stages, animate = true, onItemClick }) {
   const top = stages[0]?.value || 1
   if (!stages.length) return <div className="dviz-empty">אין נתונים</div>
   return (
@@ -130,11 +137,15 @@ export function FunnelChart({ stages, animate = true }) {
       {stages.map((s, i) => {
         const pct = top ? Math.max((s.value / top) * 100, s.value > 0 ? 3 : 0) : 0
         const dropFromPrev = i > 0 && stages[i - 1].value ? Math.round((1 - s.value / stages[i - 1].value) * 100) : null
+        const clickable = onItemClick && s.onClick !== false
         return (
           <Tooltip key={s.label}>
             <TooltipTrigger asChild>
-              <div className="dviz-funnel-row">
-                <span className="dviz-funnel-label">{s.label}</span>
+              <div className={`dviz-funnel-row ${clickable ? 'dviz-row-clickable' : ''}`}
+                onClick={clickable ? () => onItemClick(s) : undefined}
+                role={clickable ? 'link' : undefined}
+                style={clickable ? { cursor: 'pointer' } : undefined}>
+                <span className="dviz-funnel-label">{clickable ? <u style={{ textDecorationThickness: '1px', textUnderlineOffset: 3 }}>{s.label}</u> : s.label}</span>
                 <div className="dviz-funnel-track">
                   <div
                     className="dviz-funnel-fill"
@@ -203,6 +214,9 @@ export function DvizStyles() {
         transition: transform 0.18s ease, box-shadow 0.18s ease;
       }
       .dviz-tile:hover { transform: translateY(-1px); box-shadow: var(--sh1); }
+      .dviz-tile-clickable { cursor: pointer; }
+      .dviz-tile-clickable:hover { border-color: var(--mp); }
+      .dviz-row-clickable:hover { background: color-mix(in srgb, var(--mp) 7%, transparent); border-radius: 4px; }
       .dviz-tile-label { font-size: 0.8rem; color: var(--text-2); font-weight: 600; }
       .dviz-tile-value { font-size: 1.7rem; font-weight: 900; color: var(--heading); font-variant-numeric: normal; line-height: 1.15; }
       .dviz-tile-sub { font-size: 0.74rem; color: var(--text-3); }

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useRefresh } from 'ra-core'
 import { SALE_STAGES, SALE_STAGES_CLOSED, LOSS_REASONS, enumOpts } from '../lib/constants'
 import { extraHiddenColumns, metadataColumns } from '../lib/schema'
+import { useDrillInitialFilter } from './Customers'
 import { formatDateTime } from '../lib/format'
 import { loadOptions } from '../lib/api'
 import { useBusinessUnitStore } from '../stores/businessUnitStore'
@@ -60,6 +61,7 @@ export default function Sales() {
   const nav = useNavigate()
   const unit = useBusinessUnitStore(s => s.unit)
   const user = useAuthStore(s => s.user)
+  const drillFilter = useDrillInitialFilter()
   const [showNew, setShowNew] = useState(false)
   const [opts, setOpts] = useState({})
   const users = opts.users || []
@@ -82,6 +84,7 @@ export default function Sales() {
         emptyLabel="מכירות"
         resource="sales" storeKey="sales" exportName="sales"
         filter={{ business_unit: unit }}
+        initialFilter={drillFilter}
         sort={{ field: 'created_at', order: 'DESC' }}
         columns={columns} presets={presets}
         search="שם עסקה / קמפיין"
