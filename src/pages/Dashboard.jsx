@@ -396,10 +396,13 @@ function SalesTab({ unit, rangeFrom, rangeTo, ownerId, journeyId, source, campai
                   <thead><tr><th>נציג</th><th>עסקאות</th><th>נסגרו בהצלחה</th><th>יחס סגירה</th><th>הכנסה</th></tr></thead>
                   <tbody>
                     {leaderboard.map(r => (
-                      <tr key={r.id}>
-                        <td>{r.name}</td>
+                      <tr key={r.id} className="dviz-row-clickable" role="link"
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => drill({ ...(r.id !== '__none__' ? { owner_id: r.id } : {}) })}
+                        title="לחצו לצפייה בעסקאות הנציג">
+                        <td><u style={{ textDecorationThickness: '1px', textUnderlineOffset: 3 }}>{r.name}</u></td>
                         <td>{r.count}</td>
-                        <td>{r.won}</td>
+                        <td><u style={{ textDecorationThickness: '1px', textUnderlineOffset: 3 }}>{r.won}</u></td>
                         <td>{r.count ? Math.round((r.won / r.count) * 100) : 0}%</td>
                         <td><CurrencyBreakdown byCurrency={r.revenue} label={`הכנסת ${r.name}`} /></td>
                       </tr>

@@ -89,11 +89,19 @@ export default function ResourceList({
   // order/width state the table itself drags and resizes live.
   const datatableStoreKey = `${resource}.datatable`
 
+  /* initialFilter (drill-down) must WIN over ra-core's persisted list state:
+     the ListParams store keyed by `storeKey` survives navigation, and
+     filterDefaultValues only seeds a COLD store — a previously-visited list
+     would ignore the dashboard's filter entirely. Spreading initialFilter
+     into the `key` forces a remount (fresh store) whenever a new drill cut
+     arrives, while a plain visit (no state) keys identically to before. */
+  const drillKey = initialFilter ? JSON.stringify(initialFilter) : 'plain'
+
   return (
     // disableSyncWithLocation is load-bearing — see bina-crm's original
     // comment: two list screens at the same position in the tree would
     // otherwise fight over URL sync during navigation transitions.
-    <ListBase key={resource} resource={resource} sort={sort} perPage={perPage} filter={filter}
+    <ListBase key={`${resource}-${drillKey}`} resource={resource} sort={sort} perPage={perPage} filter={filter}
       filterDefaultValues={{ ...(filterDefault || {}), ...(initialFilter || {}) }} storeKey={storeKey || resource}
       disableSyncWithLocation>
       <ColumnLayoutSync resource={resource} datatableStoreKey={datatableStoreKey} />
