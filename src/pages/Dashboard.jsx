@@ -119,6 +119,21 @@ export default function Dashboard() {
   const unit = useBusinessUnitStore(s => s.unit)
   const [params, setParams] = useSearchParams()
 
+  /* Filter persistence: dashboard filters live in the URL, but the URL is
+     lost on unmount (navigating away). Mirror them into sessionStorage so a
+     rep who filtered "רבעון + פייסבוק", went to check a deal, and came back
+     lands on the SAME filtered view instead of starting over. sessionStorage
+     (not localStorage) keeps this per-tab, same lifetime as the session. */
+  useEffect(() => {
+    const q = params.toString()
+    if (q) sessionStorage.setItem('dashboard_filters', q)
+  }, [params])
+  useEffect(() => {
+    if (params.toString()) return
+    const saved = sessionStorage.getItem('dashboard_filters')
+    if (saved) setParams(new URLSearchParams(saved), { replace: true })
+  }, [])
+
   const tabs = useMemo(() => tabsForUnit(unit), [unit])
   const requestedTab = params.get('tab') || 'sales'
   const tab = tabs.some(t => t.key === requestedTab) ? requestedTab : 'sales'
@@ -508,10 +523,18 @@ function MarketingTab({ unit, rangeFrom, rangeTo, ownerId, journeyId, source, ca
             <CardHeader><CardTitle className="text-sm">לידים לפי מקור וקמפיין (UTM)</CardTitle></CardHeader>
             <CardContent><BarChart items={bySourceCampaign} animate={animate}
               onItemClick={it => {
+                // The chart's own bucket key: `source · utm_campaign` (falling
+                // back to `campaign` when utm_campaign is unset — must mirror
+                // EXACTLY here or the drill count won't match the tile count).
                 const [src, camp] = it.label.split(' · ')
+                const campField = camp === 'ללא קמפיין' ? null : camp
                 drillCustomers({
-                  ...(src && src !== 'לא צוין' ? { lead_source: src } : {}),
-                  ...(camp && camp !== 'ללא קמפיין' ? { campaign: camp } : {}),
+                  ...(src && src !== 'לא צוין' ? { lead_source: src } : { 'lead_source@is': null }),
+                  // 'ללא קמפיין' = the row has NEITHER utm_campaign nor
+                  // campaign — drill as an is-null on both, not just one.
+                  ...(campField
+                    ? { utm_campaign: campField }
+                    : { 'utm_campaign@is': null, 'campaign@is': null }),
                 })
               }} /></CardContent>
           </Card>

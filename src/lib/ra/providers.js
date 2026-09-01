@@ -106,7 +106,10 @@ const relatedIds = async (resource, term) => {
      q                -> or(ilike) across SEARCH[resource]  */
 const applyFilters = (q, resource, filter = {}, relIds = null) => {
   for (const [rawKey, value] of Object.entries(filter)) {
-    if (value === undefined || value === null || value === '') continue
+    // field@is is the one filter form where null IS the value ("show me the
+    // rows where this is unset" — the dashboard's 'לא צוין' drill buckets).
+    // Every other form: empty means "no filter", skip it.
+    if (rawKey.endsWith('@is') ? value === undefined : (value === undefined || value === null || value === '')) continue
 
     if (rawKey === 'q') {
       const clauses = (SEARCH[resource] || []).map(f => `${f}.ilike.%${value}%`)
