@@ -55,7 +55,7 @@ identity/dedup check.
 | שם העסקה | text | auto-composed: customer name + journey name (needs a fallback in Wave 1, before מסע exists) | 1 |
 | לקוח | link → לקוח | required | 1 |
 | יחידה עסקית | select | TRAX, Xcon | 1 |
-| שלב מכירה | select | ליד חדש → נוצר קשר על ידי AI → שיחת מכירה עם נציג אנושי → הצעה נשלחה → ממתין להחלטה → נסגר בהצלחה / עסקה הופסדה | 1 |
+| שלב מכירה | select | ליד חדש → נוצר קשר על ידי AI → ללמ 1 → ללמ 2 → ללמ 3 → ללמ 4 → ללמ 5 → פולואפ → שיחת מכירה עם נציג אנושי → תואמה פגישה → הצעה נשלחה → ממתין להחלטה → נסגר בהצלחה / עסקה הופסדה | 1 |
 | ערוץ פנייה | select | וואטסאפ, טופס אתר, דף נחיתה, טלפון | 1 |
 | מקור הגעה | select | **must match לקוח's value list exactly** | 1 |
 | קמפיין | text | | 1 |

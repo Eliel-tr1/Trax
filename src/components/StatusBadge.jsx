@@ -26,9 +26,16 @@ export const BADGES = {
   'customer.business_unit': {
     'TRAX': 'mp', 'Xcon': 'info',
   },
+  // Long pipeline — colors follow a rough progression: brand purple for the
+  // opening AI-contact stages, blue for the ללמ/פולואפ follow-up-attempt
+  // run, orange for the active human-sales stages, then green/red at close.
   'sale.stage': {
-    'ליד חדש': 'mp', 'נוצר קשר על ידי AI': 'mp', 'שיחת מכירה עם נציג אנושי': 'warn',
-    'הצעה נשלחה': 'warn', 'ממתין להחלטה': 'warn', 'נסגר בהצלחה': 'ok', 'עסקה הופסדה': 'err',
+    'ליד חדש': 'mp', 'נוצר קשר על ידי AI': 'mp',
+    'ללמ 1': 'info', 'ללמ 2': 'info', 'ללמ 3': 'info', 'ללמ 4': 'info', 'ללמ 5': 'info',
+    'פולואפ': 'info',
+    'שיחת מכירה עם נציג אנושי': 'warn', 'תואמה פגישה': 'warn',
+    'הצעה נשלחה': 'warn', 'ממתין להחלטה': 'warn',
+    'נסגר בהצלחה': 'ok', 'עסקה הופסדה': 'err',
   },
   'sale.qualification_rating': {
     'עומד בקריטריונים': 'ok', 'חלקי': 'warn', 'לא עומד': 'err', 'ספאם': 'gray',

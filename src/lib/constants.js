@@ -17,7 +17,14 @@ export const PREFERRED_LANGUAGES = ['עברית', 'אנגלית']
 export const SALE_STAGES = [
   'ליד חדש',
   'נוצר קשר על ידי AI',
+  'ללמ 1',
+  'ללמ 2',
+  'ללמ 3',
+  'ללמ 4',
+  'ללמ 5',
+  'פולואפ',
   'שיחת מכירה עם נציג אנושי',
+  'תואמה פגישה',
   'הצעה נשלחה',
   'ממתין להחלטה',
   'נסגר בהצלחה',
@@ -63,6 +70,9 @@ export const TASK_PRIORITY_COLOR = { 'רגילה': '#64748b', 'גבוהה': '#d9
 
 // Meeting
 export const MEETING_TYPES = ['שיחת טלפון', 'זום', 'פגישה פיזית']
+// Marking a sale-linked meeting 'לא התקיימה' auto-follows-up the sale —
+// see data/023_meeting_noshow_and_customer_auto_sale.sql.
+export const MEETING_STATUSES = ['מתוכננה', 'התקיימה', 'לא התקיימה', 'בוטלה']
 
 // Phone call
 export const CALL_DIRECTIONS = ['נכנסת', 'יוצאת']
