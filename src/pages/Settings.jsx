@@ -8,6 +8,7 @@ import Modal from '../components/Modal'
 import UserAvatar from '../components/UserAvatar'
 import RequirePermission from '../components/RequirePermission'
 import TrashManager from '../components/TrashManager'
+import { ChecklistTemplatesTab, FeedbackReportsTab } from './settings/ChecklistAndFeedback'
 import { confirmDialog, deleteConfirmDialog, promptDialog } from '../components/Dialogs'
 import { usePermissionStore, RESOURCES } from '../stores/permissionStore'
 import { startOnboarding } from '../components/Onboarding'
@@ -30,7 +31,7 @@ const DEPARTMENTS = ['ניהול', 'מכירות', 'שירות לקוחות']
 // (seeded directly in the `permissions` table) — see RolesTab to edit them.
 const ROLE_KEY_FOR_PROFILE = { 'מנהל מערכת': 'owner', 'מנהל צוות': 'team_manager', 'נציג': 'sales_rep' }
 
-const SECTIONS = ['תצוגה', 'פרטי מערכת', 'אוטומציות', 'מפתחות API', 'דוקומנטציה API', 'שדות מותאמים', 'משתמשים', 'תפקידים והרשאות', 'מיזוג כפילויות', 'הדרכה', 'סל מיחזור']
+const SECTIONS = ['תצוגה', 'פרטי מערכת', 'אוטומציות', 'מפתחות API', 'דוקומנטציה API', 'שדות מותאמים', 'משתמשים', 'תפקידים והרשאות', 'מיזוג כפילויות', 'צ׳קליסטים', 'דיווחים', 'הדרכה', 'סל מיחזור']
 
 export default function Settings() {
   const [sec, setSec] = useState('תצוגה')
@@ -52,6 +53,8 @@ export default function Settings() {
       {sec === 'תפקידים והרשאות' && <RequirePermission resource="users"><RolesTab /></RequirePermission>}
       {sec === 'מיזוג כפילויות' && <RequirePermission resource="users"><DuplicatesTab /></RequirePermission>}
       {sec === 'הדרכה' && <OnboardingTab />}
+      {sec === 'צ׳קליסטים' && <ChecklistTemplatesTab />}
+      {sec === 'דיווחים' && <FeedbackReportsTab />}
       {sec === 'סל מיחזור' && <TrashManager />}
     </div>
   )
@@ -683,9 +686,11 @@ function UserEditModal({ user, email: initialEmail, onClose, onSaved }) {
 function InviteUserModal({ roles, onClose, onInvited }) {
   const [email, setEmail] = useState('')
   const [fullName, setFullName] = useState('')
+  const [password, setPassword] = useState('')
   const [profile, setProfile] = useState(PERMISSION_PROFILES[2]) // נציג
   const [department, setDepartment] = useState(DEPARTMENTS[1]) // מכירות
   const [busy, setBusy] = useState(false)
+  const [createdPassword, setCreatedPassword] = useState(null)
 
   // Avatar: pick -> crop -> hold the cropped blob until the user actually
   // exists (the invite-user Edge Function creates the auth user + app_users
@@ -718,11 +723,11 @@ function InviteUserModal({ roles, onClose, onInvited }) {
     if (missing) return
     setBusy(true)
     const { data, error } = await supabase.functions.invoke('invite-user', {
-      body: { email: email.trim(), full_name: fullName.trim(), role_key: roleKey, department, permission_profile: profile },
+      body: { email: email.trim(), full_name: fullName.trim(), role_key: roleKey, department, permission_profile: profile, password: password.trim() || undefined },
     })
     if (error || data?.error) {
       setBusy(false)
-      toast('ההזמנה נכשלה: ' + (data?.error || error?.message || 'שגיאה לא ידועה'), 'err')
+      toast('היצירה נכשלה: ' + (data?.error || error?.message || 'שגיאה לא ידועה'), 'err')
       return
     }
     const userId = data.user_id
@@ -737,7 +742,9 @@ function InviteUserModal({ roles, onClose, onInvited }) {
       }
     }
     setBusy(false)
-    toast('הזמנה נשלחה בהצלחה, המשתמש יקבל מייל להגדרת סיסמה')
+    // No invite email is sent — the admin hands over the password directly.
+    setCreatedPassword(data.password)
+    toast('המשתמש נוצר בהצלחה')
     onInvited?.()
   }
 
@@ -767,6 +774,10 @@ function InviteUserModal({ roles, onClose, onInvited }) {
         <div className="field"><label>אימייל<span className="req"> *</span></label>
           <input type="email" dir="ltr" value={email} onChange={e => setEmail(e.target.value)} />
         </div>
+        <div className="field"><label>סיסמה</label>
+          <input type="text" dir="ltr" value={password} onChange={e => setPassword(e.target.value)}
+            placeholder="ריק = המערכת תייצר סיסמה חזקה" />
+        </div>
         <div className="field"><label>פרופיל הרשאה<span className="req"> *</span></label>
           <select value={profile} onChange={e => setProfile(e.target.value)}>
             {PERMISSION_PROFILES.map(p => <option key={p} value={p}>{p}</option>)}
@@ -784,10 +795,19 @@ function InviteUserModal({ roles, onClose, onInvited }) {
       </p>
 
       <div className="row" style={{ marginTop: 10 }}>
-        <button className="btn" disabled={busy || missing} onClick={invite}>
-          {busy ? <span className="spinner light" style={{ width: 15, height: 15 }} /> : 'שליחת הזמנה'}
-        </button>
-        <button className="btn subtle" onClick={onClose}>ביטול</button>
+        {createdPassword ? (
+          <div style={{ flex: 1 }}>
+            <p className="small" style={{ margin: '0 0 4px' }}>המשתמש נוצר. סיסמתו (העבר אליו ידנית):</p>
+            <code className="small" style={{ background: 'var(--surface-2)', padding: '4px 8px', borderRadius: 4, userSelect: 'all' }}>{createdPassword}</code>
+          </div>
+        ) : (
+          <>
+            <button className="btn" disabled={busy || missing} onClick={invite}>
+              {busy ? <span className="spinner light" style={{ width: 15, height: 15 }} /> : 'יצירת משתמש'}
+            </button>
+            <button className="btn subtle" onClick={onClose}>ביטול</button>
+          </>
+        )}
       </div>
 
       {avatarSrc && <ImageCropDialog open src={avatarSrc} busy={false} onClose={closeCrop} onCropped={onCropped} />}

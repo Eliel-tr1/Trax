@@ -20,7 +20,15 @@ export const useBusinessUnitStore = create((set) => ({
   unit: stored,
   setUnit: (unit) => {
     if (!VALID.includes(unit)) return
-    try { localStorage.setItem(STORAGE_KEY, unit) } catch { /* ignore */ }
+    try {
+      localStorage.setItem(STORAGE_KEY, unit)
+      // Xcon gets its own brand theme — a data attribute the CSS palette
+      // keys off (see index.css [data-bu='Xcon'] overrides).
+      document.documentElement.dataset.bu = unit
+    } catch { /* ignore */ }
     set({ unit })
   },
 }))
+
+// Apply on first load too (module scope, runs once at import time).
+try { document.documentElement.dataset.bu = stored } catch { /* ignore */ }

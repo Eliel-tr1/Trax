@@ -18,6 +18,18 @@
     --lp: #f0b28c;   /* light */
     --xlp: #fdf1ea;  /* extra light */
 
+    /* Xcon brand theme — steel-blue professional palette keyed off
+       [data-bu='Xcon'] on <html> (set by businessUnitStore). Xcon.pro is
+       dark navy + cool grey with an alpine/expedition tone; --mp stays
+       AA-adjusted the same way the TRAX orange is. */
+    &[data-bu='Xcon'] {
+      --dp: #0b1220;
+      --mp: #2c5d8f;
+      --mp2: #3f7cb8;
+      --lp: #a9c6e0;
+      --xlp: #edf3f9;
+    }
+
     /* Surfaces (light theme) */
     --bg: #f8fafc;
     --surface: #ffffff;

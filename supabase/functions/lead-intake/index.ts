@@ -57,11 +57,13 @@ Deno.serve(async (req: Request) => {
   if (!body) return jsonResponse({ error: "invalid JSON" }, 400);
 
   const { full_name, phone, email, message, form_id, utm_source, utm_medium, utm_campaign, page_url } = body;
-  if (!full_name || !phone || !form_id) {
-    return jsonResponse({ error: "full_name, phone and form_id are required" }, 400);
+  // Xcon leads identify by work email; phone isn't required there.
+  const isXcon = form_id === "xcon";
+  if (!full_name || (!isXcon && !phone) || (isXcon && !email) || !form_id) {
+    return jsonResponse({ error: "full_name, form_id and (phone for TRAX / email for Xcon) are required" }, 400);
   }
 
-  const businessUnit = form_id === "xcon" ? "Xcon" : "TRAX";
+  const businessUnit = isXcon ? "Xcon" : "TRAX";
   const normalizedPhone = normalizePhone(String(phone));
   const [firstName, ...rest] = String(full_name).trim().split(/\s+/);
   const lastName = rest.join(" ") || "-";

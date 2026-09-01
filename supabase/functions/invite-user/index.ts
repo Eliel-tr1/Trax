@@ -68,11 +68,22 @@ Deno.serve(async (req: Request) => {
   const { data: role } = await admin.from("roles").select("id").eq("key", body.role_key).maybeSingle();
   if (!role) return jsonResponse({ error: `unknown role_key "${body.role_key}"` }, 400);
 
-  const { data: invited, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(body.email);
-  if (inviteErr) return jsonResponse({ error: inviteErr.message }, 400);
+  // Direct-create (Goldi 01.09 #10): the admin sets the email + password in
+  // the invite modal — NO invite email is sent (the old emailed link opened
+  // nothing useful). Password optional: omit it and Supabase generates a
+  // strong one we return once so the admin can hand it over.
+  const password: string = body.password || crypto.randomUUID().slice(0, 12) + "Aa1!";
+
+  const { data: created, error: createErr } = await admin.auth.admin.createUser({
+    email: body.email,
+    password,
+    email_confirm: true,
+    user_metadata: { full_name: body.full_name },
+  });
+  if (createErr) return jsonResponse({ error: createErr.message }, 400);
 
   const { error: rowErr } = await admin.from("app_users").insert({
-    id: invited.user.id,
+    id: created.user.id,
     full_name: body.full_name,
     role_id: role.id,
     department,
@@ -80,5 +91,5 @@ Deno.serve(async (req: Request) => {
   });
   if (rowErr) return jsonResponse({ error: rowErr.message }, 400);
 
-  return jsonResponse({ success: true, user_id: invited.user.id }, 201);
+  return jsonResponse({ success: true, user_id: created.user.id, password }, 201);
 });

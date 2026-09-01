@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { LogOut } from 'lucide-react'
+import { LogOut, Bug, Lightbulb } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 import { useBusinessUnitStore } from '../../stores/businessUnitStore'
 import {
@@ -11,7 +12,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import UserAvatar from '../UserAvatar'
 import Icon from '../Icon'
 import { orderedGroups } from './nav-data'
+import FeedbackModal from '../FeedbackModal'
 import logoHeader from '../../assets/logo-header.png'
+import xconLogo from '../../assets/xcon-logo.png'
 
 /* TRAX rewrite of bina-crm's AppSidebar.jsx: same Sidebar primitive, no
    permission-driven collapse/pin logic (spec: 2 users, both full owners —
@@ -28,6 +31,7 @@ export default function AppSidebar() {
   const loc = useLocation()
   const nav = useNavigate()
   const name = rep?.full_name || user?.email
+  const [feedbackKind, setFeedbackKind] = useState(null)
   // Business-unit branding (Goldi, 01.09: "when clicking Xcon the sidebar
   // should switch to Xcon CRM and its logo"). Logo falls back to the TRAX
   // one until a dedicated Xcon asset lands in src/assets/.
@@ -41,8 +45,18 @@ export default function AppSidebar() {
   return (
     <Sidebar side="left" collapsible="icon">
       <SidebarHeader className="h-16 flex-row items-center justify-center gap-2 px-4 group-data-[collapsible=icon]:px-0">
-        <img src={logoHeader} alt={unit} className="size-8 shrink-0 rounded-md object-contain" />
-        <span className="group-data-[collapsible=icon]:hidden text-lg font-bold">{brandTitle}</span>
+        {/* Unit switcher IS the brand block (Goldi: "click TRAX/XCON to
+            switch"). Clicking toggles the unit; colors + logo follow via
+            [data-bu] on <html>. In collapsed-icon mode only the logo shows
+            and still toggles. */}
+        <button
+          type="button"
+          onClick={() => useBusinessUnitStore.getState().setUnit(unit === 'TRAX' ? 'Xcon' : 'TRAX')}
+          title={unit === 'TRAX' ? 'עבור ל-Xcon' : 'עבור ל-TRAX'}
+          className="flex items-center gap-2 rounded-md transition-colors hover:bg-accent px-2 py-1">
+          <img src={unit === 'Xcon' ? xconLogo : logoHeader} alt={unit} className="size-8 shrink-0 rounded-md object-contain" />
+          <span className="group-data-[collapsible=icon]:hidden text-lg font-bold">{brandTitle}</span>
+        </button>
       </SidebarHeader>
 
       <SidebarContent>
@@ -65,6 +79,26 @@ export default function AppSidebar() {
             </SidebarGroupContent>
           </SidebarGroup>
         ))}
+
+        {/* Bug / idea quick-report (Goldi 01.09) — above the profile footer */}
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton onClick={() => setFeedbackKind('באג')} tooltip="דיווח תקלה">
+                  <Bug className="size-4" />
+                  <span>דיווח תקלה</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton onClick={() => setFeedbackKind('רעיון')} tooltip="רעיון">
+                  <Lightbulb className="size-4" />
+                  <span>רעיון</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
 
       <SidebarFooter>
@@ -105,6 +139,7 @@ export default function AppSidebar() {
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
+      {feedbackKind && <FeedbackModal kind={feedbackKind} onClose={() => setFeedbackKind(null)} />}
     </Sidebar>
   )
 }

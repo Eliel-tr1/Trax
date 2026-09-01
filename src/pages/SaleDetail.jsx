@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useRefresh } from 'ra-core'
 import { supabase } from '../lib/supabase'
 import { updateField, loadOptions } from '../lib/api'
@@ -17,6 +17,7 @@ import SystemFieldsTab from '../components/SystemFieldsTab'
 import { meetingsColumns } from './Meetings'
 import CardcomChargeModal from '../components/CardcomChargeModal'
 import Modal from '../components/Modal'
+import RecordFormModal from '../components/RecordFormModal'
 import { formatCurrency, formatDateTime } from '../lib/format'
 import StatusBadge, { badgeClassFor } from '../components/StatusBadge'
 import { celebrateWin } from '../lib/celebration'
@@ -28,11 +29,13 @@ const STAGES = SALE_STAGES.map(s => ({ key: s, label: s }))
 
 export default function SaleDetail() {
   const { id } = useParams()
+  const nav = useNavigate()
   const refresh = useRefresh()
   const [s, setS] = useState(null)
   const [opts, setOpts] = useState({ users: [], journeys: [] })
   const [meetings, setMeetings] = useState([])
   const [showCharge, setShowCharge] = useState(false)
+  const [showNewRegistration, setShowNewRegistration] = useState(false)
   const [lossReasonPrompt, setLossReasonPrompt] = useState(false)
   const [savingLossReason, setSavingLossReason] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -111,6 +114,7 @@ export default function SaleDetail() {
       status={{ label: s.stage, badge: badgeClassFor('sale', 'stage', s.stage) }}
       actions={[
         { icon: 'money', title: 'חיוב לקוח באשראי', onClick: () => setShowCharge(true) },
+        { icon: 'tag', title: 'הוספת הרשמה חדשה', onClick: () => setShowNewRegistration(true) },
       ]}
       objectType="sale" recordId={id}
       recordType="sale" record={s} onRelatedCreated={() => load()}
@@ -173,6 +177,12 @@ export default function SaleDetail() {
         ]} />
       </div>
       {showCharge && <CardcomChargeModal onClose={() => setShowCharge(false)} />}
+      {showNewRegistration && (
+        <RecordFormModal type="registration"
+          defaults={{ sale_id: s.id, customer_id: s.customer_id, journey_id: s.journey_id, business_unit: s.business_unit, participants_count: 1 }}
+          onClose={() => setShowNewRegistration(false)}
+          onCreated={row => nav(`/registrations/${row.id}`)} />
+      )}
       {lossReasonPrompt && (
         <LossReasonModal
           onClose={() => setLossReasonPrompt(false)}
