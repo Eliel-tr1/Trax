@@ -8,7 +8,7 @@ import Modal from '../components/Modal'
 import UserAvatar from '../components/UserAvatar'
 import RequirePermission from '../components/RequirePermission'
 import TrashManager from '../components/TrashManager'
-import { confirmDialog, promptDialog } from '../components/Dialogs'
+import { confirmDialog, deleteConfirmDialog, promptDialog } from '../components/Dialogs'
 import { usePermissionStore, RESOURCES } from '../stores/permissionStore'
 import { startOnboarding } from '../components/Onboarding'
 import { applyTheme } from '../components/ThemeToggle'
@@ -210,7 +210,7 @@ function ApiKeys() {
     toast('נשמר')
   }
   const delKey = async (id) => {
-    if (!await confirmDialog('למחוק מפתח API? כל שימוש עתידי בו יידחה.', { danger: true, confirmText: 'מחיקה' })) return
+    if (!await deleteConfirmDialog('למחוק מפתח API? כל שימוש עתידי בו יידחה.')) return
     const { error } = await supabase.from('api_keys').delete().eq('id', id)
     if (error) { toast('המחיקה נכשלה: ' + error.message, 'err'); return }
     toast('נמחק'); load()
@@ -368,7 +368,7 @@ function SchemaTab() {
     if (error) { toast('היצירה נכשלה: ' + error.message, 'err'); return }
     setNpl({ key: '', label: '' }); load()
   }
-  const delPicklist = async (id) => { if (await confirmDialog('למחוק רשימת בחירה?', { danger: true })) { await supabase.from('picklists').delete().eq('id', id); load() } }
+  const delPicklist = async (id) => { if (await deleteConfirmDialog('למחוק רשימת בחירה?')) { await supabase.from('picklists').delete().eq('id', id); load() } }
 
   const addField = async () => {
     if (!nf.key.trim() || !nf.label.trim()) return
@@ -380,7 +380,7 @@ function SchemaTab() {
     if (error) { toast('היצירה נכשלה: ' + error.message, 'err'); return }
     setNf({ key: '', label: '', type: 'text', options: '' }); load()
   }
-  const delField = async (id) => { if (await confirmDialog('למחוק שדה?', { danger: true })) { await supabase.from('custom_fields').delete().eq('id', id); load() } }
+  const delField = async (id) => { if (await deleteConfirmDialog('למחוק שדה?')) { await supabase.from('custom_fields').delete().eq('id', id); load() } }
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'start' }}>
@@ -848,7 +848,7 @@ function RolesTab() {
   const deleteRole = async (role) => {
     const { count } = await supabase.from('app_users').select('id', { count: 'exact', head: true }).eq('role_id', role.id)
     if (count) { toast(`לא ניתן למחוק: ${count} משתמשים משויכים לתפקיד "${role.label}"`, 'err'); return }
-    if (!await confirmDialog(`למחוק את התפקיד "${role.label}" ואת ההרשאות שלו?`, { danger: true, confirmText: 'מחיקה' })) return
+    if (!await deleteConfirmDialog(`למחוק את התפקיד "${role.label}" ואת ההרשאות שלו?`)) return
     await supabase.from('permissions').delete().eq('role_id', role.id)
     const { error } = await supabase.from('roles').delete().eq('id', role.id)
     if (error) { toast('המחיקה נכשלה: ' + error.message, 'err'); return }

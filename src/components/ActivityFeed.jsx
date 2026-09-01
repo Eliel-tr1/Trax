@@ -11,7 +11,7 @@ import { Textarea } from './ui/textarea'
 import { Input } from './ui/input'
 import { toast } from './Toaster'
 import Icon from './Icon'
-import { confirmDialog } from './Dialogs'
+import { deleteConfirmDialog } from './Dialogs'
 import UserAvatar from './UserAvatar'
 import UserPicker, { MultiUserPicker } from './UserPicker'
 import Attachment from './Attachment'
@@ -231,7 +231,7 @@ export default function ActivityFeed({ objectType, recordId, record, allowTasks 
     setTasks(ts => ts.map(x => x.id === t.id ? { ...x, status } : x))
   }
   const delNote = async (n) => {
-    if (!await confirmDialog('למחוק הערה?')) return
+    if (!await deleteConfirmDialog('למחוק הערה?')) return
     await supabase.from('notes').delete().eq('id', n.id)
     setNotes(x => x.filter(y => y.id !== n.id))
   }

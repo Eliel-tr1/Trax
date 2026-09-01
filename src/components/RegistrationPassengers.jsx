@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { toast } from './Toaster'
-import { confirmDialog } from './Dialogs'
+import { deleteConfirmDialog } from './Dialogs'
 import Icon from './Icon'
 import EditableCell from './EditableCell'
 import AddPassengerModal from './AddPassengerModal'
@@ -29,7 +29,7 @@ export default function RegistrationPassengers({ registrationId, onCountChange }
   useEffect(() => { load() }, [registrationId])
 
   const removePassenger = async (row) => {
-    if (!await confirmDialog(`להסיר את ${row.full_name || 'הנוסע'} מההרשמה?`, { danger: true, confirmText: 'הסרה' })) return
+    if (!await deleteConfirmDialog(`להסיר את ${row.full_name || 'הנוסע'} מההרשמה?`, { confirmText: 'הסרה' })) return
     const { error } = await supabase.from('registration_passengers').delete().eq('id', row.id)
     if (error) { toast('ההסרה נכשלה: ' + error.message, 'err'); return }
     toast('הוסר'); load()

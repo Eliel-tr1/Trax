@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
+import { useRefresh } from 'ra-core'
 import { supabase } from '../lib/supabase'
 import { updateField, loadOptions } from '../lib/api'
 import { toast } from '../components/Toaster'
@@ -13,8 +14,9 @@ import UserPicker from '../components/UserPicker'
 import EntityPicker from '../components/EntityPicker'
 import FieldTabs from '../components/FieldTabs'
 import SystemFieldsTab from '../components/SystemFieldsTab'
-import { MeetingFormModal, meetingsColumns } from './Meetings'
+import { meetingsColumns } from './Meetings'
 import CardcomChargeModal from '../components/CardcomChargeModal'
+import Modal from '../components/Modal'
 import { formatCurrency, formatDateTime } from '../lib/format'
 import StatusBadge, { badgeClassFor } from '../components/StatusBadge'
 import { celebrateWin } from '../lib/celebration'
@@ -26,11 +28,13 @@ const STAGES = SALE_STAGES.map(s => ({ key: s, label: s }))
 
 export default function SaleDetail() {
   const { id } = useParams()
+  const refresh = useRefresh()
   const [s, setS] = useState(null)
   const [opts, setOpts] = useState({ users: [], journeys: [] })
   const [meetings, setMeetings] = useState([])
-  const [showNewMeeting, setShowNewMeeting] = useState(false)
   const [showCharge, setShowCharge] = useState(false)
+  const [lossReasonPrompt, setLossReasonPrompt] = useState(false)
+  const [savingLossReason, setSavingLossReason] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const load = async () => {
@@ -46,13 +50,23 @@ export default function SaleDetail() {
 
   const save = async (field, value) => { setS(x => ({ ...x, [field]: value })); await updateField('sales', s, field, value) }
 
-  // "Closing as unsuccessful without a reason is not allowed" (domain-model.md)
-  // — enforced here in the UI, on top of the DB CHECK constraint.
+  // Saves stage + loss_reason together in one update — used both by the
+  // loss-reason modal below (first time the deal is marked lost) and later
+  // edits of the field once it's already showing on the record.
+  const saveStageAndLossReason = async (reason) => {
+    setS(x => ({ ...x, stage: LOST_STAGE, loss_reason: reason }))
+    const { error } = await supabase.from('sales').update({ stage: LOST_STAGE, loss_reason: reason }).eq('id', s.id)
+    if (error) { toast('השמירה נכשלה', 'err'); throw error }
+    toast('נשמר')
+  }
+
+  // "Closing as unsuccessful without a reason is not allowed" (domain-model.md).
+  // Per the client's repeated request: picking the lost stage must pop a
+  // modal asking for the reason IMMEDIATELY, before anything is saved —
+  // not save the stage first and then reveal a hidden field, and not just
+  // toast an error telling the user to go find it themselves.
   const setStage = async (stage) => {
-    if (stage === LOST_STAGE && !s.loss_reason) {
-      toast('יש לבחור סיבת אי סגירה לפני סגירת העסקה כלא מוצלחת', 'err')
-      return
-    }
+    if (stage === LOST_STAGE) { setLossReasonPrompt(true); return }
     // Fire the celebration only on the actual transition INTO the won stage
     // (not on every render, and not when it's already won) — a random
     // effect (fireworks/jeep/skier/skydiver) plays via CelebrationHost.
@@ -64,6 +78,12 @@ export default function SaleDetail() {
     // instead of silently vanishing whenever save() throws.
     const enteringWon = stage === WON_STAGE && s.stage !== WON_STAGE
     try { await save('stage', stage) } finally { if (enteringWon) celebrateWin() }
+  }
+
+  const confirmLossReason = async (reason) => {
+    setSavingLossReason(true)
+    try { await saveStageAndLossReason(reason); setLossReasonPrompt(false) }
+    finally { setSavingLossReason(false) }
   }
 
   if (loading) return <div className="empty"><span className="spinner" /></div>
@@ -80,7 +100,7 @@ export default function SaleDetail() {
     // CustomerDetail.jsx's `related` array for why.
     { key: 'meetings', label: 'פגישות', count: meetings.length, onOpen: r => `/meetings/${r.id}`,
       resource: 'meetings', filter: { related_type: 'sale', related_id: id },
-      listColumns: meetingsColumns() },
+      listColumns: meetingsColumns(opts, refresh) },
   ]
 
   return (
@@ -90,7 +110,6 @@ export default function SaleDetail() {
       backTo="/sales"
       status={{ label: s.stage, badge: badgeClassFor('sale', 'stage', s.stage) }}
       actions={[
-        { icon: 'calendar', title: 'פגישה חדשה', onClick: () => setShowNewMeeting(true) },
         { icon: 'money', title: 'חיוב לקוח באשראי', onClick: () => setShowCharge(true) },
       ]}
       objectType="sale" recordId={id}
@@ -153,11 +172,43 @@ export default function SaleDetail() {
           },
         ]} />
       </div>
-      {showNewMeeting && (
-        <MeetingFormModal defaultRelatedType="sale" defaultRelatedId={id} defaultUnit={s.business_unit}
-          onClose={() => setShowNewMeeting(false)} onCreated={() => { setShowNewMeeting(false); load() }} />
-      )}
       {showCharge && <CardcomChargeModal onClose={() => setShowCharge(false)} />}
+      {lossReasonPrompt && (
+        <LossReasonModal
+          onClose={() => setLossReasonPrompt(false)}
+          onConfirm={confirmLossReason}
+          saving={savingLossReason}
+        />
+      )}
     </RecordLayout>
+  )
+}
+
+// Pops the moment "עסקה הופסדה" is picked from the stage selector — the
+// reason is collected here BEFORE anything is written, then stage+loss_reason
+// save together in one update (see saveStageAndLossReason above). Cancelling
+// leaves the record untouched (the stage selector never changed).
+function LossReasonModal({ onClose, onConfirm, saving }) {
+  const [reason, setReason] = useState('')
+  const options = enumOpts(LOSS_REASONS)
+
+  return (
+    <Modal title="סיבת אי סגירה" icon="x" onClose={onClose} maxWidth={420}>
+      <div style={{ padding: '4px 0 2px' }}>
+        <p className="muted small" style={{ marginBottom: 10 }}>
+          כדי לסמן את העסקה כ"עסקה הופסדה" יש לבחור סיבת אי סגירה.
+        </p>
+        <select className="input" style={{ width: '100%' }} value={reason} onChange={e => setReason(e.target.value)} autoFocus>
+          <option value="">בחרו סיבה...</option>
+          {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+        <div className="row" style={{ justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+          <button className="btn subtle" onClick={onClose} disabled={saving}>ביטול</button>
+          <button className="btn" disabled={!reason || saving} onClick={() => onConfirm(reason)}>
+            {saving ? 'שומר...' : 'שמירה'}
+          </button>
+        </div>
+      </div>
+    </Modal>
   )
 }

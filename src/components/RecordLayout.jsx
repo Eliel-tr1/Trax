@@ -9,7 +9,7 @@ import ActivityFeed from './ActivityFeed'
 import RecordFormModal from './RecordFormModal'
 import ResourceList from './ResourceList'
 import UserAvatar from './UserAvatar'
-import { confirmDialog } from './Dialogs'
+import { deleteConfirmDialog } from './Dialogs'
 import { formatDateTime } from '../lib/format'
 
 // Ported from bina-crm — Fireberry-style record shell (header, optional
@@ -40,7 +40,7 @@ export default function RecordLayout({ title, subtitle, status, backTo, actions 
 
   const del = async () => {
     if (!def) return
-    if (!await confirmDialog(`למחוק ${def.labelOne} "${title}"? ${def.softDelete ? '(ניתן לשחזר)' : ''}`)) return
+    if (!await deleteConfirmDialog(`למחוק ${def.labelOne} "${title}"? ${def.softDelete ? '(ניתן לשחזר)' : ''}`)) return
     if (def.softDelete) {
       const { error } = await supabase.from(def.table).update({ deleted_at: new Date().toISOString() }).eq('id', recordId)
       if (error) return toast('המחיקה נכשלה', 'err')

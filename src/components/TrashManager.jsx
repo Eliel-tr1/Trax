@@ -5,7 +5,7 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Checkbox } from './ui/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
-import { confirmDialog } from './Dialogs'
+import { confirmDialog, deleteConfirmDialog } from './Dialogs'
 import { toast } from './Toaster'
 import { formatDateTime } from '../lib/format'
 
@@ -82,7 +82,7 @@ export default function TrashManager() {
   }
 
   const purge = async (ids) => {
-    if (!await confirmDialog(`למחוק לצמיתות ${ids.length} רשומות? פעולה זו אינה הפיכה.`, { danger: true, confirmText: 'מחיקה לצמיתות' })) return
+    if (!await deleteConfirmDialog(`למחוק לצמיתות ${ids.length} רשומות? פעולה זו אינה הפיכה.`, { confirmText: 'מחיקה לצמיתות' })) return
     const { error } = await supabase.from(obj.key).delete().in('id', ids)
     if (error) return toast(`המחיקה נכשלה: ${error.message}`, 'err')
     toast(`${ids.length} רשומות נמחקו לצמיתות`)

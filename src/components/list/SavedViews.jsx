@@ -4,6 +4,7 @@ import { Bookmark, BookmarkPlus, Check, Save, Trash2 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../stores/authStore'
 import { toast } from '../Toaster'
+import { deleteConfirmDialog } from '../Dialogs'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover'
@@ -87,8 +88,9 @@ export default function SavedViews({ resource, datatableStoreKey }) {
     setOpen(false)
   }
 
-  const deleteView = async (e, id) => {
+  const deleteView = async (e, id, name) => {
     e.stopPropagation()
+    if (!await deleteConfirmDialog(`למחוק את התצוגה השמורה "${name}"?`)) return
     const { error } = await supabase.from('saved_views').delete().eq('id', id)
     if (error) { toast('מחיקת התצוגה נכשלה', 'err'); return }
     setViews(v => v.filter(x => x.id !== id))
@@ -155,7 +157,7 @@ export default function SavedViews({ resource, datatableStoreKey }) {
                       {v.id === activeViewId && <Check className="size-3.5 shrink-0" />}
                       <span className="truncate">{v.name}</span>
                     </span>
-                    <button type="button" aria-label="מחיקת התצוגה" onClick={e => deleteView(e, v.id)}
+                    <button type="button" aria-label="מחיקת התצוגה" onClick={e => deleteView(e, v.id, v.name)}
                       className="text-muted-foreground hover:text-destructive shrink-0 rounded p-1">
                       <Trash2 className="size-3.5" />
                     </button>

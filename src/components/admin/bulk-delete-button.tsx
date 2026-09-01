@@ -9,7 +9,7 @@ import {
   useResourceContext,
   useResourceTranslation,
 } from "ra-core";
-import { confirmDialog } from "@/components/Dialogs";
+import { deleteConfirmDialog } from "@/components/Dialogs";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 
@@ -68,11 +68,11 @@ export const BulkDeleteButton = <
      and say exactly how many rows are about to go. */
   const confirmThenDelete = async (event: React.MouseEvent<HTMLButtonElement>) => {
     const n = selectedIds?.length ?? 0;
-    const ok = await confirmDialog(
+    const ok = await deleteConfirmDialog(
       n === 1
         ? "למחוק את הרשומה שנבחרה?"
         : `למחוק ${n} רשומות שנבחרו?`,
-      { title: "אישור מחיקה", confirmText: "מחיקה", danger: true },
+      { title: "אישור מחיקה" },
     );
     if (ok) handleDelete(event);
   };
