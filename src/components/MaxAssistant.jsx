@@ -1,12 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/authStore'
-import { confirmDialog } from './Dialogs'
+import { deleteConfirmDialog } from './Dialogs'
 import Icon from './Icon'
 
 /* מקס — floating AI assistant, bottom-left (per spec, mirrors Notifications'
    bottom-right chrome but as its own persistent launcher rather than a
-   header icon). All data reads happen server-side in the max-chat Edge
+   header icon). This app is RTL, and the Sidebar primitive (see AppSidebar's
+   side="left" comment) renders its logical "start" edge on the visual RIGHT
+   — so `insetInlineStart` here previously put Max on the visual right too,
+   stacking it on top of the sidebar's own profile/logout footer. Use
+   insetInlineEnd instead, which is the visual LEFT in RTL, to keep Max clear
+   of the sidebar entirely (verified live 2026-09-01 via getBoundingClientRect
+   on both elements — no overlap at any width the sidebar can occupy). All
+   data reads happen server-side in the max-chat Edge
    Function via a fixed tool allow-list — this component only ever sends
    free-text messages and renders whatever comes back; it has no query logic
    of its own and no way to reach the DB directly except the max_sessions/
@@ -65,7 +72,7 @@ export default function MaxAssistant() {
 
   async function deleteSession(id, e) {
     e.stopPropagation()
-    if (!await confirmDialog('בטוח שנרצה למחוק את השיחה עם מקס?', { danger: true, confirmText: 'מחיקה' })) return
+    if (!await deleteConfirmDialog('בטוח שנרצה למחוק את השיחה עם מקס?')) return
     await supabase.from('max_sessions').delete().eq('id', id)
     if (id === sessionId) startNewSession()
     loadSessions()
@@ -113,7 +120,7 @@ export default function MaxAssistant() {
   if (!user) return null
 
   return (
-    <div style={{ position: 'fixed', insetInlineStart: 20, bottom: 20, zIndex: 60 }}>
+    <div style={{ position: 'fixed', insetInlineEnd: 20, bottom: 20, zIndex: 60 }}>
       {!open && (
         <button
           onClick={() => setOpen(true)}

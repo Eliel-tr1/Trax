@@ -1,43 +1,30 @@
 /* Navigation as data — TRAX rewrite of bina-crm's nav-data.js. */
 
+// Exactly 2 groups (spec: 01.09.2026 sidebar restructure). Group 1 is the
+// "home" pair (dashboard + rep home screen); Group 2 is every other entity
+// as one flat list, no sub-grouping. Settings was removed from here — it now
+// lives behind the profile avatar dropdown in AppSidebar's footer, alongside
+// "הפרופיל שלי".
 export const NAV_GROUPS = [
   {
-    title: null,
+    key: 'home',
+    title: 'לוח בקרה',
     items: [
       { path: '/', label: 'דשבורד', icon: 'grid', resource: 'dashboard', end: true },
       { path: '/my-desk', label: 'מסך ראשי לנציג', icon: 'user-plus', resource: 'my_desk' },
-      { path: '/tasks', label: 'המשימות שלי', icon: 'calendar', resource: 'tasks' },
     ],
   },
   {
-    key: 'sales',
-    title: 'מכירות',
+    key: 'entities',
+    title: 'ניהול',
     items: [
+      { path: '/tasks', label: 'המשימות שלי', icon: 'calendar', resource: 'tasks' },
       { path: '/customers', label: 'לקוחות', icon: 'users', resource: 'customers' },
       { path: '/sales', label: 'מכירות', icon: 'money', resource: 'sales' },
-    ],
-  },
-  {
-    key: 'journeys',
-    title: 'מסעות',
-    items: [
       { path: '/journeys', label: 'מסעות', icon: 'calendar', resource: 'journeys' },
       { path: '/registrations', label: 'הרשמות', icon: 'tag', resource: 'registrations' },
-    ],
-  },
-  {
-    key: 'activity',
-    title: 'פעילות',
-    items: [
       { path: '/meetings', label: 'פגישות', icon: 'calendar', resource: 'meetings' },
       { path: '/phone-calls', label: 'שיחות טלפון', icon: 'phone', resource: 'phone_calls' },
-    ],
-  },
-  {
-    key: 'system',
-    title: null,
-    items: [
-      { path: '/settings', label: 'הגדרות', icon: 'cog', resource: 'settings' },
     ],
   },
 ]
@@ -69,6 +56,7 @@ export function orderedGroups(prefs) {
 
 export function titleForPath(pathname) {
   if (pathname === '/profile') return 'הפרופיל שלי'
+  if (pathname === '/settings') return 'הגדרות'
   const match = allNavItems()
     .filter(n => n.path === pathname || (n.path !== '/' && pathname.startsWith(n.path)))
     .sort((a, b) => b.path.length - a.path.length)[0]

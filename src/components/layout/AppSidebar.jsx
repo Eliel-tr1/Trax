@@ -6,6 +6,7 @@ import {
   SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
   useSidebar,
 } from '../ui/sidebar'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu'
 import UserAvatar from '../UserAvatar'
 import Icon from '../Icon'
 import { orderedGroups } from './nav-data'
@@ -63,15 +64,32 @@ export default function AppSidebar() {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild size="lg" isActive={loc.pathname === '/profile'} tooltip="הפרופיל שלי">
-              <NavLink to="/profile" onClick={close} data-tour="sidebar-user">
-                <UserAvatar user={rep} size="md" />
-                <div className="grid flex-1 text-start leading-tight">
-                  <span className="truncate text-sm font-medium">{name}</span>
-                  <span className="text-sidebar-foreground/60 truncate text-xs">הפרופיל שלי</span>
-                </div>
-              </NavLink>
-            </SidebarMenuButton>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <SidebarMenuButton
+                  size="lg"
+                  isActive={loc.pathname === '/profile' || loc.pathname === '/settings'}
+                  tooltip={name}
+                  data-tour="sidebar-user"
+                >
+                  <UserAvatar user={rep} size="md" />
+                  <div className="grid flex-1 text-start leading-tight">
+                    <span className="truncate text-sm font-medium">{name}</span>
+                    <span className="text-sidebar-foreground/60 truncate text-xs">הפרופיל שלי</span>
+                  </div>
+                </SidebarMenuButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="top" align="start" className="w-56">
+                <DropdownMenuItem onClick={() => { close(); nav('/profile') }}>
+                  <Icon name="user-plus" size={15} />
+                  <span>הפרופיל שלי</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => { close(); nav('/settings') }}>
+                  <Icon name="cog" size={15} />
+                  <span>הגדרות מערכת</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton onClick={signOut} tooltip="התנתקות">

@@ -20,6 +20,21 @@ const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const OPENAI_MODEL = Deno.env.get("MAX_OPENAI_MODEL") || "gpt-4.1-mini";
 
+// supabase-js's functions.invoke() sends the caller's session as an
+// Authorization header, which makes this a cross-origin request the browser
+// preflights with an OPTIONS request before the real POST. Without these
+// headers (and without answering OPTIONS at all) the browser's CORS check on
+// the preflight fails before the POST is ever sent — same fix already
+// applied to update-user/invite-user. This was the actual reason Max never
+// replied even after OPENAI_API_KEY was set: the request never left the
+// browser (confirmed live 2026-09-01 via edge log showing "OPTIONS | 405 |
+// .../max-chat" with no matching POST).
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 // ---------------------------------------------------------------------------
 // Fixed allow-list of resources + filterable fields (docs/domain-model.md).
 // Same shape as api-v1's SCHEMA, but read-only and scoped to what an AI
@@ -110,7 +125,7 @@ function aggregatableFields(resource: string): string[] {
 }
 
 function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+  return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", ...corsHeaders } });
 }
 
 // ---------------------------------------------------------------------------
@@ -321,6 +336,7 @@ function trailLineFor(toolName: string, args: any): string {
 }
 
 Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "POST only" }, 405);
 
   const authHeader = req.headers.get("Authorization") || "";
