@@ -36,6 +36,14 @@ async function deploy() {
   }
   await uploadAtomic(path.resolve('./dist'), REMOTE_DIR)
 
+  // build-id.txt: buildVersion.js polls this; a mismatch triggers an
+  // automatic in-app reload, so users NEVER clear cache manually.
+  // The build step stamps BUILD_ID from the same file (dist/build-id.txt
+  // written by npm run build via scripts/with-build-id.js).
+  const buildId = fs.readFileSync(path.resolve('./dist/build-id.txt'), 'utf8').trim()
+  await sftp.put(Buffer.from(buildId), REMOTE_DIR + '/build-id.txt')
+  console.log('Build ID:', buildId)
+
   const htaccess = `RewriteEngine On
 RewriteBase ${BASE}
 RewriteRule ^index\\.html$ - [L]

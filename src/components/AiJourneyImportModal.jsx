@@ -72,7 +72,7 @@ export default function AiJourneyImportModal({ defaultUnit = 'TRAX', onClose, on
   }
 
   return (
-    <Modal title="יצירת מסע ב-AI מדף האתר" icon="sparkles" onClose={onClose} maxWidth={560}>
+    <Modal title="יצירת מסע ב-AI מדף האתר" icon="plus" onClose={onClose} maxWidth={560}>
       <div className="field">
         <label>קישור לדף המסע באתר<span className="req"> *</span></label>
         <div className="row" style={{ gap: 8 }}>

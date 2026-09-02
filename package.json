@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "node scripts/with-build-id.js",
     "preview": "vite preview",
     "deploy": "npm run build && node deploy.js"
   },
