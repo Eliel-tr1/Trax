@@ -44,6 +44,24 @@ export default function App() {
 
   useEffect(() => { initialize() }, [])
 
+  // Tab-discard recovery: Chrome's Memory Saver (or an extension) can reload
+  // the tab while it's in the background — the user comes back to a fresh
+  // page and loses their place. HashRouter keeps the route IN the URL, so the
+  // route itself survives a reload; what was lost before is the login-free
+  // render (authStore re-initializes → fine) and scroll. Persist the exact
+  // hash + scroll so the reload lands where the user left off.
+  useEffect(() => {
+    const save = () => {
+      try {
+        sessionStorage.setItem('trax_last_route', window.location.hash)
+        sessionStorage.setItem('trax_last_scroll', String(window.scrollY))
+      } catch { /* ignore */ }
+    }
+    window.addEventListener('pagehide', save)
+    document.addEventListener('visibilitychange', () => { if (document.hidden) save() })
+    return () => window.removeEventListener('pagehide', save)
+  }, [])
+
   if (loading) return <Loading />
   if (!user) return (
     <DirectionProvider dir="rtl">
