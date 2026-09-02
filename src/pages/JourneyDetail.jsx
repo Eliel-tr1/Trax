@@ -112,6 +112,7 @@ export default function JourneyDetail() {
           <EditField label="קישור לעמוד המסע" value={j.page_url} ltr type="link" onSave={v => save('page_url', v)} />
         </div>
         <div style={{ marginTop: 10 }}><EditField label="תיאור קצר" value={j.short_description} type="textarea" onSave={v => save('short_description', v)} /></div>
+        <div style={{ marginTop: 10 }}><EditField label="פירוט מלא (מסלול, ימים, מקומות)" value={j.itinerary} type="textarea" onSave={v => save('itinerary', v)} /></div>
         <div style={{ marginTop: 10 }}><EditField label="הערות תפעול" value={j.operations_notes} type="textarea" onSave={v => save('operations_notes', v)} /></div>
 
         <Checklist ownerTable="journeys" ownerId={j.id} title="צ'קליסט התארגנות המסע" />

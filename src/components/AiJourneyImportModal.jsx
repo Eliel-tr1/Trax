@@ -19,6 +19,7 @@ const FIELDS = [
   { key: 'price_per_person', label: 'מחיר לאדם', type: 'number' },
   { key: 'currency', label: 'מטבע' },
   { key: 'short_description', label: 'תיאור קצר' },
+  { key: 'itinerary', label: 'פירוט מלא (מסלול, ימים, מקומות)' },
 ]
 
 export default function AiJourneyImportModal({ defaultUnit = 'TRAX', onClose, onSaved }) {
@@ -55,6 +56,7 @@ export default function AiJourneyImportModal({ defaultUnit = 'TRAX', onClose, on
       price_per_person: fields.price_per_person ?? null,
       currency: fields.currency || 'EUR',
       short_description: fields.short_description || null,
+      itinerary: fields.itinerary || null,
       page_url: url.trim(),
       min_seats: 18,
     }

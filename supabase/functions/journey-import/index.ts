@@ -64,7 +64,8 @@ Deno.serve(async (req: Request) => {
   "seats_total": number | null,
   "price_per_person": number | null,
   "currency": "EUR" | "ILS" | "USD",
-  "short_description": string | null
+  "short_description": string | null,
+  "itinerary": string | null     // full day-by-day route description if present
 }`;
   const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",

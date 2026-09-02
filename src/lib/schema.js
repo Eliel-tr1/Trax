@@ -95,6 +95,7 @@ export const SCHEMA = {
       { key: 'currency', label: 'מטבע', type: 'select', options: CURRENCIES, wave: 2 },
       { key: 'includes_flights', label: 'כולל טיסות', type: 'checkbox', default: false, wave: 2 },
       { key: 'short_description', label: 'תיאור קצר', type: 'textarea', wave: 2 },
+      { key: 'itinerary', label: 'פירוט מלא (מסלול, ימים, מקומות)', type: 'textarea', wave: 2 },
       { key: 'page_url', label: 'קישור לעמוד המסע', type: 'text', ltr: true, wave: 2 },
       { key: 'operations_notes', label: 'הערות תפעול', type: 'textarea', wave: 2 },
     ],

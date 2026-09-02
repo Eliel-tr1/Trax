@@ -82,9 +82,9 @@ const RESOURCES: Record<string, ResourceDef> = {
       "id", "name", "business_unit", "destination", "departure_date",
       "return_date", "seats_total", "min_seats", "seats_sold", "seats_available",
       "status", "price_per_person", "currency", "short_description",
-      "page_url",
+      "itinerary", "page_url",
     ],
-    searchFields: ["name", "destination", "short_description"],
+    searchFields: ["name", "destination", "short_description", "itinerary"],
   },
   registrations: {
     table: "registrations",
