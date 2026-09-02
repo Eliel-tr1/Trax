@@ -15,6 +15,17 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700;800;900&family=Heebo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <title>TRAX CRM</title>
+    <script>
+      // Build stamp in localStorage: tells us WHICH bundle a given browser is
+      // actually running, so a "my fixes are missing" report is diagnosable
+      // from the user's side (they read this in DevTools console).
+      window.addEventListener('load', function () {
+        var s = document.querySelector('script[src*="index-"]');
+        var stamp = 'BUILD: ' + (s ? s.src.split('/').pop() : 'unknown') + ' | ' + new Date().toISOString().slice(0, 16);
+        console.log('[TRAX]', stamp);
+        try { localStorage.setItem('trax_build', stamp); } catch (e) {}
+      });
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -27,13 +27,36 @@ export default function MaxAssistant() {
   const [open, setOpen] = useState(false)
   const [showSessions, setShowSessions] = useState(false)
   const [sessions, setSessions] = useState([])
-  const [sessionId, setSessionId] = useState(null)
+  const [sessionId, setSessionId] = useState(() => {
+    // Persist the active session across refreshes and navigation (Goldi:
+    // "the chat must stay open when I refresh or move between screens").
+    try { return sessionStorage.getItem('max_session_id') || null } catch { return null }
+  })
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [thinking, setThinking] = useState([]) // transient trail lines shown while waiting
   const scrollRef = useRef(null)
   const panelRef = useRef(null)
+
+  useEffect(() => {
+    try {
+      if (sessionId) sessionStorage.setItem('max_session_id', sessionId)
+      else sessionStorage.removeItem('max_session_id')
+    } catch { /* ignore */ }
+  }, [sessionId])
+
+  // Reload the persisted session's messages on mount — so a refresh or a
+  // navigation away-and-back restores the exact conversation, not the list.
+  useEffect(() => {
+    if (sessionId) {
+      (async () => {
+        const { data } = await supabase.from('max_messages').select('id, role, content, trail, created_at')
+          .eq('session_id', sessionId).order('created_at', { ascending: true })
+        setMessages(data || [])
+      })()
+    }
+  }, [])
 
   useEffect(() => {
     if (!open) return
@@ -193,17 +216,46 @@ export default function MaxAssistant() {
                 תשאל אותי משהו על הלידים, המכירות או המסעות.
               </div>
             )}
-            {messages.map(m => (
-              <div key={m.id} style={{
-                alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
-                maxWidth: '85%', background: m.role === 'user' ? 'var(--mp)' : 'var(--surface-2)',
-                color: m.role === 'user' ? '#fff' : 'var(--text)',
-                borderRadius: 'var(--rs)', padding: '8px 11px', fontSize: '0.87rem', lineHeight: 1.5,
-                whiteSpace: 'pre-wrap',
-              }}>
-                {m.content}
-              </div>
-            ))}
+            {messages.map(m => {
+              // Max may append a "קישורים:" line of [type|id|label] refs —
+              // strip it from the body and render as clickable record chips.
+              const ROUTE = { לקוח: 'customers', מכירה: 'sales', מסע: 'journeys', 'הרשמה': 'registrations', פגישה: 'meetings', משימה: 'tasks', שיחה: 'phone-calls', נוסע: null, משתמש: null, הערה: null }
+              let body = m.content
+              let links = []
+              const marker = body.match(/קישורים:\s*(.+)$/m)
+              if (m.role === 'assistant' && marker) {
+                body = body.replace(marker[0], '').trim()
+                const re = /\[([^|\]]+)\|([^|\]]+)\|([^\]]+)\]/g
+                let mm
+                while ((mm = re.exec(marker[1])) !== null) links.push({ type: mm[1], id: mm[2], label: mm[3] })
+              }
+              return (
+                <div key={m.id} style={{
+                  alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
+                  maxWidth: '85%', background: m.role === 'user' ? 'var(--mp)' : 'var(--surface-2)',
+                  color: m.role === 'user' ? '#fff' : 'var(--text)',
+                  borderRadius: 'var(--rs)', padding: '8px 11px', fontSize: '0.87rem', lineHeight: 1.5,
+                  whiteSpace: 'pre-wrap',
+                }}>
+                  {body}
+                  {links.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 7 }}>
+                      {links.map((l, i) => {
+                        const route = ROUTE[l.type]
+                        return route ? (
+                          <a key={i} href={`#/${route}/${l.id}`} onClick={e => { e.preventDefault(); setOpen(false); window.location.hash = `#/${route}/${l.id}` }}
+                            style={{ color: m.role === 'user' ? '#fff' : 'var(--mp)', textDecoration: 'underline', fontSize: '0.8rem', fontWeight: 600 }}>
+                            {l.type}: {l.label} ↗
+                          </a>
+                        ) : (
+                          <span key={i} className="badge gray" style={{ fontSize: '0.75rem' }}>{l.type}: {l.label}</span>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
             {thinking.length > 0 && (
               <div style={{ alignSelf: 'flex-start', maxWidth: '85%' }}>
                 {thinking.map((line, i) => (
