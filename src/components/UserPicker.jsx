@@ -10,6 +10,7 @@ import { Input } from './ui/input'
 export default function UserPicker({
   users = [], value, onChange, placeholder = 'בחרו נציג', allowEmpty = true,
   emptyLabel = 'ללא', autoOpen = false, onClose, className = '',
+  avatarsOnly = false,
 }) {
   const [open, setOpen] = useState(autoOpen)
   const [q, setQ] = useState('')
@@ -30,6 +31,46 @@ export default function UserPicker({
     : users
 
   const pick = (id) => { onChange(id); setOpen(false); setQ(''); onClose?.() }
+
+  // avatarsOnly mode (Sahar, list cells): trigger + dropdown show ONLY the
+  // face — full name lives in the trigger's tooltip and each row's tooltip.
+  // Keeps the wide-name trigger from blowing up narrow table columns.
+  if (avatarsOnly) {
+    return (
+      <div ref={box} className={`relative ${className}`} onClick={e => e.stopPropagation()}>
+        <button type="button" onClick={() => setOpen(o => !o)}
+          className="hover:bg-accent grid size-8 place-items-center rounded-md transition-colors">
+          {selected
+            ? <UserAvatar user={selected} />
+            : <span className="text-muted-foreground grid size-6 place-items-center rounded-full border border-dashed" title={placeholder}>+</span>}
+        </button>
+        {open && (
+          <div dir="rtl" className="bg-popover absolute z-50 mt-1 max-h-72 w-52 overflow-hidden rounded-md border shadow-lg">
+            <div className="relative border-b p-1.5">
+              <Search className="text-muted-foreground pointer-events-none absolute start-3 top-1/2 size-3.5 -translate-y-1/2" />
+              <Input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="חיפוש נציג"
+                className="h-8 ps-7 text-sm" />
+            </div>
+            <div className="grid max-h-56 grid-cols-5 gap-1 overflow-y-auto p-2">
+              {allowEmpty && (
+                <button type="button" title={emptyLabel} onClick={() => pick(null)}
+                  className="text-muted-foreground hover:bg-accent grid aspect-square place-items-center rounded-md border border-dashed">
+                  <X className="size-4" />
+                </button>
+              )}
+              {list.map(u => (
+                <button key={u.id} type="button" title={u.full_name} onClick={() => pick(u.id)}
+                  className={`grid aspect-square place-items-center rounded-md p-1 transition-colors ${u.id === value ? 'bg-accent ring-2 ring-[var(--mp)]' : 'hover:bg-accent'}`}>
+                  <UserAvatar user={u} />
+                </button>
+              ))}
+              {!list.length && <p className="text-muted-foreground col-span-5 py-4 text-center text-xs">לא נמצאו נציגים</p>}
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div ref={box} className={`relative ${className}`} onClick={e => e.stopPropagation()}>

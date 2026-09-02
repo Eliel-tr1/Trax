@@ -23,6 +23,7 @@
 
 import { supabaseAuthProvider } from 'ra-supabase-core'
 import polyglotI18nProvider from 'ra-i18n-polyglot'
+import { usePermissionStore } from '../../stores/permissionStore'
 import { localStorageStore } from 'ra-core'
 import { supabase } from '../supabase'
 import he from '../../i18n/he'
@@ -83,7 +84,25 @@ const SEARCH_REL = {
    preset (sales I own) via a plain filter, not record-scoping; TRAX has no
    per-user row restriction yet (RLS gives every authenticated user full
    access — see data/001_init_schema.sql's RLS section). */
-export const OWNER_FIELD = { sales: 'owner_id', tasks: 'assignee_id' }
+export const OWNER_FIELD = {
+  sales: 'owner_id', tasks: 'assignee_id', customers: 'owner_id',
+  journeys: 'owner_id', registrations: 'owner_id',
+  meetings: 'owner_id', phone_calls: 'assigned_user_id',
+}
+
+// Impersonation scope simulation: while a manager "views as" a limited user,
+// the real JWT (and therefore RLS) is still the manager's — RLS can't scope
+// the rows. To make the impersonation view HONEST (match what the target
+// would actually see), inject a client-side owner filter for resources the
+// target's role holds with scope='mine'. This is a UI mirror, not security —
+// RLS remains the real gate (see permissionStore.js's impersonation note).
+const impersonationOwnerFilter = () => {
+  try {
+    const { impersonating, matrix } = usePermissionStore.getState()
+    if (!impersonating) return null
+    return { userId: impersonating.id, matrix }
+  } catch { return null }
+}
 
 const sel = (resource) => SELECTS[resource] || '*'
 
@@ -137,8 +156,12 @@ const applyFilters = (q, resource, filter = {}, relIds = null) => {
 
 const listQuery = async (resource, { filter, sort, pagination }) => {
   const relIds = filter?.q ? await relatedIds(resource, filter.q) : null
+  // Impersonation honesty layer: viewing-as a scope='mine' user injects
+  // owner_id = target so the manager sees the same cut the target would.
+  const imp = impersonationOwnerFilter()
+  const impField = imp && imp.matrix[resource]?.scope === 'mine' ? OWNER_FIELD[resource] : null
   let q = supabase.from(resource).select(sel(resource), { count: 'exact' })
-  q = applyFilters(q, resource, filter, relIds)
+  q = applyFilters(q, resource, { ...filter, ...(impField ? { [impField]: imp.userId } : {}) }, relIds)
   // Soft-delete filter applied LAST so drill/user filters can never override
   // it (a stale persisted filter containing deleted_at would otherwise drop
   // the guard — that's how deleted rows surfaced in a drilled table).

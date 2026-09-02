@@ -24,7 +24,7 @@ export default function UserEditableCell({ row, table, field, users = [], onSave
   if (editing) {
     return (
       <span onClick={e => e.stopPropagation()}>
-        <UserPicker users={users} value={row[field]} onChange={save} autoOpen
+        <UserPicker users={users} value={row[field]} onChange={save} autoOpen avatarsOnly
           onClose={() => setEditing(false)} placeholder={placeholder} />
       </span>
     )
