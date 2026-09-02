@@ -217,41 +217,53 @@ export default function MaxAssistant() {
               </div>
             )}
             {messages.map(m => {
-              // Max may append a "קישורים:" line of [type|id|label] refs —
-              // strip it from the body and render as clickable record chips.
+              // Max references records with [type|id|label] tokens. They may
+              // appear on a dedicated "קישורים:" line OR inline mid-sentence —
+              // parse BOTH: extract every token from the whole message body,
+              // replace each with a clickable chip inline, and drop the
+              // redundant "קישורים:" line if present.
               const ROUTE = { לקוח: 'customers', מכירה: 'sales', מסע: 'journeys', 'הרשמה': 'registrations', פגישה: 'meetings', משימה: 'tasks', שיחה: 'phone-calls', נוסע: null, משתמש: null, הערה: null }
+              const TOKEN = /\[(לקוח|מכירה|מסע|הרשמה|פגישה|משימה|שיחה|נוסע|משתמש|הערה)\|([0-9a-f-]{36})\|([^\]]+)\]/g
               let body = m.content
-              let links = []
-              const marker = body.match(/קישורים:\s*(.+)$/m)
-              if (m.role === 'assistant' && marker) {
-                body = body.replace(marker[0], '').trim()
-                const re = /\[([^|\]]+)\|([^|\]]+)\|([^\]]+)\]/g
-                let mm
-                while ((mm = re.exec(marker[1])) !== null) links.push({ type: mm[1], id: mm[2], label: mm[3] })
-              }
-              return (
+              // Dedicated links line: remove entirely (its tokens are picked up below)
+              body = body.replace(/קישורים:\s*\n?((?:\[[^\]]+\]\s*)+)$/gm, '').trim()
+              if (m.role !== 'assistant') return (
                 <div key={m.id} style={{
-                  alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
-                  maxWidth: '85%', background: m.role === 'user' ? 'var(--mp)' : 'var(--surface-2)',
-                  color: m.role === 'user' ? '#fff' : 'var(--text)',
-                  borderRadius: 'var(--rs)', padding: '8px 11px', fontSize: '0.87rem', lineHeight: 1.5,
+                  alignSelf: 'flex-end', maxWidth: '85%', background: 'var(--mp)',
+                  color: '#fff', borderRadius: 'var(--rs)', padding: '8px 11px', fontSize: '0.87rem', lineHeight: 1.5,
                   whiteSpace: 'pre-wrap',
                 }}>
                   {body}
-                  {links.length > 0 && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 7 }}>
-                      {links.map((l, i) => {
-                        const route = ROUTE[l.type]
-                        return route ? (
-                          <a key={i} href={`#/${route}/${l.id}`} onClick={e => { e.preventDefault(); setOpen(false); window.location.hash = `#/${route}/${l.id}` }}
-                            style={{ color: m.role === 'user' ? '#fff' : 'var(--mp)', textDecoration: 'underline', fontSize: '0.8rem', fontWeight: 600 }}>
-                            {l.type}: {l.label} ↗
-                          </a>
-                        ) : (
-                          <span key={i} className="badge gray" style={{ fontSize: '0.75rem' }}>{l.type}: {l.label}</span>
-                        )
-                      })}
-                    </div>
+                </div>
+              )
+              // Split on tokens: parts alternate [text, token, text, token, ...]
+              const parts = []
+              let last = 0, mm
+              TOKEN.lastIndex = 0
+              while ((mm = TOKEN.exec(body)) !== null) {
+                if (mm.index > last) parts.push({ text: body.slice(last, mm.index) })
+                parts.push({ token: { type: mm[1], id: mm[2], label: mm[3] } })
+                last = mm.index + mm[0].length
+              }
+              if (last < body.length) parts.push({ text: body.slice(last) })
+              return (
+                <div key={m.id} style={{
+                  alignSelf: 'flex-start', maxWidth: '85%', background: 'var(--surface-2)',
+                  color: 'var(--text)', borderRadius: 'var(--rs)', padding: '8px 11px', fontSize: '0.87rem', lineHeight: 1.5,
+                  whiteSpace: 'pre-wrap',
+                }}>
+                  {parts.map((p, i) => p.text != null
+                    ? <span key={i}>{p.text}</span>
+                    : (() => {
+                        const route = ROUTE[p.token.type]
+                        return route
+                          ? <a key={i} href={`#/${route}/${p.token.id}`}
+                              onClick={e => { e.preventDefault(); setOpen(false); window.location.hash = `#/${route}/${p.token.id}` }}
+                              style={{ color: 'var(--mp)', textDecoration: 'underline', fontWeight: 700, cursor: 'pointer' }}>
+                              {p.token.label} ↗
+                            </a>
+                          : <span key={i} className="badge gray" style={{ fontSize: '0.75rem' }}>{p.token.label}</span>
+                      })()
                   )}
                 </div>
               )

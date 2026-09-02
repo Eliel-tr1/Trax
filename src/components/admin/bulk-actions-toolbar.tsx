@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { useListContext, Translate } from "ra-core";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -52,8 +52,19 @@ export const BulkActionsToolbar = ({
 }: {
   children?: ReactNode;
 }) => {
-  const { selectedIds, onUnselectItems } = useListContext();
-  if (!selectedIds?.length) {
+  const { selectedIds, onUnselectItems, data } = useListContext();
+  // PHANTOM SELECTION FIX: ra-core persists selectedIds in the list store,
+  // and those ids survive into visits where the rows no longer exist (they
+  // were deleted, or a drill-remount reset the list). If NONE of the
+  // selected ids are in the current page data, the selection is stale —
+  // clear it on the spot instead of showing "6 פריטים נבחרו" over an
+  // unselected table.
+  const stale =
+    selectedIds?.length > 0 &&
+    Array.isArray(data) &&
+    !data.some((row: { id?: unknown }) => selectedIds.includes(row.id));
+  useEffect(() => { if (stale) onUnselectItems(); }, [stale]);
+  if (!selectedIds?.length || stale) {
     return null;
   }
   const handleUnselectAll = (e: React.MouseEvent) => {

@@ -12,6 +12,7 @@ import { BulkDeleteButton } from '../components/admin/bulk-delete-button'
 import BulkEditButton from '../components/list/BulkEditButton'
 import EditableCell from '../components/EditableCell'
 import RecordFormModal from '../components/RecordFormModal'
+import AiJourneyImportModal from '../components/AiJourneyImportModal'
 import Icon from '../components/Icon'
 import StatusBadge from '../components/StatusBadge'
 
@@ -27,6 +28,7 @@ export default function Journeys() {
   const nav = useNavigate()
   const unit = useBusinessUnitStore(s => s.unit)
   const [showNew, setShowNew] = useState(false)
+  const [showAiImport, setShowAiImport] = useState(false)
   const [opts, setOpts] = useState({})
   const refresh = useRefresh()
   const filterGroups = useSchemaFilterGroups('journey', ['business_unit'])
@@ -76,11 +78,22 @@ export default function Journeys() {
         filters={filterGroups}
         rowPath={r => `/journeys/${r.id}`}
         bulkActions={<><BulkEditButton resource="journey" table="journeys" /><BulkDeleteButton /></>}
-        actions={<button className="btn sm" onClick={() => setShowNew(true)}><Icon name="plus" size={15} /> מסע חדש</button>}
+        actions={
+          <div className="row" style={{ gap: 6 }}>
+            <button className="btn sm" onClick={() => setShowNew(true)}><Icon name="plus" size={15} /> מסע חדש</button>
+            <button className="btn sm" style={{ background: 'var(--mp2)' }} onClick={() => setShowAiImport(true)}>
+              <Icon name="sparkles" size={15} /> יצירה ב-AI
+            </button>
+          </div>
+        }
       />
       {showNew && (
         <RecordFormModal type="journey" defaults={{ business_unit: unit }} onClose={() => setShowNew(false)}
           onCreated={row => nav(`/journeys/${row.id}`)} />
+      )}
+      {showAiImport && (
+        <AiJourneyImportModal defaultUnit={unit} onClose={() => setShowAiImport(false)}
+          onSaved={id => { setShowAiImport(false); nav(`/journeys/${id}`) }} />
       )}
     </>
   )
