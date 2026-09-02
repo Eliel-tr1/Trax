@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Modal } from './Modal'
+import Modal from './Modal'
 
 /* Hidden diagnostics overlay — opened via the tiny 'i' chip in the bottom
    corner. Shows the reload forensics log (who reloaded the tab and when)
