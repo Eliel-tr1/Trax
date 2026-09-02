@@ -67,6 +67,9 @@ async function check() {
 export function startBuildPolling() {
   if (!currentBuildId) return
   check()
+  // Minute-interval only. Do NOT also check on visibilitychange: that made
+  // every tab-switch trigger a fetch + possible reload, which users felt as
+  // "the screen refreshes whenever I come back to the tab" (open popups and
+  // unsaved edits lost). A deploy is picked up within a minute anyway.
   setInterval(check, 60000)
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) check() })
 }

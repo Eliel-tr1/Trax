@@ -3,10 +3,11 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
-// Deployed at ai.vitrue.co.il/trax-crm/ over SFTP (see deploy.js).
+// Hosted on Cloudflare Pages at the domain root (docs/runbooks/deploy.md).
+// Deploys: `npx wrangler pages deploy dist --project-name trax-crm --branch staging|main`
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  base: '/trax-crm-backup/',
+  base: '/',
   define: {
     __BUILD_ID__: JSON.stringify(process.env.BUILD_ID || null),
   },
