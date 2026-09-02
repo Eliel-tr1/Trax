@@ -21,7 +21,15 @@ export const useAuthStore = create((set, get) => ({
     set({ loading: false })
 
     supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session?.user) await get().fetchRep(session.user)
+      // silent=true is load-bearing here: Supabase fires TOKEN_REFRESHED /
+      // INITIAL_SESSION on tab re-focus (autoRefreshToken recovery). Loading
+      // the permission matrix non-silently flips loading:true →
+      // RequirePermission unmounts the ENTIRE active screen (spinner) →
+      // remounts it a few hundred ms later. Users experienced exactly that
+      // as "the CRM reloads whenever I switch tabs and back" — open popups
+      // closed, scroll lost. A background rep-refetch must never unmount
+      // the screen it runs under.
+      if (session?.user) await get().fetchRep(session.user, true)
       else set({ user: null, rep: null })
     })
   },
