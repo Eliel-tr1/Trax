@@ -111,6 +111,10 @@ export function useDrillInitialFilter() {
       const field = key.slice(6) // strip the drill_ prefix
       // encoded 'null' means the dashboard bucket was "(empty)" → is-null
       if (value === '__null__') filter[`${field}@is`] = null
+      // field@in arrives comma-joined in the URL (arrays can't be params) —
+      // must split back to a real array, else the whole list is treated as
+      // ONE stage name and the drilled table comes up empty.
+      else if (field.endsWith('@in')) filter[field] = value.split(',')
       else filter[field] = value
     }
   }
