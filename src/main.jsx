@@ -1,10 +1,12 @@
 // Build ID is set at build time (vite define injects process.env.BUILD_ID;
 // deploy scripts write the same timestamp into build-id.txt).
 import { initBuildId, startBuildPolling } from './buildVersion'
+import { installReloadForensics } from './reloadForensics'
 import './registerSW'
 
 initBuildId(typeof __BUILD_ID__ !== 'undefined' ? __BUILD_ID__ : null)
 startBuildPolling()
+installReloadForensics()
 
 import { StrictMode } from 'react'
 import ErrorBoundary from './components/ErrorBoundary'

@@ -11,6 +11,7 @@ import ThemeToggle from '../ThemeToggle'
 import ImpersonationBar from './ImpersonationBar'
 import Onboarding from '../Onboarding'
 import MaxAssistant from '../MaxAssistant'
+import DiagnosticsOverlay from '../DiagnosticsOverlay'
 import { titleForPath } from './nav-data'
 
 export default function AppLayout() {
@@ -39,6 +40,7 @@ export default function AppLayout() {
         <DialogHost />
         <Onboarding />
         <MaxAssistant />
+        <DiagnosticsOverlay />
       </SidebarInset>
     </SidebarProvider>
   )
