@@ -445,9 +445,14 @@ function MarketingTab({ unit, rangeFrom, rangeTo, ownerId, journeyId, source, ca
   const animate = useEntrance(animKey, !!customers && !!sales)
   const nav = useNavigate()
 
-  /* Drill-down to the CUSTOMERS list — this tab's charts all count leads,
-     so every click lands on /customers with the same filter shape (URL
-     params, same scheme as the sales drill). */
+  /* Drill-down: ALL marketing-tab clicks land on /sales (Goldi: "the whole
+     dashboard should be on sales entity, not customers"). Lead-status and
+     source buckets map onto the sale's own fields: status → the linked
+     customer's status via a special drill_status param handled client-side
+     is not possible in PostgREST filters, so status drills use the sale's
+     lead_source/stage equivalents. Source/campaign/UTM/date filters apply
+     directly to sales. */
+  const drillSales = (extra) => nav(`/sales?${drillCustomersParams(extra).toString()}`)
   const drillCustomersParams = (extra) => {
     const p = new URLSearchParams()
     if (ownerId) p.set('drill_owner_id', ownerId)
@@ -457,11 +462,12 @@ function MarketingTab({ unit, rangeFrom, rangeTo, ownerId, journeyId, source, ca
     if (rangeFrom) p.set('drill_created_at@gte', rangeFrom)
     if (rangeTo) p.set('drill_created_at@lte', rangeTo)
     for (const [k, v] of Object.entries(extra)) {
-      p.set('drill_' + k, v === null || v === '' ? '__null__' : String(v))
+      if (Array.isArray(v)) p.set('drill_' + k + '@in', v.join(','))
+      else p.set('drill_' + k, v === null || v === '' ? '__null__' : String(v))
     }
     return p
   }
-  const drillCustomers = (extra) => nav(`/customers?${drillCustomersParams(extra).toString()}`)
+  const drillCustomers = (extra) => drillSales(extra)
 
   useEffect(() => {
     setCustomers(null); setSales(null)
@@ -505,8 +511,10 @@ function MarketingTab({ unit, rangeFrom, rangeTo, ownerId, journeyId, source, ca
     .map(([label, v]) => ({ label, value: v.total ? Math.round((v.won / v.total) * 1000) / 10 : 0, detail: `${v.won}/${v.total} עסקאות`, total: v.total }))
     .sort((a, b) => b.value - a.value)
 
-  const statusFunnel = CUSTOMER_STATUSES.map(st => ({ label: st, value: customers.filter(c => c.status === st).length }))
-
+  // Status funnel is derived from the SALE pipeline (the marketing tab's
+  // whole drill surface is sales now), not the customer's status field.
+  const statusFunnel = SALE_STAGES.filter(st => !SALE_STAGES_CLOSED.includes(st))
+    .map(st => ({ label: st, value: sales.filter(s => s.stage === st).length }))
   // Top-3 lead sources by raw volume — a quick "where do our leads actually
   // come from" readout, separate from the source×campaign combo chart above.
   const leadsBySource = groupCount(customers, 'lead_source')
@@ -550,9 +558,9 @@ function MarketingTab({ unit, rangeFrom, rangeTo, ownerId, journeyId, source, ca
 
         <div className="grid gap-4 lg:grid-cols-2">
           <Card>
-            <CardHeader><CardTitle className="text-sm">משפך סטטוס לקוח</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-sm">משפך שלבי מכירה</CardTitle></CardHeader>
             <CardContent><FunnelChart stages={statusFunnel} animate={animate}
-              onItemClick={s => drillCustomers({ status: s.label })} /></CardContent>
+              onItemClick={s => drillSales({ stage: s.label })} /></CardContent>
           </Card>
           <Card>
             <CardHeader><CardTitle className="text-sm">שלושת המקורות המובילים</CardTitle></CardHeader>

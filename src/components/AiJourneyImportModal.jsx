@@ -26,7 +26,7 @@ export default function AiJourneyImportModal({ defaultUnit = 'TRAX', onClose, on
   const [fetching, setFetching] = useState(false)
   const [fields, setFields] = useState(null)
   const [exists, setExists] = useState(false)
-  const [existingId, setExistingId] = useState<string | null>(null)
+  const [existingId, setExistingId] = useState(null)
   const [saving, setSaving] = useState(false)
 
   const parse = async () => {

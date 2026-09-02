@@ -23,7 +23,7 @@ export default class ErrorBoundary extends Component {
           <pre dir="ltr" className="small" style={{ textAlign: 'start', background: 'var(--surface-2)', padding: 12, borderRadius: 8, overflow: 'auto', maxHeight: 180 }}>
             {String(this.state.error?.message || this.state.error)}
           </pre>
-          <button className="btn" style={{ marginTop: 16 }} onClick={() => window.location.assign(window.location.origin + window.location.pathname + '#/')}>
+          <button className="btn" style={{ marginTop: 16 }} onClick={() => { window.location.hash = '#/'; window.location.reload() }}>
             חזרה לדשבורד
           </button>
         </div>
