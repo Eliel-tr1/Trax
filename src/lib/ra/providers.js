@@ -138,8 +138,11 @@ const applyFilters = (q, resource, filter = {}, relIds = null) => {
 const listQuery = async (resource, { filter, sort, pagination }) => {
   const relIds = filter?.q ? await relatedIds(resource, filter.q) : null
   let q = supabase.from(resource).select(sel(resource), { count: 'exact' })
-  if (SOFT_DELETE.has(resource)) q = q.is('deleted_at', null)
   q = applyFilters(q, resource, filter, relIds)
+  // Soft-delete filter applied LAST so drill/user filters can never override
+  // it (a stale persisted filter containing deleted_at would otherwise drop
+  // the guard — that's how deleted rows surfaced in a drilled table).
+  if (SOFT_DELETE.has(resource)) q = q.is('deleted_at', null)
   if (sort?.field) q = q.order(sort.field, { ascending: sort.order !== 'DESC', nullsFirst: false })
   if (pagination) {
     const { page = 1, perPage = 50 } = pagination

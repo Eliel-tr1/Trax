@@ -326,7 +326,7 @@ function SalesTab({ unit, rangeFrom, rangeTo, ownerId, journeyId, source, campai
     }
     return p
   }
-  const drill = (extra) => nav(`/sales?${drillParams(extra).toString()}`)
+  const drill = (extra) => nav({ pathname: '/sales', search: drillParams(extra).toString() })
 
   useEffect(() => {
     setSales(null)
@@ -452,7 +452,7 @@ function MarketingTab({ unit, rangeFrom, rangeTo, ownerId, journeyId, source, ca
      is not possible in PostgREST filters, so status drills use the sale's
      lead_source/stage equivalents. Source/campaign/UTM/date filters apply
      directly to sales. */
-  const drillSales = (extra) => nav(`/sales?${drillCustomersParams(extra).toString()}`)
+  const drillSales = (extra) => nav({ pathname: '/sales', search: drillCustomersParams(extra).toString() })
   const drillCustomersParams = (extra) => {
     const p = new URLSearchParams()
     if (ownerId) p.set('drill_owner_id', ownerId)
@@ -524,8 +524,9 @@ function MarketingTab({ unit, rangeFrom, rangeTo, ownerId, journeyId, source, ca
     <DvizRoot className="dviz-fade-in">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div className="grid gap-4 sm:grid-cols-3">
-          <StatTile label="לידים חדשים בטווח" value={customers.length} onClick={() => drillCustomers({})} />
-          <StatTile label="עסקאות מלידים בטווח" value={sales.length} onClick={() => nav(`/sales?${drillCustomersParams({}).toString()}`)} />
+          <StatTile label="לידים חדשים בטווח" value={sales.filter(s => s.stage === 'ליד חדש').length}
+            onClick={() => drillSales({ stage: 'ליד חדש' })} />
+          <StatTile label="עסקאות מלידים בטווח" value={sales.length} onClick={() => drillSales({})} />
           <StatTile label="יחס המרה כולל לעסקה שנסגרה" value={`${sales.length ? Math.round((sales.filter(s => s.stage === 'נסגר בהצלחה').length / sales.length) * 1000) / 10 : 0}%`} tooltip="עסקאות שנסגרו בהצלחה מתוך כלל העסקאות בטווח" />
         </div>
 
