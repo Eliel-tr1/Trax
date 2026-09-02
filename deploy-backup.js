@@ -5,6 +5,7 @@ import 'dotenv/config'
 
 // Deploys dist/ to a PARALLEL backup URL (trax-crm-backup/) - same server,
 // same Supabase, but never touches the live trax-crm/ directory.
+// ⚠️ RETIRED 2026-09-02: TRAX moved to Cloudflare Pages (see docs/runbooks/deploy.md).
 const REMOTE_DIR = '/home/vitrue-ai/htdocs/ai.vitrue.co.il/trax-crm-backup'
 const BASE = '/trax-crm-backup/'
 
@@ -51,9 +52,9 @@ RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule . ${BASE}index.html [L]
 
-# index.html must NEVER be cached: it's the pointer to the hashed bundles.
-# Assets ARE cached (their names change with content) — that's the whole
-# cache-busting scheme, and it only works if the HTML always arrives fresh.
+// index.html must NEVER be cached: it's the pointer to the hashed bundles.
+// Assets ARE cached (their names change with content) — that's the whole
+// cache-busting scheme, and it only works if the HTML always arrives fresh.
 <IfModule mod_headers.c>
   <FilesMatch "index\.html$">
     Header set Cache-Control "no-store, must-revalidate"

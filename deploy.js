@@ -4,6 +4,9 @@ import path from 'path'
 import 'dotenv/config'
 
 // Deploys dist/ to the Vitrue AI server over SFTP + writes a SPA .htaccess.
+// ⚠️ RETIRED 2026-09-02: TRAX moved to Cloudflare Pages (see docs/runbooks/deploy.md).
+//    The remote folders trax-crm/ and trax-crm-backup/ were deleted. Do not run
+//    unless deliberately re-enabling the Vitrue path.
 // Adapted from bina-crm/deploy.js.
 const REMOTE_DIR = process.env.SFTP_REMOTE_DIR || '/home/vitrue-ai/htdocs/ai.vitrue.co.il/trax-crm'
 
