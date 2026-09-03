@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Check, ChevronDown, Search, X } from 'lucide-react'
 import UserAvatar from './UserAvatar'
 import { Input } from './ui/input'
@@ -33,19 +34,30 @@ export default function UserPicker({
   const pick = (id) => { onChange(id); setOpen(false); setQ(''); onClose?.() }
 
   // avatarsOnly mode (Sahar, list cells): trigger + dropdown show ONLY the
-  // face — full name lives in the trigger's tooltip and each row's tooltip.
-  // Keeps the wide-name trigger from blowing up narrow table columns.
+  // face — full name lives in each row's tooltip. The popup renders in a
+  // PORTAL with fixed coordinates: an absolutely-positioned dropdown inside
+  // the table gets clipped by the table's overflow containers and never
+  // appears (that's the "can't pick a user from the table" bug).
+  const [anchor, setAnchor] = useState(null)
+  useEffect(() => {
+    if (!open || !avatarsOnly || !box.current) return
+    const r = box.current.getBoundingClientRect()
+    setAnchor({ top: r.bottom + 4, left: Math.min(r.left, window.innerWidth - 230) })
+  }, [open, avatarsOnly])
+
   if (avatarsOnly) {
     return (
       <div ref={box} className={`relative ${className}`} onClick={e => e.stopPropagation()}>
-        <button type="button" onClick={() => setOpen(o => !o)}
+        <button type="button" onClick={e => { e.stopPropagation(); setOpen(o => !o) }}
           className="hover:bg-accent grid size-8 place-items-center rounded-md transition-colors">
           {selected
             ? <UserAvatar user={selected} />
             : <span className="text-muted-foreground grid size-6 place-items-center rounded-full border border-dashed" title={placeholder}>+</span>}
         </button>
-        {open && (
-          <div dir="rtl" className="bg-popover absolute z-50 mt-1 max-h-72 w-52 overflow-hidden rounded-md border shadow-lg">
+        {open && anchor && createPortal(
+          <div dir="rtl" className="bg-popover fixed z-[2147483000] max-h-72 w-52 overflow-hidden rounded-md border shadow-lg"
+            style={{ top: anchor.top, left: anchor.left }}
+            onMouseDown={e => e.stopPropagation()}>
             <div className="relative border-b p-1.5">
               <Search className="text-muted-foreground pointer-events-none absolute start-3 top-1/2 size-3.5 -translate-y-1/2" />
               <Input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="חיפוש נציג"
@@ -66,7 +78,8 @@ export default function UserPicker({
               ))}
               {!list.length && <p className="text-muted-foreground col-span-5 py-4 text-center text-xs">לא נמצאו נציגים</p>}
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </div>
     )
