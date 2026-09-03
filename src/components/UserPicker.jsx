@@ -63,20 +63,23 @@ export default function UserPicker({
               <Input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="חיפוש נציג"
                 className="h-8 ps-7 text-sm" />
             </div>
-            <div className="grid max-h-56 grid-cols-5 gap-1 overflow-y-auto p-2">
+            <div className="max-h-72 overflow-y-auto p-1">
               {allowEmpty && (
-                <button type="button" title={emptyLabel} onClick={() => pick(null)}
-                  className="text-muted-foreground hover:bg-accent grid aspect-square place-items-center rounded-md border border-dashed">
-                  <X className="size-4" />
+                <button type="button" onClick={() => pick(null)}
+                  className="hover:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm">
+                  <span className="text-muted-foreground grid size-8 place-items-center"><X className="size-4" /></span>
+                  <span className="flex-1 text-start">{emptyLabel}</span>
+                  {!value && <Check className="size-3.5" />}
                 </button>
               )}
               {list.map(u => (
                 <button key={u.id} type="button" title={u.full_name} onClick={() => pick(u.id)}
-                  className={`grid aspect-square place-items-center rounded-md p-1 transition-colors ${u.id === value ? 'bg-accent ring-2 ring-[var(--mp)]' : 'hover:bg-accent'}`}>
-                  <UserAvatar user={u} />
+                  className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm transition-colors ${u.id === value ? 'bg-accent' : 'hover:bg-accent'}`}>
+                  <UserAvatar user={u} size="md" />
+                  {u.id === value && <Check className="ms-auto size-3.5 shrink-0" />}
                 </button>
               ))}
-              {!list.length && <p className="text-muted-foreground col-span-5 py-4 text-center text-xs">לא נמצאו נציגים</p>}
+              {!list.length && <p className="text-muted-foreground py-4 text-center text-xs">לא נמצאו נציגים</p>}
             </div>
           </div>,
           document.body

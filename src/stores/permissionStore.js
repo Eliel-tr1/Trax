@@ -104,7 +104,14 @@ export const usePermissionStore = create((set, get) => ({
   // non-issue; an unwanted remount of the active screen is not.
   load: async (userId, silent = false) => {
     if (!userId) { set({ loading: false, userId: null, matrix: {} }); return }
-    set({ loading: !silent, userId })
+    // Race guard: initialize() and the INITIAL_SESSION auth event fire two
+    // overlapping loads on refresh. If call A (non-silent, first paint) is
+    // still in flight and call B finishes first, B's set would be clobbered
+    // by A's slower (possibly error-laden) result — the reported "permissions
+    // lost after every refresh". Serialize: newer call wins, older aborts.
+    const seq = (get()._loadSeq || 0) + 1
+    set({ loading: !silent, userId, _loadSeq: seq })
+    const stale = () => get()._loadSeq !== seq
     // 'view' goes through can_view_resource, not can_access — can_access's
     // 'view' branch is now a strict per-row check (requires a real row's
     // owner_id to evaluate 'mine' scope correctly, see migration 022) and
@@ -142,6 +149,7 @@ export const usePermissionStore = create((set, get) => ({
     const { data: scopeRows } = rep?.role_id
       ? await supabase.from('permissions').select('resource, scope').eq('role_id', rep.role_id)
       : { data: [] }
+    if (stale()) return // a newer load superseded this one — don't clobber it
     const scopeByResource = Object.fromEntries((scopeRows || []).map(r => [r.resource, r.scope]))
 
     const matrix = {}
@@ -153,6 +161,7 @@ export const usePermissionStore = create((set, get) => ({
       // a wrongly-shown button fails safely at the data layer.
       matrix[resource][action] = ok !== null ? ok : true
     }
+    if (stale()) return
     set({ matrix, loading: false })
   },
 
