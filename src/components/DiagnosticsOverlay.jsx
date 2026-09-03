@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import Modal from './Modal'
+import { usePermissionStore } from '../stores/permissionStore'
 
 /* Hidden diagnostics overlay — opened via the tiny 'i' chip in the bottom
    corner. Shows the reload forensics log (who reloaded the tab and when)
@@ -33,6 +34,15 @@ export default function DiagnosticsOverlay() {
         <div style={{ fontSize: 13, lineHeight: 1.6 }}>
           <div><b>build:</b> <code style={{ fontSize: 11 }}>{(localStorage.getItem('trax_build') || '?')}</code></div>
           <div><b>service worker:</b> {navigator.serviceWorker?.controller ? 'פעיל (!) — צריך להיות כבוי' : 'כבוי (תקין)'}</div>
+          <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+            {Object.entries(usePermissionStore.getState().matrix).map(([res, p]) => (
+              <span key={res} style={{
+                fontSize: 10, padding: '2px 6px', borderRadius: 4,
+                background: p.view ? 'color-mix(in srgb, #22c55e 18%, transparent)' : 'color-mix(in srgb, #ef4444 18%, transparent)',
+                color: p.view ? '#15803d' : '#b91c1c',
+              }} title={`scope=${p.scope} view=${p.view} edit=${p.edit}`}>{res}{p.view ? ' ✓' : ' ✗'}</span>
+            ))}
+          </div>
         </div>
         <div style={{ maxHeight: 320, overflow: 'auto', border: '1px solid var(--border)', borderRadius: 8, padding: 8 }}>
           <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse', direction: 'ltr', textAlign: 'left' }}>
