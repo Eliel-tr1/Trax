@@ -115,8 +115,26 @@ export const usePermissionStore = create((set, get) => ({
       (action === 'view'
         ? supabase.rpc('can_view_resource', { p_resource: resource })
         : supabase.rpc('can_access', { p_resource: resource, p_action: action })
-      ).then(({ data, error }) => ({ resource, action, ok: error ? false : !!data }))
+      ).then(({ data, error }) => {
+        // Distinguish "denied" from "didn't get an answer": a transient RPC
+        // failure (network wake-up right after tab restore, cold start)
+        // reported as ok:false made RequirePermission show the no-access
+        // screen after every refresh for managers with full permissions.
+        return { resource, action, ok: error ? null : !!data, error: !!error }
+      })
     ))
+    const hadError = results.some(r => r.error)
+    if (hadError) {
+      // Retry once — a partial matrix is worse than a short wait, because a
+      // false "no permission" is a hard wall the user can't get past.
+      const retry = await Promise.all(pairs.map(({ resource, action }) =>
+        (action === 'view'
+          ? supabase.rpc('can_view_resource', { p_resource: resource })
+          : supabase.rpc('can_access', { p_resource: resource, p_action: action })
+        ).then(({ data, error }) => ({ resource, action, ok: error ? null : !!data, error: !!error }))
+      ))
+      results.splice(0, results.length, ...retry)
+    }
     // scope is needed for the edit/delete/create branch above — one extra
     // light read of the caller's own permission rows (RLS-readable to any
     // authenticated user per 003_rbac.sql's permissions_select policy).
@@ -129,7 +147,11 @@ export const usePermissionStore = create((set, get) => ({
     const matrix = {}
     for (const { resource, action, ok } of results) {
       matrix[resource] = matrix[resource] || { scope: scopeByResource[resource] || 'mine' }
-      matrix[resource][action] = ok
+      // ok===null (RPC error even after retry) must NOT close the screen:
+      // treat "unknown" as granted at the UI layer and let RLS decide the
+      // truth server-side — a wrongly-denied manager is a hard wall, while
+      // a wrongly-shown button fails safely at the data layer.
+      matrix[resource][action] = ok !== null ? ok : true
     }
     set({ matrix, loading: false })
   },
