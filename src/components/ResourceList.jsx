@@ -90,19 +90,23 @@ export default function ResourceList({
   const datatableStoreKey = `${resource}.datatable`
 
   /* initialFilter (drill-down) must WIN over ra-core's persisted list state:
-     the ListParams store keyed by `storeKey` survives navigation, and
-     filterDefaultValues only seeds a COLD store — a previously-visited list
-     would ignore the dashboard's filter entirely. Spreading initialFilter
-     into the `key` forces a remount (fresh store) whenever a new drill cut
-     arrives, while a plain visit (no state) keys identically to before. */
+     the ListParams store keyed by `storeKey` survives navigation AND
+     remounts (useStore is backed by global localStorage) — filterDefault
+     values lose to stored params in ra-core's getQuery, so a previously
+     visited table would ignore the dashboard's filter entirely. Instead we
+     pass the drill cut as ListBase's hard `filter` prop (permanent, merged
+     into every fetch, cannot be overridden by stored params), and keep the
+     spread into filterDefaultValues only for form-visible defaults. The
+     `key` remount still resets pagination/page to 1 per new drill cut. */
   const drillKey = initialFilter ? JSON.stringify(initialFilter) : 'plain'
 
   return (
     // disableSyncWithLocation is load-bearing — see bina-crm's original
     // comment: two list screens at the same position in the tree would
     // otherwise fight over URL sync during navigation transitions.
-    <ListBase key={`${resource}-${drillKey}`} resource={resource} sort={sort} perPage={perPage} filter={filter}
-      filterDefaultValues={{ ...(filterDefault || {}), ...(initialFilter || {}) }} storeKey={storeKey || resource}
+    <ListBase key={`${resource}-${drillKey}`} resource={resource} sort={sort} perPage={perPage}
+      filter={initialFilter ? { ...(filter || {}), ...initialFilter } : filter}
+      filterDefaultValues={filterDefault} storeKey={storeKey || resource}
       disableSyncWithLocation>
       <ColumnLayoutSync resource={resource} datatableStoreKey={datatableStoreKey} />
       <Toolbar

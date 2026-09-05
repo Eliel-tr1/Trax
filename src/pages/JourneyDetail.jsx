@@ -18,12 +18,14 @@ import FieldTabs from '../components/FieldTabs'
 import SystemFieldsTab from '../components/SystemFieldsTab'
 import Checklist from '../components/RegistrationChecklist'
 import { registrationColumns } from './Registrations'
+import { salesColumns } from './Sales'
 
 export default function JourneyDetail() {
   const { id } = useParams()
   const refresh = useRefresh()
   const [j, setJ] = useState(null)
   const [regs, setRegs] = useState([])
+  const [salesRows, setSalesRows] = useState([])
   const [passengersByReg, setPassengersByReg] = useState({})
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
@@ -35,10 +37,18 @@ export default function JourneyDetail() {
     const { data } = await supabase.from('journeys').select('*').eq('id', id).single()
     setJ(data)
     loadOptions().then(setOpts)
-    const { data: r } = await supabase.from('registrations')
-      .select('id, registration_name, status, amount_paid, currency')
-      .eq('journey_id', id).is('deleted_at', null).order('created_at', { ascending: false })
+    const [{ data: r }, { data: s }] = await Promise.all([
+      supabase.from('registrations')
+        .select('id, registration_name, status, amount_paid, currency')
+        .eq('journey_id', id).is('deleted_at', null).order('created_at', { ascending: false }),
+      // Sales processes linked to this journey (Sahar: "אני רוצה לראות גם
+      // כמה תהליכי מכירה יש לי משם, ולא רק כמה הרשמות")
+      supabase.from('sales')
+        .select('id, deal_name, stage, status, amount, currency')
+        .eq('journey_id', id).is('deleted_at', null).order('created_at', { ascending: false }),
+    ])
     setRegs(r || [])
+    setSalesRows(s || [])
     const regIds = (r || []).map(x => x.id)
     if (regIds.length) {
       // Combined passenger list across every registration on this journey
@@ -77,6 +87,9 @@ export default function JourneyDetail() {
   // listColumns reuses Registrations.jsx's own column builder — see the
   // comment on CustomerDetail.jsx's `related` array for why.
   const related = [
+    { key: 'sales', label: 'תהליכי מכירה', count: salesRows.length, rows: salesRows, onOpen: s => `/sales/${s.id}`,
+      resource: 'sales', fk: 'journey_id', recordId: id,
+      listColumns: salesColumns(opts, refresh) },
     { key: 'registrations', label: 'הרשמות', count: regs.length, rows: regs, onOpen: r => `/registrations/${r.id}`,
       resource: 'registrations', fk: 'journey_id', recordId: id,
       listColumns: registrationColumns(opts, refresh) },

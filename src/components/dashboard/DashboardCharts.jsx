@@ -130,13 +130,17 @@ export function BarChart({ items, animate = true, unit = '', formatValue, showLe
 // (magnitude, not identity — see dataviz skill's color-formula: identity is
 // categorical, magnitude/progress is sequential).
 export function FunnelChart({ stages, animate = true, onItemClick }) {
-  const top = stages[0]?.value || 1
-  if (!stages.length) return <div className="dviz-empty">אין נתונים</div>
+  // Zero-value rows are dead ends — a drill on them lands on an empty table,
+  // which reads as "the drill is broken" (Sahar's marketing-tab report).
+  // Hide rows with value 0; a stage with 0 deals has nothing to show anyway.
+  const visible = stages.filter(s => s.value > 0)
+  const top = visible[0]?.value || 1
+  if (!visible.length) return <div className="dviz-empty">אין נתונים</div>
   return (
     <div className="dviz-funnel">
-      {stages.map((s, i) => {
+      {visible.map((s, i) => {
         const pct = top ? Math.max((s.value / top) * 100, s.value > 0 ? 3 : 0) : 0
-        const dropFromPrev = i > 0 && stages[i - 1].value ? Math.round((1 - s.value / stages[i - 1].value) * 100) : null
+        const dropFromPrev = i > 0 && visible[i - 1].value ? Math.round((1 - s.value / visible[i - 1].value) * 100) : null
         const clickable = onItemClick && s.onClick !== false
         return (
           <Tooltip key={s.label}>
