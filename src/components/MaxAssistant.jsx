@@ -223,7 +223,11 @@ export default function MaxAssistant() {
               // replace each with a clickable chip inline, and drop the
               // redundant "קישורים:" line if present.
               const ROUTE = { לקוח: 'customers', מכירה: 'sales', מסע: 'journeys', 'הרשמה': 'registrations', פגישה: 'meetings', משימה: 'tasks', שיחה: 'phone-calls', נוסע: null, משתמש: null, הערה: null }
-              const TOKEN = /\[(לקוח|מכירה|מסע|הרשמה|פגישה|משימה|שיחה|נוסע|משתמש|הערה)\|([0-9a-f-]{36})\|([^\]]+)\]/g
+              // Max sometimes emits 2-part tokens ([type|id], no display label)
+              // despite the 3-part instruction — accept BOTH or those land as
+              // raw text (Sahar 09-05: "he shows IDs instead of links").
+              const TOKEN = /\[(לקוח|מכירה|מסע|הרשמה|פגישה|משימה|שיחה|נוסע|משתמש|הערה)\|([0-9a-f-]{36})(?:\|([^\]]+))?\]/g
+              const FALLBACK_LABEL = { לקוח: 'לקוח', מכירה: 'מכירה', מסע: 'מסע', הרשמה: 'הרשמה', פגישה: 'פגישה', משימה: 'משימה', שיחה: 'שיחה', נוסע: 'נוסע', משתמש: 'משתמש', הערה: 'הערה' }
               let body = m.content
               // Dedicated links line: remove entirely (its tokens are picked up below)
               body = body.replace(/קישורים:\s*\n?((?:\[[^\]]+\]\s*)+)$/gm, '').trim()
@@ -242,7 +246,7 @@ export default function MaxAssistant() {
               TOKEN.lastIndex = 0
               while ((mm = TOKEN.exec(body)) !== null) {
                 if (mm.index > last) parts.push({ text: body.slice(last, mm.index) })
-                parts.push({ token: { type: mm[1], id: mm[2], label: mm[3] } })
+                parts.push({ token: { type: mm[1], id: mm[2], label: mm[3] || FALLBACK_LABEL[mm[1]] } })
                 last = mm.index + mm[0].length
               }
               if (last < body.length) parts.push({ text: body.slice(last) })

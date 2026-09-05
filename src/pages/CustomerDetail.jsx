@@ -153,7 +153,7 @@ export default function CustomerDetail() {
         {sec === 'מועדון' && <div className="field-grid">
           <EditField label="דירוג ליד" value={c.lead_rating} type="select" options={enumOpts(LEAD_RATINGS)} onSave={v => save('lead_rating', v)} />
           <EditField label="חבר מועדון" value={c.club_member} type="checkbox" onSave={v => save('club_member', v)} />
-          <EditField label="תאריך הצטרפות למועדון" value={c.club_joined_at} type="date" onSave={v => save('club_joined_at', v)} />
+          <EditField label="תאריך הצטרפות למועדון" value={c.club_joined_at} type="date" display={formatDate(c.club_joined_at)} onSave={v => save('club_joined_at', v)} />
           <EditField label="יתרת קרדיט" value={c.credit_balance} type="number" onSave={v => save('credit_balance', v)} />
           <EditField label="רמת ניסיון באקסטרים" value={c.extreme_experience_level} type="select" options={enumOpts(EXPERIENCE_LEVELS)} onSave={v => save('extreme_experience_level', v)} />
           <EditField label="שפה מועדפת" value={c.preferred_language} type="select" options={enumOpts(PREFERRED_LANGUAGES)} onSave={v => save('preferred_language', v)} />

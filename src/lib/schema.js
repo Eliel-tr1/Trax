@@ -275,7 +275,19 @@ export function extraHiddenColumns(type, existingSources, ctx = {}) {
           render: r => createElement(EditableCell, { row: r, table, field: f.key, mode: 'select', options: fieldOptions(f, opts), required: f.required, onSaved }),
         }
       }
-      // date | datetime | number | phone | text | textarea
+      // date | datetime | number | phone | text | textarea.
+      // Date/datetime cells get a friendly display (same "נוצר בתאריך"
+      // formatting everywhere) — the raw ISO string is machine food, not for
+      // a rep's eyes (Sahar 09-05). The EditableCell still edits the raw
+      // value; `display` only prettifies the resting state.
+      if (f.type === 'date' || f.type === 'datetime') {
+        const fmt = f.type === 'datetime' ? formatDateTime : formatDate
+        return {
+          ...base,
+          csv: r => r[f.key],
+          render: r => createElement(EditableCell, { row: r, table, field: f.key, type: f.type, display: v => createElement('span', { className: 'small' }, fmt(v)), onSaved }),
+        }
+      }
       return {
         ...base,
         csv: r => r[f.key],
