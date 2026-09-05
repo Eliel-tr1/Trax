@@ -7,7 +7,7 @@ Last updated: 2026-09-02 (Cloudflare migration)
 | Environment | URL | How it deploys |
 |---|---|---|
 | **Production** | https://trax-crm.pages.dev (domain pending, will be a client subdomain) | deploys to `main` branch of Cloudflare Pages project `trax-crm` |
-| **Staging (testing)** | https://staging.trax-crm.pages.dev | deploys to `staging` branch — stable alias, work here by default |
+| **Staging (testing)** | https://staging.trax-crm.pages.dev | **auto-deploys**: push to `staging` branch triggers GitHub Actions (`.github/workflows/deploy-staging.yml`), which builds and deploys to the CF Pages `staging` branch alias. Requires repo secret `CLOUDFLARE_API_TOKEN` (Pages:Edit permission). |
 | Preview (ephemeral) | `<hash>.trax-crm.pages.dev` | any other branch, auto URL per deploy |
 | ~~Vitrue server~~ | ~~ai.vitrue.co.il/trax-crm/~~ | RETIRED 2026-09-02 — both `trax-crm/` and `trax-crm-backup/` folders were deleted from the server |
 
