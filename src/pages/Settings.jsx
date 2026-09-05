@@ -562,20 +562,129 @@ function InfoHint({ text }) {
   )
 }
 
+// ============================================================
+// LabelsManagerModal — add/edit/delete the managed role-label (תפקיד,
+// role_labels) and department (מחלקה, departments) lists (migration 039).
+// Shows a live count of app_users holding each value. Delete is blocked
+// (with a clear message) while users still carry the value — clear the
+// users first, or rename instead, so no user ends up with an orphan label.
+// ============================================================
+function LabelsManagerModal({ kind, users, onClose, onChanged }) {
+  const isProfiles = kind === 'profiles'
+  const table = isProfiles ? 'role_labels' : 'departments'
+  const title = isProfiles ? 'ניהול תפקידים' : 'ניהול מחלקות'
+  const userField = isProfiles ? 'permission_profile' : 'department'
+  const [items, setItems] = useState(null)
+  const [newLabel, setNewLabel] = useState('')
+  const [editId, setEditId] = useState(null)
+  const [editLabel, setEditLabel] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const load = async () => {
+    const { data } = await supabase.from(table).select('*').order('sort_order')
+    setItems(data || [])
+  }
+  useEffect(() => { load() }, [table])
+
+  const counts = {}
+  for (const u of users || []) {
+    const v = u[userField]
+    if (v) counts[v] = (counts[v] || 0) + 1
+  }
+
+  const add = async () => {
+    const label = newLabel.trim()
+    if (!label) return
+    setBusy(true)
+    const { error } = await supabase.from(table).insert({ label })
+    setBusy(false)
+    if (error) { toast(error.code === '23505' ? 'ערך כזה כבר קיים' : 'הוספה נכשלה: ' + error.message, 'err'); return }
+    setNewLabel(''); load(); onChanged(); toast('נוסף')
+  }
+
+  const rename = async () => {
+    const label = editLabel.trim()
+    if (!label || !editId) return
+    setBusy(true)
+    const old = items.find(i => i.id === editId)?.label
+    const { error } = await supabase.from(table).update({ label }).eq('id', editId)
+    if (!error && old && old !== label) {
+      // Carry existing users over to the new label so nothing orphans.
+      const { error: uErr } = await supabase.from('app_users').update({ [userField]: label }).eq(userField, old)
+      if (uErr) { setBusy(false); toast('שינוי השם הצליח אך עדכון המשתמשים נכשל: ' + uErr.message, 'err'); return }
+    }
+    setBusy(false)
+    if (error) { toast(error.code === '23505' ? 'ערך כזה כבר קיים' : 'עדכון נכשל: ' + error.message, 'err'); return }
+    setEditId(null); load(); onChanged(); toast('נשמר')
+  }
+
+  const remove = async (item) => {
+    const n = counts[item.label] || 0
+    if (n > 0) { toast(`לא ניתן למחוק: ${n} משתמשים עדיין משויכים. העביר אותם לערך אחר קודם.`, 'err'); return }
+    if (!await deleteConfirmDialog(`למחוק את "${item.label}"?`)) return
+    const { error } = await supabase.from(table).delete().eq('id', item.id)
+    if (error) { toast('מחיקה נכשלה: ' + error.message, 'err'); return }
+    load(); onChanged(); toast('נמחק')
+  }
+
+  return (
+    <Modal onClose={onClose} title={title} icon="users" maxWidth={430}>
+      <div style={{ marginBottom: 12 }}>
+        {items === null && <div className="empty"><span className="spinner" /></div>}
+        {(items || []).map(it => (
+          <div key={it.id} className="row" style={{ padding: '7px 4px', borderBottom: '1px solid var(--surface-2)' }}>
+            {editId === it.id ? (
+              <>
+                <input className="input" style={{ flex: 1 }} value={editLabel} autoFocus
+                  onChange={e => setEditLabel(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') rename() }} />
+                <button className="btn sm" disabled={busy} onClick={rename}>שמור</button>
+                <button className="btn sm subtle" onClick={() => setEditId(null)}>ביטול</button>
+              </>
+            ) : (
+              <>
+                <span style={{ flex: 1 }}>{it.label}</span>
+                <span className="badge mp" title="מספר משתמשים עם ערך זה">{counts[it.label] || 0}</span>
+                <button className="btn subtle sm" onClick={() => { setEditId(it.id); setEditLabel(it.label) }}>עריכה</button>
+                <button className="btn subtle sm" onClick={() => remove(it)}>מחיקה</button>
+              </>
+            )}
+          </div>
+        ))}
+        {items && !items.length && <p className="muted small">אין ערכים. הוסף את הראשון למטה.</p>}
+      </div>
+      <div className="row">
+        <input className="input" style={{ flex: 1 }} placeholder={isProfiles ? 'תפקיד חדש' : 'מחלקה חדשה'}
+          value={newLabel} onChange={e => setNewLabel(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') add() }} />
+        <button className="btn" disabled={busy || !newLabel.trim()} onClick={add}>הוספה</button>
+      </div>
+    </Modal>
+  )
+}
+
 function UsersTab() {
   const [users, setUsers] = useState(null)
   const [roles, setRoles] = useState([])
+  // Managed label lists (תפקיד/מחלקה) — DB tables (039), admin-editable,
+  // replacing the old hard-coded PERMISSION_PROFILES/DEPARTMENTS arrays.
+  const [profiles, setProfiles] = useState([])
+  const [departments, setDepartments] = useState([])
+  const [managing, setManaging] = useState(null) // 'profiles' | 'departments' | null
   const [showInvite, setShowInvite] = useState(false)
   const [editing, setEditing] = useState(null)
   const [emails, setEmails] = useState({})
   const canEdit = usePermissionStore(s => s.can('users', 'edit'))
 
   const load = async () => {
-    const [{ data: u }, { data: r }] = await Promise.all([
+    const [{ data: u }, { data: r }, { data: p }, { data: d }] = await Promise.all([
       supabase.from('app_users').select('id, full_name, is_active, avatar_url, phone, notes, department, permission_profile, roles(id,key,label)').order('full_name'),
       supabase.from('roles').select('id, key, label').order('label'),
+      supabase.from('role_labels').select('*').order('sort_order'),
+      supabase.from('departments').select('*').order('sort_order'),
     ])
     setUsers(u || []); setRoles(r || [])
+    setProfiles(p || []); setDepartments(d || [])
     // Emails live in auth.users, not app_users — fetched via the
     // update-user Edge Function's list_emails action (service role only).
     const { data, error } = await supabase.functions.invoke('update-user', { body: { action: 'list_emails' } })
@@ -610,8 +719,18 @@ function UsersTab() {
   return (
     <div>
       <div className="row" style={{ justifyContent: 'flex-end', marginBottom: 10 }}>
+        <button className="btn sm subtle" onClick={() => setManaging('profiles')}>ניהול תפקידים</button>
+        <button className="btn sm subtle" onClick={() => setManaging('departments')}>ניהול מחלקות</button>
         <button className="btn sm" onClick={() => setShowInvite(true)}><Icon name="user-plus" size={15} /> משתמש חדש</button>
       </div>
+      {managing && (
+        <LabelsManagerModal
+          kind={managing}
+          users={users}
+          onClose={() => setManaging(null)}
+          onChanged={load}
+        />
+      )}
       <div className="table-wrap">
         <table className="grid">
           <thead><tr><th>משתמש</th><th>אימייל</th><th>תפקיד</th><th>מחלקה</th><th>הרשאה<InfoHint text="השדה הזה בלבד הוא זה שמשפיע על ההרשאות בפועל (המטריצה בטאב ״תפקידים והרשאות״). ״תפקיד״ הוא תווית לתצוגה בלבד." /></th><th>פעיל</th>{canEdit && <th></th>}</tr></thead>
@@ -623,13 +742,13 @@ function UsersTab() {
                 <td>
                   <select className="input" style={{ minWidth: 130 }} value={u.permission_profile || ''} onChange={e => changeField(u, 'permission_profile', e.target.value || null)}>
                     <option value="">-</option>
-                    {PERMISSION_PROFILES.map(p => <option key={p} value={p}>{p}</option>)}
+                    {profiles.map(p => <option key={p.id} value={p.label}>{p.label}</option>)}
                   </select>
                 </td>
                 <td>
                   <select className="input" style={{ minWidth: 130 }} value={u.department || ''} onChange={e => changeField(u, 'department', e.target.value || null)}>
                     <option value="">-</option>
-                    {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+                    {departments.map(d => <option key={d.id} value={d.label}>{d.label}</option>)}
                   </select>
                 </td>
                 <td>
@@ -725,10 +844,31 @@ function InviteUserModal({ roles, onClose, onInvited }) {
   const [email, setEmail] = useState('')
   const [fullName, setFullName] = useState('')
   const [password, setPassword] = useState('')
+  // Dynamic label lists from the managed DB tables (039), with hard-coded
+  // fallbacks so the modal still renders if the read fails.
+  const [profiles, setProfiles] = useState(PERMISSION_PROFILES)
+  const [departments, setDepartments] = useState(DEPARTMENTS)
   const [profile, setProfile] = useState(PERMISSION_PROFILES[2]) // נציג
   const [department, setDepartment] = useState(DEPARTMENTS[1]) // מכירות
   const [busy, setBusy] = useState(false)
   const [createdPassword, setCreatedPassword] = useState(null)
+
+  useEffect(() => {
+    ;(async () => {
+      const [{ data: p }, { data: d }] = await Promise.all([
+        supabase.from('role_labels').select('*').order('sort_order'),
+        supabase.from('departments').select('*').order('sort_order'),
+      ])
+      if (p?.length) {
+        setProfiles(p.map(x => x.label))
+        if (!p.some(x => x.label === profile)) setProfile(p[0].label)
+      }
+      if (d?.length) {
+        setDepartments(d.map(x => x.label))
+        if (!d.some(x => x.label === department)) setDepartment(d[1]?.label || d[0].label)
+      }
+    })()
+  }, [])
 
   // Avatar: pick -> crop -> hold the cropped blob until the user actually
   // exists (the invite-user Edge Function creates the auth user + app_users
@@ -818,12 +958,12 @@ function InviteUserModal({ roles, onClose, onInvited }) {
         </div>
         <div className="field"><label>תפקיד<span className="req"> *</span></label>
           <select value={profile} onChange={e => setProfile(e.target.value)}>
-            {PERMISSION_PROFILES.map(p => <option key={p} value={p}>{p}</option>)}
+            {profiles.map(p => <option key={p} value={p}>{p}</option>)}
           </select>
         </div>
         <div className="field"><label>מחלקה<span className="req"> *</span></label>
           <select value={department} onChange={e => setDepartment(e.target.value)}>
-            {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+            {departments.map(d => <option key={d} value={d}>{d}</option>)}
           </select>
         </div>
       </div>
