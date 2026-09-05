@@ -32,7 +32,7 @@ function Loading() {
   return (
     <div className="center-screen">
       <div style={{ textAlign: 'center' }}>
-        <div style={{ marginBottom: 18, fontWeight: 700, fontSize: '1.4rem' }}>TRAX CRM</div>
+        <div style={{ marginBottom: 18, fontWeight: 700, fontSize: '1.4rem', color: '#fff' }}>TRAX CRM</div>
         <div className="spinner light" />
       </div>
     </div>
