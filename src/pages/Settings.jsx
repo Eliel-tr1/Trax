@@ -551,7 +551,9 @@ function InfoHint({ text }) {
       </span>
       {pos && createPortal(
         <span className={`info-hint__bubble${pos.below ? ' below' : ''}`} dir="rtl"
-          style={{ position: 'fixed', top: pos.top, left: pos.left, transform: pos.below ? 'translate(50%, 0)' : 'translate(50%, -100%)' }}>
+          style={{ position: 'fixed', top: pos.top, left: pos.left,
+            transform: pos.below ? 'translate(-50%, 0)' : 'translate(-50%, -100%)',
+            maxWidth: 260 }}>
           {text}
         </span>,
         document.body

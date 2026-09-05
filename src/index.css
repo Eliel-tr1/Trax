@@ -497,4 +497,4 @@ table.grid > tbody { display: table-row-group; }
 /* Portal-rendered bubble: fixed-positioned above the "i", flipped below if
    there's no room (bubble top would leave the viewport). */
 .info-hint__bubble { opacity: 1; }
-.info-hint__bubble.below { transform: translate(50%, 0) !important; }
+.info-hint__bubble.below { transform: translate(-50%, 0) !important; }
