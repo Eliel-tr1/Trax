@@ -104,5 +104,46 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ success: true });
   }
 
+  // Admin sets a new password for a user (Sahar 05.09 #4): direct set, no
+  // email round-trip — the admin hands the password over verbally.
+  if (body.action === "set_password") {
+    const { data: perm } = await admin.from("permissions").select("can_edit").eq("role_id", caller.role_id).eq("resource", "users").maybeSingle();
+    if (!perm?.can_edit) return jsonResponse({ error: "not permitted to edit users" }, 403);
+
+    const userId: string | undefined = body.user_id;
+    const password: string | undefined = body.password;
+    if (!userId) return jsonResponse({ error: "user_id is required" }, 400);
+    if (!password || password.length < 8) return jsonResponse({ error: "password must be at least 8 characters" }, 400);
+
+    const { error } = await admin.auth.admin.updateUserById(userId, { password, email_confirm: true });
+    if (error) return jsonResponse({ error: error.message }, 400);
+    return jsonResponse({ success: true });
+  }
+
+  // Admin deletes a user entirely: auth.users row (CASCADE removes app_users)
+  // + sign-out of all their sessions. Guard: never delete yourself.
+  if (body.action === "delete") {
+    const { data: perm } = await admin.from("permissions").select("can_delete").eq("role_id", caller.role_id).eq("resource", "users").maybeSingle();
+    if (!perm?.can_delete) return jsonResponse({ error: "not permitted to delete users" }, 403);
+
+    const userId: string | undefined = body.user_id;
+    if (!userId) return jsonResponse({ error: "user_id is required" }, 400);
+    if (userId === callerId) return jsonResponse({ error: "cannot delete your own account" }, 400);
+
+    // Detach business records first (owner_id / assignee FKs would otherwise
+    // orphan): null them out — the records stay, just unassigned.
+    await admin.from("customers").update({ owner_id: null }).eq("owner_id", userId);
+    await admin.from("sales").update({ owner_id: null }).eq("owner_id", userId);
+    await admin.from("tasks").update({ assignee_id: null }).eq("assignee_id", userId);
+
+    const { error: signOutErr } = await admin.auth.admin.signOut(userId);
+    if (signOutErr && !signOutErr.message.includes("not found")) console.warn("signOut:", signOutErr.message);
+    const { error: authErr } = await admin.auth.admin.deleteUser(userId);
+    if (authErr) return jsonResponse({ error: authErr.message }, 400);
+    // app_users row goes via FK cascade; belt-and-suspenders if cascade missing:
+    await admin.from("app_users").delete().eq("id", userId);
+    return jsonResponse({ success: true });
+  }
+
   return jsonResponse({ error: `unknown action "${body.action}"` }, 400);
 });

@@ -664,6 +664,7 @@ function LabelsManagerModal({ kind, users, onClose, onChanged }) {
 }
 
 function UsersTab() {
+  const user = useAuthStore(s => s.user)
   const [users, setUsers] = useState(null)
   const [roles, setRoles] = useState([])
   // Managed label lists (תפקיד/מחלקה) — DB tables (039), admin-editable,
@@ -714,6 +715,28 @@ function UsersTab() {
     toast('נשמר')
   }
 
+  // Admin resets a user's password through the update-user Edge Function
+  // (service-role side; the admin hands the new password over verbally).
+  const resetPassword = async (u) => {
+    const pw = await promptDialog(`סיסמה חדשה עבור ${u.full_name}:`, { placeholder: 'מינימום 8 תווים' })
+    if (!pw) return
+    if (pw.length < 8) { toast('הסיסמה קצרה מדי (מינימום 8 תווים)', 'err'); return }
+    const { error } = await supabase.functions.invoke('update-user', { body: { action: 'set_password', user_id: u.id, password: pw } })
+    if (error) { toast('איפוס נכשל: ' + error.message, 'err'); return }
+    toast('הסיסמה עודכנה')
+  }
+
+  // Admin deletes a user: detaches owned records, removes the auth user.
+  // Blocked for yourself (also guarded server-side).
+  const removeUser = async (u) => {
+    if (u.id === user?.id) { toast('לא ניתן למחוק את החשבון שלך', 'err'); return }
+    if (!await deleteConfirmDialog(`למחוק את המשתמש "${u.full_name}"? הלקוחות והעסקאות שלו יישארו במערכת ללא שיוך.`)) return
+    const { error } = await supabase.functions.invoke('update-user', { body: { action: 'delete', user_id: u.id } })
+    if (error) { toast('מחיקה נכשלה: ' + error.message, 'err'); return }
+    toast('המשתמש נמחק')
+    load()
+  }
+
   if (!users) return <div className="empty"><span className="spinner" /></div>
 
   return (
@@ -757,7 +780,13 @@ function UsersTab() {
                   </select>
                 </td>
                 <td><Switch checked={u.is_active} onCheckedChange={() => toggleActive(u)} /></td>
-                {canEdit && <td><button className="btn subtle sm" onClick={() => setEditing(u)}><Icon name="edit" size={13} /> עריכה</button></td>}
+                {canEdit && <td>
+                  <span style={{ display: 'inline-flex', gap: 4 }}>
+                    <button className="btn subtle sm" onClick={() => setEditing(u)}><Icon name="edit" size={13} /> עריכה</button>
+                    <button className="btn subtle sm" title="איפוס סיסמה" onClick={() => resetPassword(u)}><Icon name="lock" size={13} /> סיסמה</button>
+                    <button className="btn subtle sm" title="מחיקת משתמש" onClick={() => removeUser(u)}><Icon name="trash" size={13} /></button>
+                  </span>
+                </td>}
               </tr>
             ))}
           </tbody>
