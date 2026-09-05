@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
+import { useAuthStore } from '../stores/authStore'
 import { toast } from '../components/Toaster'
 import { Switch } from '../components/ui/switch'
 import EditField from '../components/EditField'

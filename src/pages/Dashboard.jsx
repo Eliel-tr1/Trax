@@ -480,7 +480,7 @@ function MarketingTab({ unit, rangeFrom, rangeTo, ownerId, journeyId, source, ca
     if (rangeFrom) cq = cq.gte('created_at', rangeFrom)
     if (rangeTo) cq = cq.lte('created_at', rangeTo)
 
-    let sq = supabase.from('sales').select('id, stage, lead_source, campaign, utm_source, journey_id, created_at')
+    let sq = supabase.from('sales').select('id, stage, lead_source, campaign, utm_source, utm_campaign, journey_id, created_at')
       .eq('business_unit', unit).is('deleted_at', null)
     sq = applyCommonFilters(sq, { ownerId, journeyId, source, campaign, utm, rangeFrom, rangeTo })
 
@@ -489,11 +489,13 @@ function MarketingTab({ unit, rangeFrom, rangeTo, ownerId, journeyId, source, ca
 
   if (!customers || !sales) return <div className="empty"><span className="spinner" /></div>
 
-  // Leads by source × campaign combination — top 10, "אחר" for the long tail
-  // is not fabricated; unnamed combos simply show as "לא צוין".
+  // Leads by source × campaign combination — top 10. Counted from SALES, not
+  // customers: this chart drills into /sales, and a chart must count from the
+  // same table it drills into or the tile number and the landed table total
+  // will disagree (Sahar 09-05: 19 customers vs 20 sales).
   const comboMap = {}
-  for (const c of customers) {
-    const key = `${c.lead_source || 'לא צוין'} · ${c.utm_campaign || c.campaign || 'ללא קמפיין'}`
+  for (const s of sales) {
+    const key = `${s.lead_source || 'לא צוין'} · ${s.utm_campaign || s.campaign || 'ללא קמפיין'}`
     comboMap[key] = (comboMap[key] || 0) + 1
   }
   const bySourceCampaign = Object.entries(comboMap).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([label, value]) => ({ label, value }))
@@ -515,9 +517,9 @@ function MarketingTab({ unit, rangeFrom, rangeTo, ownerId, journeyId, source, ca
   // whole drill surface is sales now), not the customer's status field.
   const statusFunnel = SALE_STAGES.filter(st => !SALE_STAGES_CLOSED.includes(st))
     .map(st => ({ label: st, value: sales.filter(s => s.stage === st).length }))
-  // Top-3 lead sources by raw volume — a quick "where do our leads actually
-  // come from" readout, separate from the source×campaign combo chart above.
-  const leadsBySource = groupCount(customers, 'lead_source')
+  // Top-3 lead sources — also counted from SALES (drill target consistency,
+  // same rule as the source×campaign chart above).
+  const leadsBySource = groupCount(sales, 'lead_source')
   const topSources = leadsBySource.slice(0, 3)
 
   return (
@@ -553,7 +555,7 @@ function MarketingTab({ unit, rangeFrom, rangeTo, ownerId, journeyId, source, ca
           <Card>
             <CardHeader><CardTitle className="text-sm">יחס המרה לעסקה שנסגרה, לפי ערוץ</CardTitle></CardHeader>
             <CardContent><BarChart items={conversionByChannel} animate={animate} unit="%"
-              onItemClick={it => it.onClick !== false && drillCustomers(it.label !== 'לא צוין' ? { lead_source: it.label } : {})} /></CardContent>
+              onItemClick={it => it.onClick !== false && drillCustomers(it.label !== 'לא צוין' ? { lead_source: it.label } : { 'lead_source@is': null })} /></CardContent>
           </Card>
         </div>
 
@@ -571,11 +573,11 @@ function MarketingTab({ unit, rangeFrom, rangeTo, ownerId, journeyId, source, ca
                   {topSources.map((s, i) => (
                     <div key={s.label} className="dviz-rank-row dviz-row-clickable" role="link"
                       style={{ cursor: 'pointer' }}
-                      onClick={() => drillCustomers(s.label !== 'לא צוין' ? { lead_source: s.label } : {})}>
+                      onClick={() => drillCustomers(s.label !== 'לא צוין' ? { lead_source: s.label } : { 'lead_source@is': null })}>
                       <span className="dviz-rank-badge">{i + 1}</span>
                       <span className="dviz-rank-label"><u style={{ textDecorationThickness: '1px', textUnderlineOffset: 3 }}>{s.label}</u></span>
-                      <span className="dviz-rank-value">{s.value} לידים</span>
-                      <span className="muted small">{customers.length ? Math.round((s.value / customers.length) * 100) : 0}%</span>
+                      <span className="dviz-rank-value">{s.value} עסקאות</span>
+                      <span className="muted small">{sales.length ? Math.round((s.value / sales.length) * 100) : 0}%</span>
                     </div>
                   ))}
                 </div>
