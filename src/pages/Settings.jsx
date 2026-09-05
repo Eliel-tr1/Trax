@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { toast } from '../components/Toaster'
 import { Switch } from '../components/ui/switch'
@@ -526,12 +527,36 @@ function DuplicatesTab() {
 // ============================================================
 // Small inline "i" with hover tooltip — used on column headers whose label
 // alone doesn't tell the whole story (e.g. which field actually drives RBAC).
+// The bubble renders in a PORTAL with fixed coords: an absolutely-positioned
+// tooltip inside a th gets clipped/covered by neighbouring table layers
+// (reported: "the tooltip is hidden underneath another element").
 function InfoHint({ text }) {
+  const [pos, setPos] = useState(null)
+  const show = (e) => {
+    const r = e.currentTarget.getBoundingClientRect()
+    // ~90px above the icon is the bubble's rough height; flip below if not enough headroom.
+    const below = r.top < 100
+    setPos({
+      below,
+      top: below ? r.bottom + 8 : r.top - 8,
+      left: r.left + r.width / 2,
+    })
+  }
   return (
-    <span className="info-hint" tabIndex={0} aria-label={text}>
-      <span className="info-hint__bubble">{text}</span>
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><circle cx="12" cy="8" r="0.5" fill="currentColor" /></svg>
-    </span>
+    <>
+      <span className="info-hint" tabIndex={0} aria-label={text}
+        onMouseEnter={show} onFocus={show}
+        onMouseLeave={() => setPos(null)} onBlur={() => setPos(null)}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><circle cx="12" cy="8" r="0.5" fill="currentColor" /></svg>
+      </span>
+      {pos && createPortal(
+        <span className={`info-hint__bubble${pos.below ? ' below' : ''}`} dir="rtl"
+          style={{ position: 'fixed', top: pos.top, left: pos.left, transform: pos.below ? 'translate(50%, 0)' : 'translate(50%, -100%)' }}>
+          {text}
+        </span>,
+        document.body
+      )}
+    </>
   )
 }
 

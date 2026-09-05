@@ -494,3 +494,7 @@ table.grid > tbody { display: table-row-group; }
 }
 .info-hint:hover .info-hint__bubble,
 .info-hint:focus-visible .info-hint__bubble { opacity: 1; }
+/* Portal-rendered bubble: fixed-positioned above the "i", flipped below if
+   there's no room (bubble top would leave the viewport). */
+.info-hint__bubble { opacity: 1; }
+.info-hint__bubble.below { transform: translate(50%, 0) !important; }
