@@ -42,7 +42,7 @@ export default function UserPicker({
   useEffect(() => {
     if (!open || !avatarsOnly || !box.current) return
     const r = box.current.getBoundingClientRect()
-    setAnchor({ top: r.bottom + 4, left: Math.min(r.left, window.innerWidth - 230) })
+    setAnchor({ top: r.bottom + 4, left: Math.min(r.left, window.innerWidth - 70) })
   }, [open, avatarsOnly])
 
   if (avatarsOnly) {
@@ -55,31 +55,27 @@ export default function UserPicker({
             : <span className="text-muted-foreground grid size-6 place-items-center rounded-full border border-dashed" title={placeholder}>+</span>}
         </button>
         {open && anchor && createPortal(
-          <div dir="rtl" className="bg-popover fixed z-[2147483000] max-h-72 w-52 overflow-hidden rounded-md border shadow-lg"
+          <div dir="rtl" className="bg-popover fixed z-[2147483000] max-h-72 w-14 overflow-hidden rounded-md border shadow-lg"
             style={{ top: anchor.top, left: anchor.left }}
             onMouseDown={e => e.stopPropagation()}>
-            <div className="relative border-b p-1.5">
-              <Search className="text-muted-foreground pointer-events-none absolute start-3 top-1/2 size-3.5 -translate-y-1/2" />
-              <Input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="חיפוש נציג"
-                className="h-8 ps-7 text-sm" />
+            <div className="border-b p-1">
+              <Input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="🔍"
+                className="h-8 px-1 text-center text-xs" />
             </div>
-            <div className="max-h-72 overflow-y-auto p-1">
+            <div className="flex max-h-72 flex-col items-center gap-0.5 overflow-y-auto p-1">
               {allowEmpty && (
-                <button type="button" onClick={() => pick(null)}
-                  className="hover:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm">
-                  <span className="text-muted-foreground grid size-8 place-items-center"><X className="size-4" /></span>
-                  <span className="flex-1 text-start">{emptyLabel}</span>
-                  {!value && <Check className="size-3.5" />}
+                <button type="button" title={emptyLabel} onClick={() => pick(null)}
+                  className="text-muted-foreground hover:bg-accent grid size-9 place-items-center rounded-full">
+                  <X className="size-4" />
                 </button>
               )}
               {list.map(u => (
                 <button key={u.id} type="button" title={u.full_name} onClick={() => pick(u.id)}
-                  className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm transition-colors ${u.id === value ? 'bg-accent' : 'hover:bg-accent'}`}>
+                  className={`grid size-9 place-items-center rounded-full transition-colors ${u.id === value ? 'bg-accent ring-2 ring-[var(--mp)]' : 'hover:bg-accent'}`}>
                   <UserAvatar user={u} size="md" />
-                  {u.id === value && <Check className="ms-auto size-3.5 shrink-0" />}
                 </button>
               ))}
-              {!list.length && <p className="text-muted-foreground py-4 text-center text-xs">לא נמצאו נציגים</p>}
+              {!list.length && <p className="text-muted-foreground py-2 text-center text-[10px]">אין</p>}
             </div>
           </div>,
           document.body

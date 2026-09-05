@@ -110,7 +110,13 @@ export const usePermissionStore = create((set, get) => ({
     // by A's slower (possibly error-laden) result — the reported "permissions
     // lost after every refresh". Serialize: newer call wins, older aborts.
     const seq = (get()._loadSeq || 0) + 1
-    set({ loading: !silent, userId, _loadSeq: seq })
+    // loading:false may only land when a real matrix lands with it. A silent
+    // refetch that flips loading:false while matrix is still {} made
+    // RequirePermission render its no-access screen (can() on an empty
+    // matrix is false) until the 48 RPCs finished — the reported "no
+    // permission after every refresh, clears after navigating".
+    const firstLoad = !Object.keys(get().matrix).length
+    set({ loading: !silent || firstLoad, userId, _loadSeq: seq })
     const stale = () => get()._loadSeq !== seq
     // 'view' goes through can_view_resource, not can_access — can_access's
     // 'view' branch is now a strict per-row check (requires a real row's

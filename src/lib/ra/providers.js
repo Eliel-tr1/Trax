@@ -156,12 +156,22 @@ const applyFilters = (q, resource, filter = {}, relIds = null) => {
 
 const listQuery = async (resource, { filter, sort, pagination }) => {
   const relIds = filter?.q ? await relatedIds(resource, filter.q) : null
-  // Impersonation honesty layer: viewing-as a scope='mine' user injects
-  // owner_id = target so the manager sees the same cut the target would.
+  // Impersonation honesty layer: viewing-as a scope='mine' user injects the
+  // same cut the target would see. 'mine' = associated via ANY rep field
+  // (Sahar's rule): for customers that's owner OR account_manager → use an
+  // `or` filter instead of a single-column eq.
   const imp = impersonationOwnerFilter()
-  const impField = imp && imp.matrix[resource]?.scope === 'mine' ? OWNER_FIELD[resource] : null
+  const impMine = imp && imp.matrix[resource]?.scope === 'mine'
   let q = supabase.from(resource).select(sel(resource), { count: 'exact' })
-  q = applyFilters(q, resource, { ...filter, ...(impField ? { [impField]: imp.userId } : {}) }, relIds)
+  if (impMine) {
+    if (resource === 'customers') {
+      // direct .or() — applyFilters has no raw-or form
+      q = q.or(`owner_id.eq.${imp.userId},account_manager_id.eq.${imp.userId}`)
+    } else {
+      q = q.eq(OWNER_FIELD[resource], imp.userId)
+    }
+  }
+  q = applyFilters(q, resource, filter, relIds)
   // Soft-delete filter applied LAST so drill/user filters can never override
   // it (a stale persisted filter containing deleted_at would otherwise drop
   // the guard — that's how deleted rows surfaced in a drilled table).
