@@ -16,6 +16,7 @@ import { registrationColumns } from './Registrations'
 import { meetingsColumns } from './Meetings'
 import { phoneCallsColumns } from './PhoneCalls'
 import { formatDate } from '../lib/format'
+import { toast } from '../components/Toaster'
 import StatusBadge, { badgeClassFor } from '../components/StatusBadge'
 import FieldTabs from '../components/FieldTabs'
 import SystemFieldsTab from '../components/SystemFieldsTab'
@@ -57,6 +58,14 @@ export default function CustomerDetail() {
 
   if (loading) return <div className="empty"><span className="spinner" /></div>
   if (!c) return <div className="card"><div className="empty">לקוח לא נמצא.</div></div>
+
+  const isDeleted = !!c.deleted_at
+  const restore = async () => {
+    const { error } = await supabase.from('customers').update({ deleted_at: null }).eq('id', id)
+    if (error) return toast('השחזור נכשל', 'err')
+    toast('הלקוח שוחזר')
+    load()
+  }
 
   const isXcon = c.business_unit === 'Xcon'
 
@@ -115,6 +124,14 @@ export default function CustomerDetail() {
       recordType="customer" record={c} onRelatedCreated={() => load()}
       related={related}
     >
+      {isDeleted && (
+        <div className="card" style={{ borderColor: 'var(--danger, #dc2626)', background: 'rgba(220,38,38,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+          <span style={{ color: 'var(--danger, #dc2626)', fontWeight: 600 }}>
+            רשומה זו נמחקה ואינה מוצגת ברשימות. ניתן לשחזר אותה.
+          </span>
+          <button className="btn sm" onClick={restore}>שחזר לקוח</button>
+        </div>
+      )}
       <div className="card">
         <div className="sections-tabs">{SECTIONS.map(s => <div key={s} className={`sec-tab ${sec === s ? 'active' : ''}`} onClick={() => setSec(s)}>{s}</div>)}</div>
         {sec === 'פרטים' && <div className="field-grid">
