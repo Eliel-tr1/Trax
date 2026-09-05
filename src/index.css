@@ -482,3 +482,15 @@
 table.grid { display: table; }
 table.grid > thead { display: table-header-group; }
 table.grid > tbody { display: table-row-group; }
+
+/* Inline "i" info hint with hover tooltip (Settings > users table header). */
+.info-hint { position: relative; display: inline-flex; vertical-align: middle; margin-inline-start: 4px; color: var(--muted-foreground); cursor: help; }
+.info-hint__bubble {
+  position: absolute; bottom: calc(100% + 6px); right: 50%; transform: translateX(50%);
+  width: max-content; max-width: 240px; padding: 6px 9px; border-radius: 6px;
+  background: var(--popover, #1f2937); color: var(--popover-foreground, #f9fafb);
+  font-size: 11px; line-height: 1.5; font-weight: 400; text-align: right;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.25); opacity: 0; pointer-events: none; transition: opacity 0.12s; z-index: 60;
+}
+.info-hint:hover .info-hint__bubble,
+.info-hint:focus-visible .info-hint__bubble { opacity: 1; }

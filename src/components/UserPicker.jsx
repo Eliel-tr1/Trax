@@ -41,8 +41,15 @@ export default function UserPicker({
   const [anchor, setAnchor] = useState(null)
   useEffect(() => {
     if (!open || !avatarsOnly || !box.current) return
+    // Drop straight DOWN from the trigger, right-aligned to it (Sahar:
+    // appearing to the side reads as belonging to a different row). Clamp
+    // only if the popup would overflow the viewport.
     const r = box.current.getBoundingClientRect()
-    setAnchor({ top: r.bottom + 4, left: Math.min(r.left, window.innerWidth - 70) })
+    const W = 56 // popup width (w-14)
+    setAnchor({
+      top: r.bottom + 4,
+      left: Math.max(8, Math.min(r.right - W, window.innerWidth - W - 8)),
+    })
   }, [open, avatarsOnly])
 
   if (avatarsOnly) {

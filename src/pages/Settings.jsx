@@ -524,6 +524,17 @@ function DuplicatesTab() {
 // (supabase.functions.invoke sends it automatically) — the function itself
 // checks the caller has permissions('users','create') before doing anything.
 // ============================================================
+// Small inline "i" with hover tooltip — used on column headers whose label
+// alone doesn't tell the whole story (e.g. which field actually drives RBAC).
+function InfoHint({ text }) {
+  return (
+    <span className="info-hint" tabIndex={0} aria-label={text}>
+      <span className="info-hint__bubble">{text}</span>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><circle cx="12" cy="8" r="0.5" fill="currentColor" /></svg>
+    </span>
+  )
+}
+
 function UsersTab() {
   const [users, setUsers] = useState(null)
   const [roles, setRoles] = useState([])
@@ -576,7 +587,7 @@ function UsersTab() {
       </div>
       <div className="table-wrap">
         <table className="grid">
-          <thead><tr><th>משתמש</th><th>אימייל</th><th>פרופיל הרשאה</th><th>מחלקה</th><th>תפקיד</th><th>פעיל</th>{canEdit && <th></th>}</tr></thead>
+          <thead><tr><th>משתמש</th><th>אימייל</th><th>תפקיד</th><th>מחלקה</th><th>הרשאה<InfoHint text="השדה הזה בלבד הוא זה שמשפיע על ההרשאות בפועל (המטריצה בטאב ״תפקידים והרשאות״). ״תפקיד״ הוא תווית לתצוגה בלבד." /></th><th>פעיל</th>{canEdit && <th></th>}</tr></thead>
           <tbody>
             {users.map(u => (
               <tr key={u.id}>
@@ -607,9 +618,9 @@ function UsersTab() {
         </table>
       </div>
       <p className="muted small" style={{ marginTop: 6 }}>
-        "פרופיל הרשאה" הוא תווית פשוטה (מנהל מערכת / מנהל צוות / נציג) שנקבעת ביצירת המשתמש. "תפקיד"
-        הוא זה שנאכף בפועל בהרשאות (טאב "תפקידים והרשאות" למטה), שינוי הפרופיל כאן לא משנה את
-        התפקיד אוטומטית, לכך יש לבחור תפקיד בנפרד.
+        "תפקיד" הוא תווית פשוטה (מנהל מערכת / מנהל צוות / נציג) שנקבעת ביצירת המשתמש. "הרשאה"
+        (מסומן ב-i) הוא השדה היחיד שנאכף בפועל בהרשאות (טאב "תפקידים והרשאות" למטה). שינוי התפקיד כאן
+        לא משנה את ההרשאה אוטומטית, לכך יש לבחור הרשאה בנפרד.
       </p>
       {showInvite && <InviteUserModal roles={roles} onClose={() => setShowInvite(false)} onInvited={() => { setShowInvite(false); load() }} />}
       {editing && (
@@ -778,7 +789,7 @@ function InviteUserModal({ roles, onClose, onInvited }) {
           <input type="text" dir="ltr" value={password} onChange={e => setPassword(e.target.value)}
             placeholder="ריק = המערכת תייצר סיסמה חזקה" />
         </div>
-        <div className="field"><label>פרופיל הרשאה<span className="req"> *</span></label>
+        <div className="field"><label>תפקיד<span className="req"> *</span></label>
           <select value={profile} onChange={e => setProfile(e.target.value)}>
             {PERMISSION_PROFILES.map(p => <option key={p} value={p}>{p}</option>)}
           </select>
@@ -790,7 +801,7 @@ function InviteUserModal({ roles, onClose, onInvited }) {
         </div>
       </div>
       <p className="muted small" style={{ marginTop: 2 }}>
-        "פרופיל הרשאה" קובע את סט ההרשאות ההתחלתי (תפקיד ה-RBAC: {roleKey}). ניתן לכוונן אותו לאחר מכן
+        "תפקיד" קובע את סט ההרשאות ההתחלתי (תפקיד ה-RBAC: {roleKey}). ניתן לכוונן אותו לאחר מכן
         בטאב "תפקידים והרשאות" למטה.
       </p>
 

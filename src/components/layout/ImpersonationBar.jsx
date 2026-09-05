@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Eye, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../stores/authStore'
@@ -29,7 +28,7 @@ import { toast } from '../Toaster'
 export default function ImpersonationBar({ variant = 'banner' }) {
   const rep = useAuthStore(s => s.rep)
   const { impersonating, startImpersonation, stopImpersonation } = usePermissionStore()
-  const nav = useNavigate()
+  // no navigation on impersonation start/stop: stay on the current screen (Sahar)
   const [open, setOpen] = useState(false)
   const [users, setUsers] = useState([])
   const [q, setQ] = useState('')
@@ -50,14 +49,16 @@ export default function ImpersonationBar({ variant = 'banner' }) {
   const pick = async (u) => {
     await startImpersonation(u)
     setOpen(false)
-    nav('/')
+    // Stay on the current screen (Sahar): the new permission matrix simply
+    // applies in place — RequirePermission shows its no-access card if the
+    // target lacks this route. nav('/') needlessly dumped users on the
+    // dashboard and lost their place.
     toast(`צופה במערכת בתור ${u.full_name}`)
   }
 
   const stop = async () => {
     const realId = usePermissionStore.getState().realUserId
     await stopImpersonation(realId)
-    nav('/')
     toast('חזרת לתצוגה שלך')
   }
 
