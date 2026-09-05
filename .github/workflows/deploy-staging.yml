@@ -15,6 +15,7 @@ jobs:
         with:
           node-version: 22
       - run: npm ci
+      - run: npm i -D wrangler@4
       - run: npx vite build --base=/
       - uses: cloudflare/wrangler-action@v3
         with:
