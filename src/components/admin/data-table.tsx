@@ -472,33 +472,56 @@ function DataTableHeadCell<
   );
 
   const handleResizeStart = useCallback(
-    (e: React.PointerEvent) => {
-      if (!source) return;
-      e.preventDefault();
-      e.stopPropagation();
-      const th = thRef.current;
-      if (!th) return;
-      const rect = th.getBoundingClientRect();
-      const isRtl =
-        getComputedStyle(document.documentElement).direction === "rtl";
-      const anchor = isRtl ? rect.right : rect.left;
-      const MIN_WIDTH = 60;
-      const onMove = (moveEvent: PointerEvent) => {
-        const raw = isRtl
-          ? anchor - moveEvent.clientX
-          : moveEvent.clientX - anchor;
-        const next = Math.max(MIN_WIDTH, Math.round(raw));
-        setColumnWidths((prev) => ({ ...(prev || {}), [source]: next }));
-      };
-      const onUp = () => {
-        window.removeEventListener("pointermove", onMove);
-        window.removeEventListener("pointerup", onUp);
-      };
-      window.addEventListener("pointermove", onMove);
-      window.addEventListener("pointerup", onUp);
-    },
-    [source, setColumnWidths],
-  );
+      (e: React.PointerEvent) => {
+        if (!source) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const th = thRef.current;
+        if (!th) return;
+        const row = th.parentElement;
+        if (!row) return;
+        /* Pin EVERY visible column to its current rendered width before the
+           drag starts. With table-layout:auto, setting one column's width
+           lets the browser redistribute the FREE width across all the other
+           (unfixed) columns, so dragging one column squeezed/shifted every
+           other one (Sahar 10.09: sales table moved as a block). The
+           customers table only looked fine because its columns already
+           overflowed the container. Pinning all widths up-front leaves the
+           auto layout nothing to redistribute — only the dragged column moves. */
+        setColumnWidths((prev) => {
+          const next = { ...(prev || {}) };
+          for (const cell of Array.from(row.children) as HTMLTableCellElement[]) {
+            // each th's column source is carried by its data-field attr (sort
+            // button) or its label text; cells without a source (bulk checkbox)
+            // are skipped. The dragged column gets handled by onMove below.
+            const key = cell.getAttribute("data-field");
+            if (key && cell !== th) {
+              next[key] = Math.round(cell.getBoundingClientRect().width);
+            }
+          }
+          return next;
+        });
+        const rect = th.getBoundingClientRect();
+        const isRtl =
+          getComputedStyle(document.documentElement).direction === "rtl";
+        const anchor = isRtl ? rect.right : rect.left;
+        const MIN_WIDTH = 60;
+        const onMove = (moveEvent: PointerEvent) => {
+          const raw = isRtl
+            ? anchor - moveEvent.clientX
+            : moveEvent.clientX - anchor;
+          const next = Math.max(MIN_WIDTH, Math.round(raw));
+          setColumnWidths((prev) => ({ ...(prev || {}), [source]: next }));
+        };
+        const onUp = () => {
+          window.removeEventListener("pointermove", onMove);
+          window.removeEventListener("pointerup", onUp);
+        };
+        window.addEventListener("pointermove", onMove);
+        window.addEventListener("pointerup", onUp);
+      },
+      [source, setColumnWidths],
+    );
 
   if (isColumnHidden) return null;
 
@@ -522,15 +545,16 @@ function DataTableHeadCell<
   });
 
   return (
-    <TableHead
-      ref={thRef}
-      className={cn(
-        className,
-        headerClassName,
-        "relative",
-        source && "cursor-grab active:cursor-grabbing",
-      )}
-      style={width ? { width, minWidth: width, maxWidth: width } : undefined}
+      <TableHead
+        ref={thRef}
+        className={cn(
+          className,
+          headerClassName,
+          "relative",
+          source && "cursor-grab active:cursor-grabbing",
+        )}
+        data-field={source || undefined}
+        style={width ? { width, minWidth: width, maxWidth: width } : undefined}
       draggable={!!source && _colIndex != null}
       onDragStart={handleHeaderDragStart}
       onDragOver={handleHeaderDragOver}

@@ -41,7 +41,7 @@ const SOFT_DELETE = new Set([
 // Tasks.jsx) rather than embedded here.
 export const SELECTS = {
   customers: '*',
-  sales: '*, customer:customers(id,first_name,last_name,mobile_phone,business_unit), journey:journeys(id,name)',
+  sales: '*, customer:customers(id,first_name,last_name,mobile_phone,email,status,club_member,lead_rating,preferred_language,lead_source,campaign,business_unit), journey:journeys(id,name)',
   journeys: '*',
   // journey:journeys!inner (not a plain left-embed) is load-bearing: a
   // top-level filter on an embedded column like `journey.business_unit`

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useRefresh } from 'ra-core'
-import { SALE_STAGES, SALE_STAGES_CLOSED, LOSS_REASONS, enumOpts } from '../lib/constants'
+import { CUSTOMER_STATUSES, LEAD_SOURCES, LEAD_RATINGS, PREFERRED_LANGUAGES, SALE_STAGES, SALE_STAGES_CLOSED, LOSS_REASONS, enumOpts } from '../lib/constants'
 import { extraHiddenColumns, metadataColumns } from '../lib/schema'
 import { useDrillInitialFilter } from './Customers'
 import { formatDateTime } from '../lib/format'
@@ -30,6 +30,9 @@ const OPEN_STAGES = SALE_STAGES.filter(s => !SALE_STAGES_CLOSED.includes(s))
 export function salesColumns(opts, refresh) {
   const users = opts.users || []
   const journeys = opts.journeys || []
+  // Customer fields (same values shown on the customer's own record) via the
+  // r.customer embed — Sahar 10.09 wants them available in the sales table's
+  // columns picker. Default hidden; the checkbox in עמודות turns each on.
   return [
     { source: 'created_at', label: 'נוצר בתאריך', csv: r => r.created_at,
       render: r => <span className="small">{formatDateTime(r.created_at)}</span> },
@@ -53,6 +56,21 @@ export function salesColumns(opts, refresh) {
       render: r => <ReferenceEditableCell row={r} table="sales" field="journey_id" resource="journeys" items={journeys}
         placeholder="בחרו מסע" onSaved={() => refresh()} /> },
     { source: 'loss_reason', label: 'סיבת אי סגירה', hidden: true, csv: r => r.loss_reason, render: r => r.loss_reason || '-' },
+    // ----- Customer-mirror columns (read-only here — the customer screen is
+    // their editing home; editing customer fields inside the sales TABLE was
+    // not requested and risks accidental edits while scanning deals) -----
+    { source: 'customer.mobile_phone', label: 'טלפון לקוח', hidden: true, csv: r => r.customer?.mobile_phone || '',
+      render: r => r.customer?.mobile_phone ? <span dir="ltr" className="small">{r.customer.mobile_phone}</span> : '-' },
+    { source: 'customer.email', label: 'מייל לקוח', hidden: true, csv: r => r.customer?.email || '',
+      render: r => r.customer?.email ? <span dir="ltr" className="small">{r.customer.email}</span> : '-' },
+    { source: 'customer.status', label: 'סטטוס לקוח', hidden: true, csv: r => r.customer?.status || '',
+      render: r => r.customer?.status ? <StatusBadge value={r.customer.status} field="status" resource="customer" /> : '-' },
+    { source: 'customer.lead_source', label: 'מקור הגעה (לקוח)', hidden: true, csv: r => r.customer?.lead_source || '',
+      render: r => <LeadSourceLabel value={r.customer?.lead_source} /> },
+    { source: 'customer.club_member', label: 'חבר מועדון', hidden: true, csv: r => r.customer?.club_member ? 'כן' : 'לא',
+      render: r => r.customer == null ? '-' : (r.customer.club_member ? <span className="badge ok">✓ כן</span> : <span className="badge gray">✗ לא</span>) },
+    { source: 'customer.lead_rating', label: 'דירוג ליד', hidden: true, csv: r => r.customer?.lead_rating || '', render: r => r.customer?.lead_rating || '-' },
+    { source: 'customer.preferred_language', label: 'שפה מועדפת', hidden: true, csv: r => r.customer?.preferred_language || '', render: r => r.customer?.preferred_language || '-' },
     ...extraHiddenColumns('sale', ['created_at', 'deal_name', 'customer_id', 'stage', 'channel', 'lead_source', 'owner_id', 'journey_id', 'loss_reason'], { table: 'sales', users, opts, refresh }),
     ...metadataColumns('sale', ['created_at'], { users }),
   ]
