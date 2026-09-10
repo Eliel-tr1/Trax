@@ -14,6 +14,7 @@ import { BulkDeleteButton } from '../components/admin/bulk-delete-button'
 import BulkEditButton from '../components/list/BulkEditButton'
 import EditableCell from '../components/EditableCell'
 import { LeadSourceLabel } from '../components/LeadSourceIcon'
+import { PhoneDisplay } from '../components/PhoneInput'
 import UserEditableCell from '../components/UserEditableCell'
 import ReferenceEditableCell from '../components/ReferenceEditableCell'
 import RecordFormModal from '../components/RecordFormModal'
@@ -60,7 +61,7 @@ export function salesColumns(opts, refresh) {
     // their editing home; editing customer fields inside the sales TABLE was
     // not requested and risks accidental edits while scanning deals) -----
     { source: 'customer.mobile_phone', label: 'טלפון לקוח', hidden: true, csv: r => r.customer?.mobile_phone || '',
-      render: r => r.customer?.mobile_phone ? <span dir="ltr" className="small">{r.customer.mobile_phone}</span> : '-' },
+      render: r => <PhoneDisplay value={r.customer?.mobile_phone} /> },
     { source: 'customer.email', label: 'מייל לקוח', hidden: true, csv: r => r.customer?.email || '',
       render: r => r.customer?.email ? <span dir="ltr" className="small">{r.customer.email}</span> : '-' },
     { source: 'customer.status', label: 'סטטוס לקוח', hidden: true, csv: r => r.customer?.status || '',

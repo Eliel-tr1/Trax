@@ -238,7 +238,7 @@ const DataTableHead = ({ children }: { children: ReactNode }) => {
     <TableHeader>
       <TableRow>
         {hasBulkActions ? (
-          <TableHead className="w-8">
+          <TableHead className="w-8 min-w-[52px] max-w-[52px]">
             <Checkbox
               aria-label="בחירת כל השורות"
               onCheckedChange={handleToggleSelectAll}
@@ -343,7 +343,7 @@ const DataTableRow = ({
       className={cn(rowClick !== false && "cursor-pointer", className)}
     >
       {hasBulkActions ? (
-        <TableCell className="w-8" onClick={handleToggle}>
+        <TableCell className="w-8 min-w-[52px] max-w-[52px]" onClick={handleToggle}>
           {/* Without a name every row checkbox was announced as an unlabelled
               button - fifty of them, indistinguishable. */}
           <Checkbox

@@ -289,10 +289,13 @@ export function extraHiddenColumns(type, existingSources, ctx = {}) {
           render: r => createElement(EditableCell, { row: r, table, field: f.key, type: f.type, display: v => createElement('span', { className: 'small' }, fmt(v)), onSaved }),
         }
       }
+      // Phone lands here too: EditableCell(type='phone') renders PhoneDisplay
+      // when resting (flag + local format, no +972 for Israeli numbers,
+      // click-to-call) and the country-picker input when editing.
       return {
         ...base,
         csv: r => r[f.key],
-        render: r => createElement(EditableCell, { row: r, table, field: f.key, type: f.type === 'textarea' ? 'text' : f.type, onSaved }),
+        render: r => createElement(EditableCell, { row: r, table, field: f.key, type: f.type === 'textarea' ? 'text' : f.type, ltr: f.ltr, onSaved }),
       }
     })
 }

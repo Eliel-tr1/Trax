@@ -9,15 +9,16 @@ function Table({ className, ...props }: React.ComponentProps<"table">) {
       className="relative w-full overflow-x-auto"
     >
       <table
-              data-slot="table"
-              /* min-w-full, not w-full: with w-full the table is locked to the
-                 container width, so widening one column (column-resize handle)
-                 forced the browser's auto table layout to STEAL width from every
-                 other column — dragging one column squeezed all the rest
-                 (Sahar 10.09, sales table). min-width lets the table grow past the
-                 container (horizontal scroll) while tables narrower than the
-                 container still stretch to fill it. */
-              className={cn("min-w-full caption-bottom text-sm", className)}
+            data-slot="table"
+            /* Width strategy (Sahar 10.09, round 2): the table must NOT stretch to
+               the container once the user has pinned column widths (resizing one
+               column). min-w-full made narrower tables stretch to the container,
+               and the browser then redistributed the surplus across ALL columns on
+               every resize — "moving one column moves them all". Width is driven
+               purely by the sum of column widths: a container that is wider shows
+               empty space to the side instead of inflating columns. */
+            style={{ width: 'max-content', minWidth: '100%' }}
+            className={cn("caption-bottom text-sm", className)}
         {...props}
       />
     </div>
