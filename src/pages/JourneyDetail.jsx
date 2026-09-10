@@ -100,7 +100,9 @@ export default function JourneyDetail() {
       title={j.name}
       subtitle={`${j.destination || ''} · ${j.business_unit}${totalPassengers ? ` · ${totalPassengers} נוסעים` : ''}`}
       backTo="/journeys"
-      status={{ label: j.status, badge: badgeClassFor('journey', 'status', j.status) }}
+      status={j.deleted_at
+        ? { label: 'נמחק (ניתן לשחזר)', badge: 'err' }
+        : { label: j.status, badge: badgeClassFor('journey', 'status', j.status) }}
       actions={[{ icon: 'file', title: exporting ? 'מייצא…' : 'ייצוא PDF', onClick: exporting ? undefined : doExport }]}
       objectType="journey" recordId={id}
       recordType="journey" record={j} onRelatedCreated={() => load()}

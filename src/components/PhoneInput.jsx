@@ -48,16 +48,26 @@ export default function PhoneInput({ value, onChange, onBlur, disabled, readOnly
 // number — used anywhere a phone is only shown (lists, activity cards).
 // Israeli numbers (+972) render in natural local format (050-111-2223);
 // every other country keeps the international +<code> format.
-export function PhoneDisplay({ value }) {
+// Click-to-call (Sahar 05.09): the whole display is a tel: link so clicking
+// the number dials it, anywhere a phone is only shown. Visuals unchanged.
+export function PhoneDisplay({ value, tel }) {
   const country = useCountryOf(value)
   if (!value) return <span className="muted" style={{ fontWeight: 400 }}>-</span>
   const Flag = country && flags[country]
   const formatted = country === 'IL' ? (formatPhoneNumber(value) || value) : formatPhoneNumberIntl(value)
-  return (
-    <span dir="ltr" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+  const href = `tel:${(value || '').replace(/[^\d+]/g, '')}`
+  const inner = (
+    <>
       {Flag && <span style={{ width: 16, borderRadius: 2, overflow: 'hidden', display: 'inline-flex' }}><Flag title={en[country] || country} /></span>}
       {formatted}
-    </span>
+    </>
+  )
+  if (href === 'tel:') return <span dir="ltr" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>{inner}</span>
+  return (
+    <a dir="ltr" href={href} onClick={e => e.stopPropagation()} title="לחיצה לחיוג"
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--mp)', textDecoration: 'none' }}>
+      {inner}
+    </a>
   )
 }
 

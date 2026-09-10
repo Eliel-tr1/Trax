@@ -34,7 +34,10 @@ export function registrationColumns(opts = {}, refresh) {
     { source: 'customer_id', label: 'לקוח', csv: r => r.customer ? `${r.customer.first_name} ${r.customer.last_name}` : '',
       render: r => r.customer ? `${r.customer.first_name} ${r.customer.last_name}` : '-' },
     { source: 'journey_id', label: 'מסע', csv: r => r.journey?.name,
-      render: r => r.journey?.name || '-' },
+      render: r => r.journey ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        {r.journey.name}
+        {r.journey.deleted_at && <span className="badge err" title="המסע הזה נמחק">נמחק</span>}
+      </span> : '-' },
     { source: 'status', label: 'סטטוס הרשמה', csv: r => r.status,
       render: r => <Cell row={r} field="status" mode="select" options={statusOpts} required
         display={v => <StatusBadge value={v} field="status" resource="registration" />} /> },

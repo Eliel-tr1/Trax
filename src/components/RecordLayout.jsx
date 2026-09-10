@@ -40,7 +40,20 @@ export default function RecordLayout({ title, subtitle, status, backTo, actions 
 
   const del = async () => {
     if (!def) return
-    if (!await deleteConfirmDialog(`למחוק ${def.labelOne} "${title}"? ${def.softDelete ? '(ניתן לשחזר)' : ''}`)) return
+    // Warn about linked records before deleting (Sahar 05.09: "יש הרשמות
+    // מקושרות למסע זה" must be surfaced). Counts the child tables wired in
+    // SCHEMA relations + common reverse links for journeys.
+    const linked = []
+    if (recordType === 'journey') {
+      const [{ count: regs }, { count: sales }] = await Promise.all([
+        supabase.from('registrations').select('*', { count: 'exact', head: true }).eq('journey_id', recordId).is('deleted_at', null),
+        supabase.from('sales').select('*', { count: 'exact', head: true }).eq('journey_id', recordId).is('deleted_at', null),
+      ])
+      if (regs) linked.push(`${regs} הרשמות`)
+      if (sales) linked.push(`${sales} תהליכי מכירה`)
+    }
+    const linkedNote = linked.length ? `\n\nשימו לב: ${linked.join(' ו-')} מקושרות לרשומה זו וישארו במערכת ללא שיוך פעיל.` : ''
+    if (!await deleteConfirmDialog(`למחוק ${def.labelOne} "${title}"? ${def.softDelete ? '(ניתן לשחזר)' : ''}${linkedNote}`)) return
     if (def.softDelete) {
       const { error } = await supabase.from(def.table).update({ deleted_at: new Date().toISOString() }).eq('id', recordId)
       if (error) return toast('המחיקה נכשלה', 'err')

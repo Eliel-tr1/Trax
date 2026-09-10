@@ -29,7 +29,7 @@ export default function RegistrationDetail() {
     setLoading(true)
     const [{ data }, { count }] = await Promise.all([
       supabase.from('registrations')
-        .select('*, customer:customers(id,first_name,last_name), journey:journeys(id,name,departure_date), sale:sales(id,deal_name)')
+        .select('*, customer:customers(id,first_name,last_name), journey:journeys(id,name,departure_date,deleted_at), sale:sales(id,deal_name)')
         .eq('id', id).single(),
       supabase.from('registration_passengers').select('id', { count: 'exact', head: true }).eq('registration_id', id),
     ])
@@ -68,7 +68,10 @@ export default function RegistrationDetail() {
           <EditField label="לקוח" value={r.customer_id} readOnly readOnlyReason="קישור ללקוח, נערך רק בעת יצירת ההרשמה"
             display={r.customer ? <Link to={`/customers/${r.customer_id}`} style={{ color: 'var(--mp)', fontWeight: 600 }}>{r.customer.first_name} {r.customer.last_name}</Link> : null} />
           <EditField label="מסע" value={r.journey_id} readOnly readOnlyReason="קישור למסע, נערך רק בעת יצירת ההרשמה"
-            display={r.journey ? <Link to={`/journeys/${r.journey_id}`} style={{ color: 'var(--mp)', fontWeight: 600 }}>{r.journey.name}</Link> : null} />
+            display={r.journey ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Link to={`/journeys/${r.journey_id}`} style={{ color: 'var(--mp)', fontWeight: 600 }}>{r.journey.name}</Link>
+              {r.journey.deleted_at && <span className="badge err" title="המסע הזה נמחק">נמחק</span>}
+            </span> : null} />
           <EditField label="מכירה" value={r.sale_id} readOnly readOnlyReason="קישור למכירה, נערך רק בעת יצירת ההרשמה"
             display={r.sale ? <Link to={`/sales/${r.sale_id}`} style={{ color: 'var(--mp)', fontWeight: 600 }}>{r.sale.deal_name || 'עסקה'}</Link> : null} />
           <EditField label="סטטוס הרשמה" value={r.status} type="select" options={enumOpts(REGISTRATION_STATUSES)} required

@@ -7,6 +7,7 @@ import { toast } from '../components/Toaster'
 import {
   SALE_STAGES, SALE_CHANNELS, LEAD_SOURCES, LOSS_REASONS, INTEREST_AREAS,
   CURRENCIES, QUALIFICATION_RATINGS, enumOpts,
+  CUSTOMER_STATUSES, LEAD_RATINGS, PREFERRED_LANGUAGES,
 } from '../lib/constants'
 import RecordLayout from '../components/RecordLayout'
 import EditField from '../components/EditField'
@@ -53,6 +54,15 @@ export default function SaleDetail() {
   useEffect(() => { load() }, [id])
 
   const save = async (field, value) => { setS(x => ({ ...x, [field]: value })); await updateField('sales', s, field, value) }
+
+  // Saves a field on the OWNING CUSTOMER (the phone/email shown here ARE the
+  // customer's fields mirrored — Sahar 05.09: edit them here, customer screen
+  // updates in lockstep).
+  const saveCustomerField = async (field, value) => {
+    if (!s.customer) return
+    setS(x => ({ ...x, customer: { ...x.customer, [field]: value } }))
+    await updateField('customers', s.customer, field, value)
+  }
 
   // Saves stage + loss_reason together in one update — used both by the
   // loss-reason modal below (first time the deal is marked lost) and later
@@ -124,8 +134,9 @@ export default function SaleDetail() {
     >
       <div className="card">
         <div className="field-grid">
-          <EditField label="טלפון" value={s.customer?.mobile_phone} display={s.customer?.mobile_phone ? <PhoneDisplay value={s.customer.mobile_phone} /> : '-'} linkTo={`/customers/${s.customer_id}`} />
-          <EditField label="מייל" value={s.customer?.email} display={s.customer?.email ? <span dir="ltr">{s.customer.email}</span> : '-'} linkTo={`/customers/${s.customer_id}`} />
+          <EditField label="לקוח" value={s.customer ? `${s.customer.first_name} ${s.customer.last_name}` : ''} linkTo={`/customers/${s.customer_id}`} />
+          <EditField label="טלפון" value={s.customer?.mobile_phone} type="phone" display={s.customer?.mobile_phone ? <PhoneDisplay value={s.customer.mobile_phone} /> : '-'} onSave={v => saveCustomerField('mobile_phone', v)} />
+          <EditField label="מייל" value={s.customer?.email} ltr onSave={v => saveCustomerField('email', v)} />
           <EditField label="שלב מכירה" value={s.stage} type="select" options={enumOpts(SALE_STAGES)} required
             display={<StatusBadge value={s.stage} field="stage" resource="sale" />} onSave={setStage} />
           <div className="ef">
@@ -152,7 +163,7 @@ export default function SaleDetail() {
 
         <FieldTabs tabs={[
           {
-            key: 'customer', label: 'פרטי לקוח', content: <CustomerSnapshot customer={s.customer} users={opts.users} />,
+            key: 'customer', label: 'פרטי לקוח', content: <CustomerSnapshot customer={s.customer} users={opts.users} onSaved={load} />,
           },
           {
             key: 'system', label: 'נתוני מערכת', content: <SystemFieldsTab record={s} users={opts.users} onSaveBusinessUnit={v => save('business_unit', v)} />,
@@ -204,32 +215,40 @@ export default function SaleDetail() {
 // save together in one update (see saveStageAndLossReason above). Cancelling
 // leaves the record untouched (the stage selector never changed).
 // ============================================================
-// CustomerSnapshot — read-only mirror of the owning customer's fields inside
-// the sale screen (Sahar 05.09 #4): "שדות שיקוף, לא שדות נופסים" — they
-// reflect the customer record live and are never editable here. Each shows
-// the tooltip "כדי לערוך שדה זה, יש לעבור למסך הלקוח".
+// CustomerSnapshot — the owning customer's OWN fields, shown inside the sale
+// screen and EDITABLE THERE (Sahar 05.09, changed his mind from read-only):
+// editing a field here writes to the customers row, so the customer screen
+// and this tab always show the same live values.
 // ============================================================
-function CustomerSnapshot({ customer, users = [] }) {
+function CustomerSnapshot({ customer, users = [], onSaved }) {
   if (!customer) return <p className="muted small">אין לקוח משויך.</p>
   const c = customer
-  const readOnly = (label, value) => (
-    <EditField label={label} value={value ?? '-'} readOnly readOnlyReason="כדי לערוך שדה זה, יש לעבור למסך הלקוח" />
-  )
+  // Writes go to the customers row (this IS the customer's field, mirrored):
+  const save = async (field, value) => {
+    await updateField('customers', c, field, value)
+    onSaved?.()
+  }
   return (
     <>
-      <EditField label="שם" value={`${c.first_name || ''} ${c.last_name || ''}`.trim() || '-'} linkTo={`/customers/${c.id}`} />
-      {readOnly('טלפון', c.mobile_phone && <PhoneDisplay value={c.mobile_phone} />)}
-      {readOnly('מייל', c.email)}
-      {readOnly('סטטוס', <StatusBadge value={c.status} field="status" resource="customer" />)}
-      {readOnly('תאריך פנייה ראשונה', c.first_contact_at ? formatDate(c.first_contact_at) : null)}
-      {readOnly('תאריך הצטרפות למועדון', c.club_joined_at ? formatDate(c.club_joined_at) : null)}
-      {readOnly('חבר מועדון', c.club_member ? '✓ כן' : '✗ לא')}
-      {readOnly('דירוג ליד', c.lead_rating)}
-      {readOnly('שפה מועדפת', c.preferred_language)}
-      {readOnly('מנהל לקוח', users.find(u => u.id === c.account_manager_id)?.full_name)}
-      {readOnly('יתרת קרדיט', c.credit_balance)}
-      {c.business_unit === 'Xcon' && readOnly('מייל עבודה', c.work_email)}
-      {c.business_unit === 'Xcon' && readOnly('תפקיד', c.job_title)}
+      <EditField label="שם פרטי" value={c.first_name} onSave={v => save('first_name', v)} />
+      <EditField label="שם משפחה" value={c.last_name} onSave={v => save('last_name', v)} />
+      <EditField label="טלפון נייד" value={c.mobile_phone} type="phone" onSave={v => save('mobile_phone', v)} />
+      <EditField label="אימייל" value={c.email} ltr onSave={v => save('email', v)} />
+      <EditField label="סטטוס לקוח" value={c.status} type="select" options={enumOpts(CUSTOMER_STATUSES)} required
+        display={<StatusBadge value={c.status} field="status" resource="customer" />} onSave={v => save('status', v)} />
+      <EditField label="תאריך פנייה ראשונה" value={c.first_contact_at} display={formatDate(c.first_contact_at)} readOnly readOnlyReason="נחתם אוטומטית ביצירת הרשומה" />
+      <EditField label="חבר מועדון" value={c.club_member} type="checkbox" onSave={v => save('club_member', v)} />
+      <EditField label="תאריך הצטרפות למועדון" value={c.club_joined_at} type="date" display={formatDate(c.club_joined_at)} onSave={v => save('club_joined_at', v)} />
+      <EditField label="דירוג ליד" value={c.lead_rating} type="select" options={enumOpts(LEAD_RATINGS)} onSave={v => save('lead_rating', v)} />
+      <EditField label="שפה מועדפת" value={c.preferred_language} type="select" options={enumOpts(PREFERRED_LANGUAGES)} onSave={v => save('preferred_language', v)} />
+      <div className="ef">
+        <span className="ef-label">מנהל לקוח</span>
+        <UserPicker users={users} value={c.account_manager_id} onChange={v => save('account_manager_id', v)} placeholder="בחרו מנהל לקוח" />
+      </div>
+      <EditField label="יתרת קרדיט" value={c.credit_balance} type="number" onSave={v => save('credit_balance', v)} />
+      {c.business_unit === 'Xcon' && <EditField label="חברה" value={c.company} onSave={v => save('company', v)} />}
+      {c.business_unit === 'Xcon' && <EditField label="תפקיד" value={c.job_title} onSave={v => save('job_title', v)} />}
+      {c.business_unit === 'Xcon' && <EditField label="מייל עבודה" value={c.work_email} ltr onSave={v => save('work_email', v)} />}
     </>
   )
 }

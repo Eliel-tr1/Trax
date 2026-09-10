@@ -49,7 +49,7 @@ export const SELECTS = {
   // does NOT exclude the row (verified live against this project). !inner
   // makes it a real filter. Safe here because registrations.journey_id is
   // NOT NULL, so every row always has a matching journey to join against.
-  registrations: '*, customer:customers(id,first_name,last_name), journey:journeys!inner(id,name,departure_date,business_unit), sale:sales(id,deal_name)',
+  registrations: '*, customer:customers(id,first_name,last_name), journey:journeys!inner(id,name,departure_date,business_unit,deleted_at), sale:sales(id,deal_name)',
   tasks: '*',
   contacts: '*, customer:customers(id,first_name,last_name)',
   // meetings/phone_calls are polymorphic (related_type + related_id, not a
