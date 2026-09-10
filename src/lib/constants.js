@@ -73,7 +73,7 @@ export const TASK_PRIORITY_COLOR = { 'רגילה': '#64748b', 'גבוהה': '#d9
 export const MEETING_TYPES = ['שיחת טלפון', 'זום', 'פגישה פיזית']
 // Marking a sale-linked meeting 'לא התקיימה' auto-follows-up the sale —
 // see data/023_meeting_noshow_and_customer_auto_sale.sql.
-export const MEETING_STATUSES = ['מתוכננה', 'התקיימה', 'לא התקיימה', 'בוטלה']
+export const MEETING_STATUSES = ['עתידה להתקיים', 'התקיימה', 'לא התקיימה', 'בוטלה']
 
 // Phone call
 export const CALL_DIRECTIONS = ['נכנסת', 'יוצאת']

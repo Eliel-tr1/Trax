@@ -154,7 +154,7 @@ export const SCHEMA = {
       { key: 'start_at', label: 'תאריך ושעה', type: 'datetime', required: true, wave: 1 },
       { key: 'duration_minutes', label: 'משך (דקות)', type: 'number', wave: 1 },
       { key: 'type', label: 'סוג', type: 'select', options: enumOpts(MEETING_TYPES), wave: 1 },
-      { key: 'status', label: 'סטטוס', type: 'select', options: enumOpts(MEETING_STATUSES), default: 'מתוכננה', wave: 1 },
+      { key: 'status', label: 'סטטוס', type: 'select', options: enumOpts(MEETING_STATUSES), default: 'עתידה להתקיים', wave: 1 },
       { key: 'summary', label: 'סיכום', type: 'textarea', wave: 1 },
     ],
     relations: [],

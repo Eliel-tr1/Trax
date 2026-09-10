@@ -19,6 +19,18 @@ import StatusBadge from '../components/StatusBadge'
 const statusOpts = enumOpts(JOURNEY_STATUSES)
 const destOpts = enumOpts(JOURNEY_DESTINATIONS)
 
+// Trip duration in days: return_date minus departure_date, INCLUSIVE (a
+// trip departing 01/09 and returning 08/09 is 8 days, not 7 — the return
+// day is a travel day). Null unless both dates parse.
+function journeyDays(r) {
+  if (!r.departure_date || !r.return_date) return null
+  const d1 = new Date(r.departure_date)
+  const d2 = new Date(r.return_date)
+  if (isNaN(d1.getTime()) || isNaN(d2.getTime())) return null
+  const days = Math.round((d2 - d1) / 86400000) + 1
+  return days > 0 ? days : null
+}
+
 function isoInMonths(n) {
   const d = new Date(); d.setMonth(d.getMonth() + n); return d.toISOString().slice(0, 10)
 }
@@ -51,7 +63,13 @@ export default function Journeys() {
       render: r => <span className="small">{r.seats_sold} / {r.seats_total}</span> },
     { source: 'seats_available', label: 'מקומות פנויים', sortable: true, csv: r => r.seats_available,
       render: r => <span className="small">{r.seats_available}</span> },
-    ...extraHiddenColumns('journey', ['created_at', 'name', 'destination', 'departure_date', 'status', 'seats_sold', 'seats_available'], { table: 'journeys', opts, refresh }),
+    // משך הטיול — computed, read-only (return_date minus departure_date, inclusive).
+    { source: 'duration_days', label: 'משך הטיול', sortable: false, csv: r => journeyDays(r) != null ? `${journeyDays(r)} ימים` : '',
+      render: r => journeyDays(r) != null ? <span className="small">{journeyDays(r)} ימים</span> : <span className="cell-empty">-</span> },
+    // מחיר לאדם — currency-marked, same display as the record screen.
+    { source: 'price_per_person', label: 'מחיר לאדם', csv: r => r.price_per_person,
+      render: r => <span className="small">{formatCurrency(r.price_per_person, r.currency)}</span> },
+    ...extraHiddenColumns('journey', ['created_at', 'name', 'destination', 'departure_date', 'status', 'seats_sold', 'seats_available', 'price_per_person'], { table: 'journeys', opts, refresh }),
     ...metadataColumns('journey', ['created_at'], { users: opts.users || [] }),
   ]
 
