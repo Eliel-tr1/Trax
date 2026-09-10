@@ -18,7 +18,8 @@ import { meetingsColumns } from './Meetings'
 import CardcomChargeModal from '../components/CardcomChargeModal'
 import Modal from '../components/Modal'
 import RecordFormModal from '../components/RecordFormModal'
-import { formatCurrency, formatDateTime } from '../lib/format'
+import { PhoneDisplay } from '../components/PhoneInput'
+import { formatCurrency, formatDateTime, formatDate } from '../lib/format'
 import StatusBadge, { badgeClassFor } from '../components/StatusBadge'
 import { celebrateWin } from '../lib/celebration'
 
@@ -43,7 +44,7 @@ export default function SaleDetail() {
   const load = async () => {
     setLoading(true)
     const [{ data }, o, { data: mt }] = await Promise.all([
-      supabase.from('sales').select('*, customer:customers(id,first_name,last_name,business_unit)').eq('id', id).single(),
+      supabase.from('sales').select('*, customer:customers(*)').eq('id', id).single(),
       loadOptions(),
       supabase.from('meetings').select('*').eq('related_type', 'sale').eq('related_id', id).is('deleted_at', null).order('start_at', { ascending: false }),
     ])
@@ -123,7 +124,8 @@ export default function SaleDetail() {
     >
       <div className="card">
         <div className="field-grid">
-          <EditField label="לקוח" value={s.customer ? `${s.customer.first_name} ${s.customer.last_name}` : ''} linkTo={s.customer_id ? `/customers/${s.customer_id}` : undefined} />
+          <EditField label="טלפון" value={s.customer?.mobile_phone} display={s.customer?.mobile_phone ? <PhoneDisplay value={s.customer.mobile_phone} /> : '-'} linkTo={`/customers/${s.customer_id}`} />
+          <EditField label="מייל" value={s.customer?.email} display={s.customer?.email ? <span dir="ltr">{s.customer.email}</span> : '-'} linkTo={`/customers/${s.customer_id}`} />
           <EditField label="שלב מכירה" value={s.stage} type="select" options={enumOpts(SALE_STAGES)} required
             display={<StatusBadge value={s.stage} field="stage" resource="sale" />} onSave={setStage} />
           <div className="ef">
@@ -149,6 +151,9 @@ export default function SaleDetail() {
         <div style={{ marginTop: 10 }}><EditField label="סיכום הסמכה מהסוכן" value={s.qualification_summary} type="textarea" onSave={v => save('qualification_summary', v)} /></div>
 
         <FieldTabs tabs={[
+          {
+            key: 'customer', label: 'פרטי לקוח', content: <CustomerSnapshot customer={s.customer} users={opts.users} />,
+          },
           {
             key: 'system', label: 'נתוני מערכת', content: <SystemFieldsTab record={s} users={opts.users} onSaveBusinessUnit={v => save('business_unit', v)} />,
           },
@@ -198,6 +203,37 @@ export default function SaleDetail() {
 // reason is collected here BEFORE anything is written, then stage+loss_reason
 // save together in one update (see saveStageAndLossReason above). Cancelling
 // leaves the record untouched (the stage selector never changed).
+// ============================================================
+// CustomerSnapshot — read-only mirror of the owning customer's fields inside
+// the sale screen (Sahar 05.09 #4): "שדות שיקוף, לא שדות נופסים" — they
+// reflect the customer record live and are never editable here. Each shows
+// the tooltip "כדי לערוך שדה זה, יש לעבור למסך הלקוח".
+// ============================================================
+function CustomerSnapshot({ customer, users = [] }) {
+  if (!customer) return <p className="muted small">אין לקוח משויך.</p>
+  const c = customer
+  const readOnly = (label, value) => (
+    <EditField label={label} value={value ?? '-'} readOnly readOnlyReason="כדי לערוך שדה זה, יש לעבור למסך הלקוח" />
+  )
+  return (
+    <>
+      <EditField label="שם" value={`${c.first_name || ''} ${c.last_name || ''}`.trim() || '-'} linkTo={`/customers/${c.id}`} />
+      {readOnly('טלפון', c.mobile_phone && <PhoneDisplay value={c.mobile_phone} />)}
+      {readOnly('מייל', c.email)}
+      {readOnly('סטטוס', <StatusBadge value={c.status} field="status" resource="customer" />)}
+      {readOnly('תאריך פנייה ראשונה', c.first_contact_at ? formatDate(c.first_contact_at) : null)}
+      {readOnly('תאריך הצטרפות למועדון', c.club_joined_at ? formatDate(c.club_joined_at) : null)}
+      {readOnly('חבר מועדון', c.club_member ? '✓ כן' : '✗ לא')}
+      {readOnly('דירוג ליד', c.lead_rating)}
+      {readOnly('שפה מועדפת', c.preferred_language)}
+      {readOnly('מנהל לקוח', users.find(u => u.id === c.account_manager_id)?.full_name)}
+      {readOnly('יתרת קרדיט', c.credit_balance)}
+      {c.business_unit === 'Xcon' && readOnly('מייל עבודה', c.work_email)}
+      {c.business_unit === 'Xcon' && readOnly('תפקיד', c.job_title)}
+    </>
+  )
+}
+
 function LossReasonModal({ onClose, onConfirm, saving }) {
   const [reason, setReason] = useState('')
   const options = enumOpts(LOSS_REASONS)

@@ -38,9 +38,26 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const CLOSED_STAGES = ["נסגר בהצלחה", "עסקה הופסדה"];
-const LEAD_SOURCE = "אתר TRAX"; // this webhook IS the TRAX site's own lead form — not derived from utm_source, which is the ad platform that drove traffic TO the site, a different concept
 const CHANNEL = "טופס אתר";
 const DEFAULT_ACCOUNT_MANAGER_ID = "772a4955-5302-475a-ba69-2e3a2929d0f0"; // גולדי — default account manager / sales rep for every new TRAX website lead until reassigned
+
+// Lead source: client rule (Sahar 05.09) — Meta ads must NOT land as
+// "אתר TRAX". The utm_source carries the ad platform that drove the lead;
+// only when there is no ad-platform utm_source at all is it really the site
+// itself. Values match customers.lead_source's CHECK constraint exactly.
+const SOURCE_MAP: Record<string, string> = {
+  facebook: "פייסבוק",
+  fb: "פייסבוק",
+  meta: "פייסבוק",
+  instagram: "אינסטגרם",
+  ig: "אינסטגרם",
+  google: "גוגל",
+  adwords: "גוגל",
+};
+function resolveLeadSource(utmSource?: string | null): string {
+  const mapped = utmSource && SOURCE_MAP[utmSource.toLowerCase()];
+  return mapped || "אתר TRAX";
+}
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -104,7 +121,7 @@ Deno.serve(async (req: Request) => {
       first_name: first_name || undefined,
       last_name: last_name || undefined,
       email: email || undefined,
-      lead_source: LEAD_SOURCE,
+      lead_source: resolveLeadSource(u.utm_source),
       campaign: u.utm_campaign || undefined,
       execution_url: execution_url || undefined,
       form_name: form_name || undefined,
@@ -120,7 +137,7 @@ Deno.serve(async (req: Request) => {
       mobile_phone: phone_e164,
       email: email || null,
       business_unit: "TRAX",
-      lead_source: LEAD_SOURCE,
+      lead_source: resolveLeadSource(u.utm_source),
       campaign: u.utm_campaign || null,
       status: "ליד חדש",
       notes: message || null,
@@ -150,7 +167,7 @@ Deno.serve(async (req: Request) => {
   if (openSale) {
     saleId = openSale.id;
     const patch: Record<string, unknown> = {
-      lead_source: LEAD_SOURCE,
+      lead_source: resolveLeadSource(u.utm_source),
       campaign: u.utm_campaign || undefined,
       next_call_at: now, // a repeat submission is renewed interest — bump the follow-up to today either way
       execution_url: execution_url || undefined,
@@ -159,12 +176,16 @@ Deno.serve(async (req: Request) => {
       ...utmPatch,
     };
     // Only default a journey if the sale doesn't already have one — never
-    // clobber an already-linked journey with the "nearest upcoming" guess.
+    // clobber an already-linked journey with the "nearest open" guess.
+    // Client rule (Sahar 05.09): default to the NEAREST journey whose status
+    // is 'פתוח להרשמה', not just any upcoming date (planning-stage journeys
+    // aren't open for registration).
     if (!openSale.journey_id) {
       const { data: nearest } = await admin
         .from("journeys")
         .select("id")
         .eq("business_unit", "TRAX")
+        .eq("status", "פתוח להרשמה")
         .gte("departure_date", now.slice(0, 10))
         .is("deleted_at", null)
         .order("departure_date", { ascending: true })
@@ -175,10 +196,12 @@ Deno.serve(async (req: Request) => {
     const { error: updErr } = await admin.from("sales").update(patch).eq("id", saleId);
     if (updErr) return jsonResponse({ error: "sale update failed", detail: updErr.message }, 502);
   } else {
+    // Nearest journey OPEN for registration (client rule, Sahar 05.09)
     const { data: nearest } = await admin
       .from("journeys")
       .select("id")
       .eq("business_unit", "TRAX")
+      .eq("status", "פתוח להרשמה")
       .gte("departure_date", now.slice(0, 10))
       .is("deleted_at", null)
       .order("departure_date", { ascending: true })
@@ -188,7 +211,7 @@ Deno.serve(async (req: Request) => {
       customer_id: customerId,
       business_unit: "TRAX",
       channel: CHANNEL,
-      lead_source: LEAD_SOURCE,
+      lead_source: resolveLeadSource(u.utm_source),
       campaign: u.utm_campaign || null,
       journey_id: nearest ? nearest.id : null,
       owner_id: DEFAULT_ACCOUNT_MANAGER_ID,
