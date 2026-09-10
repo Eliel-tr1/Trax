@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { loadOptions } from '../lib/api'
 import { SCHEMA, fieldOptions } from '../lib/schema'
+import { useBusinessUnitStore } from '../stores/businessUnitStore'
 import { toast } from './Toaster'
 import Modal from './Modal'
 import PhoneInput from './PhoneInput'
@@ -11,6 +12,7 @@ import EntityPicker from './EntityPicker'
 // form. Fill fields -> save -> insert -> onCreated(row).
 export default function RecordFormModal({ type, defaults = {}, title, onCreated, onClose }) {
   const def = SCHEMA[type]
+  const unit = useBusinessUnitStore(s => s.unit)
   const [opts, setOpts] = useState(null)
   const [form, setForm] = useState(() => {
     const init = {}
@@ -22,7 +24,12 @@ export default function RecordFormModal({ type, defaults = {}, title, onCreated,
   useEffect(() => { loadOptions().then(setOpts) }, [])
 
   const set = (k, v) => setForm(s => ({ ...s, [k]: v }))
-  const missingRequired = def.fields.some(f => f.required && !String(form[f.key] ?? '').trim())
+  // Per-active-business-unit form (Sahar 05.09): entity pickers list only the
+  // current unit's rows, and unit-specific fields hide outside their unit
+  // (xconOnly / traxOnly).
+  const visibleFields = def.fields.filter(f =>
+    !((f.xconOnly && unit !== 'Xcon') || (f.traxOnly && unit !== 'TRAX')))
+  const missingRequired = visibleFields.some(f => f.required && !String(form[f.key] ?? '').trim())
 
   const create = async () => {
     if (missingRequired) return
@@ -45,8 +52,9 @@ export default function RecordFormModal({ type, defaults = {}, title, onCreated,
   return (
     <Modal title={title || `יצירת ${def.labelOne}`} icon={def.icon} onClose={onClose} maxWidth={520}>
       <div className="field-grid">
-        {def.fields.map(f => (
-          <Field key={f.key} f={f} value={form[f.key]} onChange={v => set(f.key, v)} opts={opts} />
+        {visibleFields.map(f => (
+          <Field key={f.key} f={f} value={form[f.key]} onChange={v => set(f.key, v)} opts={opts}
+            businessUnit={unit} />
         ))}
       </div>
       <div className="row" style={{ marginTop: 6 }}>
@@ -67,7 +75,7 @@ export default function RecordFormModal({ type, defaults = {}, title, onCreated,
 // ON registrations) so it applies no matter how the row was created — this
 // manual UI form, the api-v1 REST endpoint, or the Max AI chat agent.
 
-function Field({ f, value, onChange, opts }) {
+function Field({ f, value, onChange, opts, businessUnit }) {
   const label = <label>{f.label}{f.required && <span className="req"> *</span>}</label>
   if (f.type === 'checkbox') {
     return <div className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -78,9 +86,14 @@ function Field({ f, value, onChange, opts }) {
     // Entity-reference fields (optionsFrom: a loadOptions() resource key —
     // customers/journeys/sales/users) get the searchable EntityPicker
     // instead of a plain <select> that forces scrolling a long list.
+    // Entity lists are FILTERED to the active business unit (Sahar 05.09:
+    // in Xcon show only Xcon rows, in TRAX only TRAX).
     if (f.optionsFrom) {
+      const buFiltered = f.optionsFrom !== 'users'
+        ? { filter: x => !x.business_unit || x.business_unit === businessUnit }
+        : undefined
       return <div className="field">{label}
-        <EntityPicker resource={f.optionsFrom} value={value || null} onChange={onChange} placeholder="בחירה…" />
+        <EntityPicker resource={f.optionsFrom} value={value || null} onChange={onChange} placeholder="בחירה…" {...buFiltered} />
       </div>
     }
     const options = fieldOptions(f, opts)

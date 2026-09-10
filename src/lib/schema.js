@@ -47,6 +47,7 @@ export const SCHEMA = {
       { key: 'preferred_language', label: 'שפה מועדפת', type: 'select', options: enumOpts(PREFERRED_LANGUAGES), wave: 2 },
       // Xcon-only
       { key: 'company', label: 'חברה', type: 'text', wave: 1, xconOnly: true },
+      { key: 'site', label: 'אתר', type: 'text', wave: 1, xconOnly: true },
       { key: 'job_title', label: 'תפקיד', type: 'text', wave: 1, xconOnly: true },
       { key: 'work_email', label: 'מייל עבודה', type: 'text', ltr: true, wave: 1, xconOnly: true },
     ],
@@ -67,8 +68,8 @@ export const SCHEMA = {
       { key: 'campaign', label: 'קמפיין', type: 'text', wave: 1 },
       { key: 'owner_id', label: 'נציג מכירות', type: 'select', optionsFrom: 'users', wave: 1 },
       { key: 'loss_reason', label: 'סיבת אי סגירה', type: 'select', options: enumOpts(LOSS_REASONS), wave: 1 },
-      { key: 'journey_id', label: 'מסע מבוקש', type: 'select', optionsFrom: 'journeys', wave: 2 },
-      { key: 'participants_count', label: 'מספר משתתפים', type: 'number', wave: 2 },
+      { key: 'journey_id', label: 'מסע מבוקש', type: 'select', optionsFrom: 'journeys', wave: 2, traxOnly: true },
+      { key: 'participants_count', label: 'מספר משתתפים', type: 'number', wave: 2, traxOnly: true },
       { key: 'expected_value', label: 'שווי צפוי', type: 'number', wave: 2 },
       { key: 'currency', label: 'מטבע', type: 'select', options: CURRENCIES, wave: 2 },
       { key: 'qualification_rating', label: 'דירוג הסמכה', type: 'select', options: enumOpts(QUALIFICATION_RATINGS), wave: 2 },

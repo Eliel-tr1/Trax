@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import PhoneInput, { PhoneDisplay } from './PhoneInput'
 
 // Ported verbatim from bina-crm — generic inline-editable field
@@ -13,19 +13,27 @@ import PhoneInput, { PhoneDisplay } from './PhoneInput'
 export default function EditField({ label, value, display, type = 'text', options = [], onSave, ltr, placeholder, readOnly, readOnlyReason, linkTo, required }) {
   const [edit, setEdit] = useState(false)
   const [saving, setSaving] = useState(false)
+  const rowRef = useRef(null)
 
   const commit = async (v) => {
     const next = v === '' ? null : v
     // Required select fields (status/stage/priority-style columns that are
     // NOT NULL in the DB) never offer an empty option below, but guard here
     // too in case a caller forgets required/options are out of sync — a
-    // friendly inline message beats a raw Postgres constraint error.
+    // friendly inline message beats a raw Postgres 23502 message reaching
+    // the user as a mystifying toast.
     if (required && next === null) { setEdit(false); return }
+    // Save must not scroll the page (Sahar 05.09): when the editor unmounts,
+    // focus falls to <body> and the browser re-anchors the scroll to the top
+    // of the re-rendered subtree. Re-anchor the field row to its position.
     setSaving(true)
-    try { await onSave(next) } catch { /* keep */ } finally { setSaving(false); setEdit(false) }
-  }
+    try { await onSave(next) } catch { /* keep */ } finally {
+      setSaving(false); setEdit(false)
+      requestAnimationFrame(() => rowRef.current?.scrollIntoView({ block: 'nearest' }))
+    }
+      }
 
-  const shown = display !== undefined ? display : value
+      const shown = display !== undefined ? display : value
   const shownEl = (shown === null || shown === undefined || shown === '')
     ? <span className="muted" style={{ fontWeight: 400 }}>-</span>
     : type === 'link' ? <a href={value} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} dir="ltr">{shown}</a>
@@ -34,8 +42,8 @@ export default function EditField({ label, value, display, type = 'text', option
     : shown
 
   const row = (control) => (
-    <div className="ef">
-      <span className="ef-label">
+      <div className="ef" ref={rowRef}>
+        <span className="ef-label">
         {label}
         {readOnly && readOnlyReason && (
           <span className="ro-lock" title={readOnlyReason} style={{ display: 'inline-flex', verticalAlign: 'middle', marginInlineStart: 4, color: 'var(--text-3)', cursor: 'help' }}>
@@ -73,7 +81,7 @@ export default function EditField({ label, value, display, type = 'text', option
 
   if (type === 'select') {
     return row(
-      <select className="input" autoFocus defaultValue={value ?? ''} disabled={saving}
+      <select className="input" defaultValue={value ?? ''} disabled={saving}
         onBlur={() => setEdit(false)} onChange={e => commit(e.target.value)}>
         {!required && <option value="">-</option>}
         {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -81,10 +89,10 @@ export default function EditField({ label, value, display, type = 'text', option
     )
   }
   if (type === 'textarea') {
-    return row(<textarea className="input" autoFocus defaultValue={value ?? ''} disabled={saving} onBlur={e => commit(e.target.value.trim())} style={{ minHeight: 60 }} />)
+    return row(<textarea className="input" defaultValue={value ?? ''} disabled={saving} onBlur={e => commit(e.target.value.trim())} style={{ minHeight: 60 }} />)
   }
   return row(
-    <input className="input" autoFocus type={type === 'datetime' ? 'datetime-local' : type} dir={ltr ? 'ltr' : undefined} defaultValue={value ?? ''} disabled={saving} placeholder={placeholder}
+    <input className="input" type={type === 'datetime' ? 'datetime-local' : type} dir={ltr ? 'ltr' : undefined} defaultValue={value ?? ''} disabled={saving} placeholder={placeholder}
       onBlur={e => commit(type === 'number' ? (e.target.value === '' ? null : parseFloat(e.target.value)) : e.target.value.trim())}
       onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') setEdit(false) }} />
   )
@@ -97,7 +105,7 @@ export default function EditField({ label, value, display, type = 'text', option
 function PhoneEditControl({ value, saving, onCommit, onCancel }) {
   const [v, setV] = useState(value || '')
   return (
-    <PhoneInput autoFocus value={v} disabled={saving}
+    <PhoneInput value={v} disabled={saving}
       onChange={setV}
       onBlur={() => setTimeout(() => { if (document.activeElement?.closest('.phone-input, .phone-country-popover')) return; onCommit(v) }, 150)}
     />

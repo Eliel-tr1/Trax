@@ -147,6 +147,7 @@ export default function CustomerDetail() {
             <UserPicker users={users} value={c.account_manager_id} onChange={v => save('account_manager_id', v)} placeholder="בחרו מנהל לקוח" />
           </div>
           {isXcon && <EditField label="חברה" value={c.company} onSave={v => save('company', v)} />}
+          {isXcon && <EditField label="אתר" value={c.site} onSave={v => save('site', v)} />}
           {isXcon && <EditField label="תפקיד" value={c.job_title} onSave={v => save('job_title', v)} />}
           {isXcon && <EditField label="מייל עבודה" value={c.work_email} ltr onSave={v => save('work_email', v)} />}
         </div>}

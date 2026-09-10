@@ -247,6 +247,7 @@ function CustomerSnapshot({ customer, users = [], onSaved }) {
       </div>
       <EditField label="יתרת קרדיט" value={c.credit_balance} type="number" onSave={v => save('credit_balance', v)} />
       {c.business_unit === 'Xcon' && <EditField label="חברה" value={c.company} onSave={v => save('company', v)} />}
+      {c.business_unit === 'Xcon' && <EditField label="אתר" value={c.site} onSave={v => save('site', v)} />}
       {c.business_unit === 'Xcon' && <EditField label="תפקיד" value={c.job_title} onSave={v => save('job_title', v)} />}
       {c.business_unit === 'Xcon' && <EditField label="מייל עבודה" value={c.work_email} ltr onSave={v => save('work_email', v)} />}
     </>
