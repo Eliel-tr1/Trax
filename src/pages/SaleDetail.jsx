@@ -53,6 +53,22 @@ export default function SaleDetail() {
   }
   useEffect(() => { load() }, [id])
 
+  // Silent refresh: re-fetches data WITHOUT unmounting the page (no
+  // setLoading(true) → no spinner → the DOM stays in place and scroll
+  // position is preserved). Used after customer-field saves from inside the
+  // sale screen — the full load() here was tearing the whole card down and
+  // rebuilding it on every save, which the browser compensated by scrolling
+  // back to the top (Sahar 05.09: "editing a customer field in the sale
+  // screen jumps the page").
+  const softRefresh = async () => {
+    const [{ data }, o, { data: mt }] = await Promise.all([
+      supabase.from('sales').select('*, customer:customers(*)').eq('id', id).single(),
+      loadOptions(),
+      supabase.from('meetings').select('*').eq('related_type', 'sale').eq('related_id', id).is('deleted_at', null).order('start_at', { ascending: false }),
+    ])
+    setS(data); setOpts(o); setMeetings(mt || [])
+  }
+
   const save = async (field, value) => { setS(x => ({ ...x, [field]: value })); await updateField('sales', s, field, value) }
 
   // Saves a field on the OWNING CUSTOMER (the phone/email shown here ARE the
@@ -163,7 +179,7 @@ export default function SaleDetail() {
 
         <FieldTabs tabs={[
           {
-            key: 'customer', label: 'פרטי לקוח', content: <CustomerSnapshot customer={s.customer} users={opts.users} onSaved={load} />,
+            key: 'customer', label: 'פרטי לקוח', content: <CustomerSnapshot customer={s.customer} users={opts.users} onSaved={softRefresh} />,
           },
           {
             key: 'system', label: 'נתוני מערכת', content: <SystemFieldsTab record={s} users={opts.users} onSaveBusinessUnit={v => save('business_unit', v)} />,

@@ -87,8 +87,17 @@ export default function RecordLayout({ title, subtitle, status, backTo, actions 
 
         {stage && (
           <div className="stage-bar" ref={el => {
+            /* Horizontal-only auto-centering of the current stage chip.
+               MUST NOT use scrollIntoView here: it walks every scrollable
+               ancestor, so on a re-render (e.g. after any inline field save)
+               it vertically scrolled the whole page up to the record header —
+               the "jumps to top on save" bug (Sahar 05.09). scrollLeft on the
+               bar itself centers the chip without touching the page scroll. */
             const cur = el?.querySelector('.stage.current')
-            if (cur) cur.scrollIntoView({ block: 'nearest', inline: 'center' })
+            if (cur && el) {
+              const target = cur.offsetLeft - (el.clientWidth - cur.offsetWidth) / 2
+              el.scrollLeft = Math.max(0, target)
+            }
           }}>
             {stage.stages.map((s, i) => {
               const curIdx = stage.stages.findIndex(x => x.key === stage.current)

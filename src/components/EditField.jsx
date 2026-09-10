@@ -81,12 +81,12 @@ export default function EditField({ label, value, display, type = 'text', option
   }
 
   if (type === 'phone') {
-    return row(<PhoneEditControl value={value} saving={saving} onCommit={commit} onCancel={() => setEdit(false)} />)
+    return row(<PhoneEditControl value={value} saving={saving} autoFocus onCommit={commit} onCancel={() => setEdit(false)} />)
   }
 
   if (type === 'select') {
     return row(
-      <select className="input" defaultValue={value ?? ''} disabled={saving}
+      <select className="input" defaultValue={value ?? ''} disabled={saving} autoFocus
         onBlur={() => setEdit(false)} onChange={e => commit(e.target.value)}>
         {!required && <option value="">-</option>}
         {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -94,10 +94,10 @@ export default function EditField({ label, value, display, type = 'text', option
     )
   }
   if (type === 'textarea') {
-    return row(<textarea className="input" defaultValue={value ?? ''} disabled={saving} onBlur={e => commit(e.target.value.trim())} style={{ minHeight: 60 }} />)
+    return row(<textarea className="input" autoFocus defaultValue={value ?? ''} disabled={saving} onBlur={e => commit(e.target.value.trim())} style={{ minHeight: 60 }} />)
   }
   return row(
-    <input className="input" type={type === 'datetime' ? 'datetime-local' : type} dir={ltr ? 'ltr' : undefined} defaultValue={value ?? ''} disabled={saving} placeholder={placeholder}
+    <input className="input" type={type === 'datetime' ? 'datetime-local' : type} dir={ltr ? 'ltr' : undefined} defaultValue={value ?? ''} disabled={saving} placeholder={placeholder} autoFocus
       onBlur={e => commit(type === 'number' ? (e.target.value === '' ? null : parseFloat(e.target.value)) : e.target.value.trim())}
       onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') setEdit(false) }} />
   )
@@ -107,10 +107,10 @@ export default function EditField({ label, value, display, type = 'text', option
 // every keystroke, unlike a plain <input>'s onBlur-commit pattern used
 // above) and commits once on blur — including a blur caused by opening the
 // country popover, which is deferred a tick so it doesn't close mid-pick.
-function PhoneEditControl({ value, saving, onCommit, onCancel }) {
+function PhoneEditControl({ value, saving, autoFocus, onCommit, onCancel }) {
   const [v, setV] = useState(value || '')
   return (
-    <PhoneInput value={v} disabled={saving}
+    <PhoneInput value={v} disabled={saving} autoFocus={autoFocus}
       onChange={setV}
       onBlur={() => setTimeout(() => { if (document.activeElement?.closest('.phone-input, .phone-country-popover')) return; onCommit(v) }, 150)}
     />
