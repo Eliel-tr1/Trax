@@ -3,6 +3,24 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useBusinessUnitStore } from '../stores/businessUnitStore'
 import Icon from './Icon'
+import { PhoneDisplay } from './PhoneInput'
+
+// Israeli phone normalisation for search (Sahar 10.09): the DB stores E.164
+// (+97253...), but people type the local format (0535554666 / 053-555-4666
+// / even 535554666). Strip the Israeli prefixes from the QUERY so it matches
+// the local tail of the stored number, and search against BOTH forms.
+// A query starting with 0 (or a bare 9-digit local number) is treated as
+// Israeli-local; anything else searches as-is.
+function israeliQueryVariants(q) {
+  const digits = q.replace(/\D/g, '')
+  if (!digits) return null
+  // local 05X-XXXXXXX (10 digits, starts 0) or bare without the 0 (9 digits,
+  // starts with the carrier digit 2-5 etc.)
+  const local = digits.startsWith('0') ? digits : (digits.length === 9 ? '0' + digits : null)
+  if (!local) return null
+  const tail = local.slice(1) // 53 555 4666
+  return { local, tail }
+}
 
 // Global search — customers, sales, journeys, registrations and meetings,
 // all scoped to the active business unit. phone_calls is deliberately left
@@ -20,11 +38,22 @@ export default function GlobalSearch() {
   useEffect(() => {
     if (q.trim().length < 2) { setRes([]); return }
     const t = setTimeout(async () => {
-      const like = `%${q.trim()}%`
-      const [cust, sales, journeys, registrations, meetings] = await Promise.all([
-        supabase.from('customers').select('id, first_name, last_name, mobile_phone, email')
-          .eq('business_unit', unit).is('deleted_at', null)
-          .or(`first_name.ilike.${like},last_name.ilike.${like},mobile_phone.ilike.${like},email.ilike.${like}`).limit(6),
+          const like = `%${q.trim()}%`
+          // Israeli phone handling: if the query looks like a local Israeli
+          // number (05... or bare 9 digits), match the stored phone by its LOCAL
+          // tail (digits after the 972 prefix). The DB stores E.164 like
+          // +972535554666 — some rows masked as +972****4666 for leads pending
+          // Meta review — so searching the local form must match the tail, and
+          // when the stored value IS masked (stars), fall back to matching the
+          // full E.164 form (97253...) too, OR'd together.
+          const isr = israeliQueryVariants(q.trim())
+          const phoneConds = isr
+            ? [`mobile_phone.ilike.%${isr.tail}%`, `mobile_phone.ilike.%${isr.local.replace(/^0/, '972')}%`]
+            : [`mobile_phone.ilike.${like}`]
+          const [cust, sales, journeys, registrations, meetings] = await Promise.all([
+            supabase.from('customers').select('id, first_name, last_name, mobile_phone, email')
+              .eq('business_unit', unit).is('deleted_at', null)
+              .or(`first_name.ilike.${like},last_name.ilike.${like},email.ilike.${like},${phoneConds.join(',')}`).limit(6),
         supabase.from('sales').select('id, deal_name')
           .eq('business_unit', unit).is('deleted_at', null).ilike('deal_name', like).limit(4),
         supabase.from('journeys').select('id, name, destination')
@@ -37,7 +66,7 @@ export default function GlobalSearch() {
           .eq('business_unit', unit).is('deleted_at', null).ilike('subject', like).limit(4),
       ])
       const out = [
-        ...(cust.data || []).map(c => ({ id: c.id, type: 'לקוח', label: `${c.first_name} ${c.last_name}`, sub: c.mobile_phone || c.email, to: `/customers/${c.id}` })),
+        ...(cust.data || []).map(c => ({ id: c.id, type: 'לקוח', label: `${c.first_name} ${c.last_name}`, sub: c.mobile_phone || c.email, phone: c.mobile_phone, to: `/customers/${c.id}` })),
         ...(sales.data || []).map(s => ({ id: s.id, type: 'מכירה', label: s.deal_name || '-', sub: null, to: `/sales/${s.id}` })),
         ...(journeys.data || []).map(j => ({ id: j.id, type: 'מסע', label: j.name, sub: j.destination, to: `/journeys/${j.id}` })),
         ...(registrations.data || []).map(r => ({ id: r.id, type: 'הרשמה', label: r.registration_name || '-', sub: null, to: `/registrations/${r.id}` })),
@@ -68,7 +97,9 @@ export default function GlobalSearch() {
               <span className="badge gray" style={{ fontSize: '0.65rem' }}>{r.type}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="small" style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.label}</div>
-                {r.sub && <div className="small muted" dir="ltr" style={{ textAlign: 'start' }}>{r.sub}</div>}
+                {/* Israeli phone: same local display as everywhere (flag, no
+                    +972 prefix) instead of the raw stored E.164 string. */}
+                {r.sub && (r.phone ? <PhoneDisplay value={r.phone} /> : <div className="small muted" dir="ltr" style={{ textAlign: 'start' }}>{r.sub}</div>)}
               </div>
             </div>
           ))}
