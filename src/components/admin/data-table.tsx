@@ -160,21 +160,37 @@ export function DataTable<RecordType extends RaRecord = RaRecord>(
   const resourceFromContext = useResourceContext(props);
   const storeKey = props.storeKey || `${resourceFromContext}.datatable`;
   const [columnRanks] = useStore<number[]>(`${storeKey}_columnRanks`);
-  // Tag each column with its original (pre-reorder) index before reordering,
-  // so a header cell dragged mid-table still knows its stable identity —
-  // reorderChildren moves the element objects around, and cloneElement's
-  // prop travels with them.
-  const rawChildren = Children.toArray(children);
-  const taggedChildren = rawChildren.map((child, i) =>
-    isValidElement(child)
-      ? cloneElement(child as React.ReactElement<{ _colIndex?: number }>, {
-          _colIndex: i,
-        })
-      : child,
+  // Pin-to-fixed layout (Sahar 10.09, round 3): auto table layout keeps
+  // redistributing widths on every resize because fixed widths can conflict
+  // with cells' min-content (whitespace-nowrap labels), and the browser then
+  // adjusts OTHER columns too. Once EVERY column carries a stored width (the
+  // user has resized at least once), table-layout:fixed honors those widths
+  // exactly — zero drift. Verified live: +100px on col4, all others bit-stable.
+  const [columnWidthsStore] = useStore<Record<string, number>>(
+    `${storeKey}_columnWidths`,
+    EMPTY_COLUMN_WIDTHS,
   );
-  const columns = columnRanks
-    ? reorderChildren(taggedChildren, columnRanks)
-    : taggedChildren;
+  // Tag each column with its original (pre-reorder) index before reordering,
+    // so a header cell dragged mid-table still knows its stable identity —
+    // reorderChildren moves the element objects around, and cloneElement's
+    // prop travels with them.
+    const rawChildren = Children.toArray(children);
+    const visibleSources = rawChildren.filter(isValidElement).map((c) =>
+      (c.props as { source?: string })?.source,
+    );
+    const allPinned =
+      visibleSources.length > 0 &&
+      visibleSources.every((s) => !s || columnWidthsStore?.[s] != null);
+    const taggedChildren = rawChildren.map((child, i) =>
+      isValidElement(child)
+        ? cloneElement(child as React.ReactElement<{ _colIndex?: number }>, {
+            _colIndex: i,
+          })
+        : child,
+    );
+    const columns = columnRanks
+      ? reorderChildren(taggedChildren, columnRanks)
+      : taggedChildren;
 
   return (
     <DataTableBase<RecordType>
@@ -184,7 +200,7 @@ export function DataTable<RecordType extends RaRecord = RaRecord>(
       {...rest}
     >
       <div className={cn("rounded-md border", className)}>
-        <Table>
+        <Table style={allPinned ? { tableLayout: 'fixed' } : undefined}>
           <DataTableRenderContext.Provider value="header">
             <ColumnCountContext.Provider value={rawChildren.length}>
               <DataTableHead>{columns}</DataTableHead>
@@ -472,56 +488,69 @@ function DataTableHeadCell<
   );
 
   const handleResizeStart = useCallback(
-      (e: React.PointerEvent) => {
-        if (!source) return;
-        e.preventDefault();
-        e.stopPropagation();
-        const th = thRef.current;
-        if (!th) return;
-        const row = th.parentElement;
-        if (!row) return;
-        /* Pin EVERY visible column to its current rendered width before the
-           drag starts. With table-layout:auto, setting one column's width
-           lets the browser redistribute the FREE width across all the other
-           (unfixed) columns, so dragging one column squeezed/shifted every
-           other one (Sahar 10.09: sales table moved as a block). The
-           customers table only looked fine because its columns already
-           overflowed the container. Pinning all widths up-front leaves the
-           auto layout nothing to redistribute — only the dragged column moves. */
-        setColumnWidths((prev) => {
-          const next = { ...(prev || {}) };
+        (e: React.PointerEvent) => {
+          if (!source) return;
+          e.preventDefault();
+          e.stopPropagation();
+          const th = thRef.current;
+          if (!th) return;
+          const row = th.parentElement;
+          if (!row) return;
+          /* Pin EVERY visible column to its current rendered width before the
+             drag starts. With table-layout:auto, setting one column's width
+             lets the browser redistribute the FREE width across all the other
+             (unfixed) columns, so dragging one column squeezed/shifted every
+             other one (Sahar 10.09: sales table moved as a block). The
+             customers table only looked fine because its columns already
+             overflowed the container. Pinning all widths up-front leaves the
+             auto layout nothing to redistribute — only the dragged column moves. */
+          const pinWidths: Record<string, number> = {};
           for (const cell of Array.from(row.children) as HTMLTableCellElement[]) {
-            // each th's column source is carried by its data-field attr (sort
-            // button) or its label text; cells without a source (bulk checkbox)
-            // are skipped. The dragged column gets handled by onMove below.
             const key = cell.getAttribute("data-field");
-            if (key && cell !== th) {
-              next[key] = Math.round(cell.getBoundingClientRect().width);
+            if (key) {
+              pinWidths[key] = Math.round(cell.getBoundingClientRect().width);
             }
           }
-          return next;
-        });
-        const rect = th.getBoundingClientRect();
-        const isRtl =
-          getComputedStyle(document.documentElement).direction === "rtl";
-        const anchor = isRtl ? rect.right : rect.left;
-        const MIN_WIDTH = 60;
-        const onMove = (moveEvent: PointerEvent) => {
-          const raw = isRtl
-            ? anchor - moveEvent.clientX
-            : moveEvent.clientX - anchor;
-          const next = Math.max(MIN_WIDTH, Math.round(raw));
-          setColumnWidths((prev) => ({ ...(prev || {}), [source]: next }));
-        };
-        const onUp = () => {
-          window.removeEventListener("pointermove", onMove);
-          window.removeEventListener("pointerup", onUp);
-        };
-        window.addEventListener("pointermove", onMove);
-        window.addEventListener("pointerup", onUp);
-      },
-      [source, setColumnWidths],
-    );
+          setColumnWidths((prev) => ({ ...(prev || {}), ...pinWidths }));
+          // The rendered width read above can be stale by one frame (the
+          // table's width:max-content resettle from a previous interaction),
+          // which pinned a WRONG width to the dragged column's neighbours —
+          // exactly what happened on journeys (departure_date pinned at 88px
+          // mid-resettle). Measure in a rAF AFTER the pin has rendered, then
+          // re-pin any drift, so the drag anchor matches the pinned layout.
+          requestAnimationFrame(() => {
+            for (const cell of Array.from(row.children) as HTMLTableCellElement[]) {
+              const key = cell.getAttribute("data-field");
+              if (key) {
+                const w = Math.round(cell.getBoundingClientRect().width);
+                if (pinWidths[key] !== w) {
+                  pinWidths[key] = w;
+                  setColumnWidths((prev) => ({ ...(prev || {}), [key]: w }));
+                }
+              }
+            }
+          });
+          const rect = th.getBoundingClientRect();
+          const isRtl =
+            getComputedStyle(document.documentElement).direction === "rtl";
+          const anchor = isRtl ? rect.right : rect.left;
+          const MIN_WIDTH = 60;
+          const onMove = (moveEvent: PointerEvent) => {
+            const raw = isRtl
+              ? anchor - moveEvent.clientX
+              : moveEvent.clientX - anchor;
+            const next = Math.max(MIN_WIDTH, Math.round(raw));
+            setColumnWidths((prev) => ({ ...(prev || {}), [source]: next }));
+          };
+          const onUp = () => {
+            window.removeEventListener("pointermove", onMove);
+            window.removeEventListener("pointerup", onUp);
+          };
+          window.addEventListener("pointermove", onMove);
+          window.addEventListener("pointerup", onUp);
+        },
+        [source, setColumnWidths],
+      );
 
   if (isColumnHidden) return null;
 
