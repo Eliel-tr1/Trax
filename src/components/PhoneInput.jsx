@@ -64,7 +64,7 @@ export function PhoneDisplay({ value, tel }) {
   )
   if (href === 'tel:') return <span dir="ltr" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>{inner}</span>
   return (
-    <a dir="ltr" href={href} onClick={e => e.stopPropagation()} title="לחיצה לחיוג"
+    <a dir="ltr" href={href} tabIndex={-1} onClick={e => e.stopPropagation()} title="לחיצה לחיוג"
       style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--mp)', textDecoration: 'none' }}>
       {inner}
     </a>

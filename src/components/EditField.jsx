@@ -61,7 +61,12 @@ export default function EditField({ label, value, display, type = 'text', option
     return row(
       (shown === null || shown === undefined || shown === '')
         ? <span className="ef-val"><span className="muted" style={{ fontWeight: 400 }}>-</span></span>
-        : <span className="ef-val"><a href={`#${linkTo}`} onClick={e => e.stopPropagation()}>{shown}</a></span>
+        /* tabIndex=-1: this link must not join the Tab order — when an
+           inline editor commits, focus falls to the next focusable element
+           and if that's this (top-of-card) link the browser scrolls to it
+           and the page appears to jump to the top (Sahar 05.09). Mouse
+           users still click it normally. */
+        : <span className="ef-val"><a href={`#${linkTo}`} tabIndex={-1} onClick={e => e.stopPropagation()}>{shown}</a></span>
     )
   }
 
