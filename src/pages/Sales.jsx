@@ -13,6 +13,7 @@ import ResourceList from '../components/ResourceList'
 import { BulkDeleteButton } from '../components/admin/bulk-delete-button'
 import BulkEditButton from '../components/list/BulkEditButton'
 import EditableCell from '../components/EditableCell'
+import { LeadSourceLabel } from '../components/LeadSourceIcon'
 import UserEditableCell from '../components/UserEditableCell'
 import ReferenceEditableCell from '../components/ReferenceEditableCell'
 import RecordFormModal from '../components/RecordFormModal'
@@ -40,7 +41,7 @@ export function salesColumns(opts, refresh) {
       render: r => <Cell row={r} field="stage" mode="select" options={stageOpts} required
         display={v => <StatusBadge value={v} field="stage" resource="sale" />} /> },
     { source: 'channel', label: 'ערוץ פנייה', csv: r => r.channel, render: r => r.channel || '-' },
-    { source: 'lead_source', label: 'מקור הגעה', hidden: true, csv: r => r.lead_source, render: r => r.lead_source || '-' },
+    { source: 'lead_source', label: 'מקור הגעה', hidden: true, csv: r => r.lead_source, render: r => <LeadSourceLabel value={r.lead_source} /> },
     { source: 'owner_id', label: 'נציג מכירות', csv: r => users.find(u => u.id === r.owner_id)?.full_name || '',
       render: r => <UserEditableCell row={r} table="sales" field="owner_id" users={users} placeholder="בחרו נציג מכירות"
         onSaved={() => refresh()} /> },

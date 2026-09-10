@@ -11,6 +11,7 @@ import ResourceList from '../components/ResourceList'
 import { BulkDeleteButton } from '../components/admin/bulk-delete-button'
 import BulkEditButton from '../components/list/BulkEditButton'
 import EditableCell from '../components/EditableCell'
+import { LeadSourceLabel } from '../components/LeadSourceIcon'
 import UserEditableCell from '../components/UserEditableCell'
 import RecordFormModal from '../components/RecordFormModal'
 import Icon from '../components/Icon'
@@ -45,7 +46,7 @@ export default function Customers() {
     { source: 'email', label: 'אימייל', csv: r => r.email,
       render: r => <Cell row={r} field="email" display={v => <span className="small" dir="ltr">{v || '-'}</span>} /> },
     { source: 'lead_source', label: 'מקור הגעה', csv: r => r.lead_source,
-      render: r => <Cell row={r} field="lead_source" mode="select" options={sourceOpts} display={v => v || '-'} /> },
+      render: r => <Cell row={r} field="lead_source" mode="select" options={sourceOpts} display={v => <LeadSourceLabel value={v} />} /> },
     { source: 'campaign', label: 'קמפיין', hidden: true, csv: r => r.campaign, render: r => r.campaign || '-' },
     { source: 'status', label: 'סטטוס', csv: r => r.status,
       render: r => <Cell row={r} field="status" mode="select" options={statusOpts} required

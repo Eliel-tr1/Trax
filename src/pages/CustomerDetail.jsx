@@ -9,6 +9,7 @@ import {
 } from '../lib/constants'
 import RecordLayout from '../components/RecordLayout'
 import EditField from '../components/EditField'
+import { LeadSourceLabel } from '../components/LeadSourceIcon'
 import UserPicker from '../components/UserPicker'
 import { PhoneDisplay } from '../components/PhoneInput'
 import { salesColumns } from './Sales'
@@ -170,7 +171,7 @@ export default function CustomerDetail() {
           // (no channel field, unlike sales, per schema.js/domain-model.md).
           {
             key: 'marketing', label: 'נתונים שיווקיים', content: <>
-              <EditField label="מקור הגעה" value={c.lead_source} type="select" options={enumOpts(LEAD_SOURCES)} onSave={v => save('lead_source', v)} />
+              <EditField label="מקור הגעה" value={c.lead_source} type="select" options={enumOpts(LEAD_SOURCES)} display={<LeadSourceLabel value={c.lead_source} />} onSave={v => save('lead_source', v)} />
               <EditField label="קמפיין" value={c.campaign} onSave={v => save('campaign', v)} />
               <EditField label="שם טופס" value={c.form_name} onSave={v => save('form_name', v)} />
               <EditField label="אישור דיוור" value={c.marketing_consent} type="checkbox" onSave={v => save('marketing_consent', v)} />

@@ -11,6 +11,7 @@ import {
 } from '../lib/constants'
 import RecordLayout from '../components/RecordLayout'
 import EditField from '../components/EditField'
+import { LeadSourceLabel } from '../components/LeadSourceIcon'
 import UserPicker from '../components/UserPicker'
 import EntityPicker from '../components/EntityPicker'
 import FieldTabs from '../components/FieldTabs'
@@ -187,7 +188,7 @@ export default function SaleDetail() {
           {
             key: 'marketing', label: 'נתונים שיווקיים', content: <>
               <EditField label="ערוץ פנייה" value={s.channel} type="select" options={enumOpts(SALE_CHANNELS)} onSave={v => save('channel', v)} />
-              <EditField label="מקור הגעה" value={s.lead_source} type="select" options={enumOpts(LEAD_SOURCES)} onSave={v => save('lead_source', v)} />
+              <EditField label="מקור הגעה" value={s.lead_source} type="select" options={enumOpts(LEAD_SOURCES)} display={<LeadSourceLabel value={s.lead_source} />} onSave={v => save('lead_source', v)} />
               <EditField label="קמפיין" value={s.campaign} onSave={v => save('campaign', v)} />
               <EditField label="שם טופס" value={s.form_name} onSave={v => save('form_name', v)} />
               <EditField label="אישור דיוור" value={s.marketing_consent} type="checkbox" onSave={v => save('marketing_consent', v)} />
