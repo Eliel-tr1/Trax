@@ -16,7 +16,13 @@ export default function RecordFormModal({ type, defaults = {}, title, onCreated,
   const [opts, setOpts] = useState(null)
   const [form, setForm] = useState(() => {
     const init = {}
-    for (const f of def.fields) init[f.key] = defaults[f.key] ?? f.default ?? ''
+    for (const f of def.fields) {
+      // Checkbox fields must never init as '' — the create() coercion turns
+      // '' into null, and NOT NULL boolean columns (customers.club_member)
+      // reject that with a raw Postgres error toast (client-reported 15.09).
+      // A checkbox's natural "empty" state is false, not null.
+      init[f.key] = defaults[f.key] ?? f.default ?? (f.type === 'checkbox' ? false : '')
+    }
     return init
   })
   const [busy, setBusy] = useState(false)
@@ -36,10 +42,16 @@ export default function RecordFormModal({ type, defaults = {}, title, onCreated,
     setBusy(true)
     const payload = { ...defaults }
     for (const f of def.fields) {
-      let v = form[f.key]
-      if (v === '' || v == null) v = null
-      else if (f.type === 'number') v = Number(v)
-      payload[f.key] = v
+      const v = form[f.key]
+      // Empty optional fields are OMITTED from the payload entirely — not
+      // sent as null. NOT NULL columns with DB defaults (customers.
+      // club_member, credit_balance) then take their default instead of
+      // erroring with a raw 23502 toast (client-reported 15.09: both
+      // columns hit this in the new-customer form). Explicit nulls are
+      // still honored for fields the user deliberately cleared to null
+      // (none in practice — every empty input is '' here).
+      if (v === '' || v == null) continue
+      payload[f.key] = f.type === 'number' ? Number(v) : v
     }
     const { data, error } = await supabase.from(def.table).insert(payload).select().single()
     setBusy(false)
