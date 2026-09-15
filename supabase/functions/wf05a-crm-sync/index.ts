@@ -155,13 +155,14 @@ Deno.serve(async (req: Request) => {
   // 2. Sale: search for an OPEN one (anything not won/lost) for this customer, update if found, create if not.
   const { data: existingSales, error: saleLookupErr } = await admin
     .from("sales")
-    .select("id, journey_id, stage")
+    .select("id, journey_id, stage, qualification_summary")
     .eq("business_unit", "TRAX")
     .eq("customer_id", customerId)
     .is("deleted_at", null);
   if (saleLookupErr) return jsonResponse({ error: "sale lookup failed", detail: saleLookupErr.message }, 502);
 
   const openSale = (existingSales || []).find((s) => !CLOSED_STAGES.includes(s.stage));
+  const openSaleQualSummary = (openSale?.qualification_summary as string | null) || null;
 
   let saleId: string;
   if (openSale) {
@@ -193,6 +194,13 @@ Deno.serve(async (req: Request) => {
         .maybeSingle();
       if (nearest) patch.journey_id = nearest.id;
     }
+    // Form note stamped on the sale too (Sahar 10.09): prepended so the
+    // newest submission is the first thing the rep reads in the summary.
+    if (message) {
+      patch.qualification_summary = openSaleQualSummary
+        ? `הערה מטופס הפניה: ${message}\n\n` + openSaleQualSummary
+        : `הערה מטופס הפניה: ${message}`;
+    }
     const { error: updErr } = await admin.from("sales").update(patch).eq("id", saleId);
     if (updErr) return jsonResponse({ error: "sale update failed", detail: updErr.message }, 502);
   } else {
@@ -218,6 +226,7 @@ Deno.serve(async (req: Request) => {
       next_call_at: now, // "same day the lead came in", per spec
       execution_url: execution_url || null,
       form_name: form_name || null,
+      ...(message ? { qualification_summary: `הערה מטופס הפניה: ${message}` } : {}),
       marketing_consent: typeof marketing_consent === "boolean" ? marketing_consent : null,
       ...utmPatch,
     }).select("id").single();

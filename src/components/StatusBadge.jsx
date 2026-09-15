@@ -15,7 +15,7 @@
 // yet, and harmless once they are (the explicit map always wins).
 export const BADGES = {
   'customer.status': {
-    'ליד חדש': 'mp', 'בטיפול': 'warn', 'לקוח פעיל': 'ok', 'לקוח עבר': 'gray', 'לא רלוונטי': 'gray',
+    'ליד חדש': 'mp', 'בטיפול': 'warn', 'לקוח פעיל': 'ok', 'לקוח עבר': 'gray', 'לא רלוונטי': 'gray', 'עסקה הופסדה': 'err',
   },
   'customer.lead_rating': {
     'חם': 'err', 'פושר': 'warn', 'קר': 'info', 'לא רלוונטי': 'gray',

@@ -24,12 +24,12 @@ export default function MobileCards({ columns, rowPath, maxFields = 4 }) {
   }
 
   return (
-    <div className="space-y-2 sm:hidden">
+    <div className="space-y-2 sm:hidden max-w-full overflow-x-hidden">
       {data.map(row => (
         <div key={row.id}
           role={rowPath ? 'button' : undefined}
           onClick={rowPath ? () => nav(rowPath(row)) : undefined}
-          className="bg-card hover:bg-accent/40 rounded-lg border p-3 transition-colors">
+          className="bg-card hover:bg-accent/40 rounded-lg border p-3 transition-colors min-w-0">
           <div className="flex items-start gap-2">
             {onToggleItem && (
               <span onClick={e => e.stopPropagation()}>
@@ -51,9 +51,13 @@ export default function MobileCards({ columns, rowPath, maxFields = 4 }) {
               if (col.source && (raw == null || raw === '')) return null
               const val = cellOf(col, row)
               return (
-                <div key={col.source || col.label} className="flex items-baseline gap-2 text-sm">
+                <div key={col.source || col.label} className="flex items-baseline gap-2 text-sm min-w-0">
                   <dt className="text-muted-foreground w-24 shrink-0">{col.label}</dt>
-                  <dd className="min-w-0 flex-1 truncate">{val}</dd>
+                  {/* overflow-hidden + max-w-full on the dd: custom `render`
+                      cells (phone spans, badges, long names) are inline
+                      elements wider than the card — truncate alone doesn't
+                      clip them without a hard block bound. */}
+                  <dd className="min-w-0 flex-1 truncate overflow-hidden">{val}</dd>
                 </div>
               )
             })}

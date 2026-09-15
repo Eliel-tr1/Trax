@@ -24,6 +24,7 @@ import { PhoneDisplay } from '../components/PhoneInput'
 import { formatCurrency, formatDateTime, formatDate } from '../lib/format'
 import StatusBadge, { badgeClassFor } from '../components/StatusBadge'
 import { celebrateWin } from '../lib/celebration'
+import { recalcCustomerStatus } from '../lib/customerStatus'
 
 const LOST_STAGE = 'עסקה הופסדה'
 const WON_STAGE = 'נסגר בהצלחה'
@@ -109,18 +110,28 @@ export default function SaleDetail() {
     // instead of silently vanishing whenever save() throws.
     const enteringWon = stage === WON_STAGE && s.stage !== WON_STAGE
     try { await save('stage', stage) } finally { if (enteringWon) celebrateWin() }
+    // Customer status follows the deal's outcome (Sahar 10.09 client rules):
+    // ever-won → לקוח פעיל (sticky), all-lost → עסקה הופסדה, else ליד חדש.
+    if (s.customer_id) recalcCustomerStatus(s.customer_id)
   }
 
   const confirmLossReason = async (reason) => {
     setSavingLossReason(true)
     try { await saveStageAndLossReason(reason); setLossReasonPrompt(false) }
     finally { setSavingLossReason(false) }
+    if (s.customer_id) recalcCustomerStatus(s.customer_id)
   }
 
   if (loading) return <div className="empty"><span className="spinner" /></div>
   if (!s) return <div className="card"><div className="empty">מכירה לא נמצאה.</div></div>
 
   const isXcon = s.business_unit === 'Xcon'
+
+  // WhatsApp button, same as CustomerDetail (Sahar 10.09: wanted it on the
+  // sale screen too — the customer's phone is right here).
+  const waHref = s.customer?.mobile_phone
+    ? `https://wa.me/${s.customer.mobile_phone.replace(/\D/g, '')}`
+    : null
 
   const related = [
     // Resource-mode chip (paginated, links to the standalone MeetingDetail
@@ -141,6 +152,7 @@ export default function SaleDetail() {
       backTo="/sales"
       status={{ label: s.stage, badge: badgeClassFor('sale', 'stage', s.stage) }}
       actions={[
+        ...(waHref ? [{ icon: 'message', title: 'וואטסאפ', href: waHref }] : []),
         { icon: 'money', title: 'חיוב לקוח באשראי', onClick: () => setShowCharge(true) },
         { icon: 'tag', title: 'הוספת הרשמה חדשה', onClick: () => setShowNewRegistration(true) },
       ]}

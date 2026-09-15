@@ -222,7 +222,8 @@ export function DvizStyles() {
       .dviz-tile-clickable:hover { border-color: var(--mp); }
       .dviz-row-clickable:hover { background: color-mix(in srgb, var(--mp) 7%, transparent); border-radius: 4px; }
       .dviz-tile-label { font-size: 0.8rem; color: var(--text-2); font-weight: 600; }
-      .dviz-tile-value { font-size: 1.7rem; font-weight: 900; color: var(--heading); font-variant-numeric: normal; line-height: 1.15; }
+      .dviz-tile-value { font-size: 1.7rem; font-weight: 900; color: var(--heading); font-variant-numeric: normal; line-height: 1.15; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+      .dviz-tile-value > span { max-width: 100%; overflow: hidden; }
       .dviz-tile-sub { font-size: 0.74rem; color: var(--text-3); }
 
       .dviz-rank-row {

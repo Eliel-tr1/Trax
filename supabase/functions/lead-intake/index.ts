@@ -102,15 +102,29 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "failed to create customer", detail: createCustomer.json }, 502);
     }
     customerId = createCustomer.json.data.id;
+  } else if (message) {
+    // Existing customer re-submitting the form: append the form note to the
+    // customer's notes (same convention wf05a uses) instead of dropping it
+    // (Sahar 10.09: "ההערה מהטופס לא נכנסה ל-CRM").
+    const existing = await apiCall(`customers?id=eq.${customerId}`, "GET");
+    const prior = existing.ok ? existing.json.data?.[0]?.notes : null;
+    const stamp = new Date().toISOString().slice(0, 10);
+    const appended = (prior ? prior + "\n\n" : "") + `[טופס ${stamp}] ${message}`;
+    await apiCall(`customers?id=eq.${customerId}`, "PATCH", { notes: appended });
   }
 
   // A repeat inquiry always opens a new sale, even for an existing customer.
+  // The form's note is ALSO stamped on the sale (Sahar 10.09: "הערה מטופס
+  // הפניה: {ההערה}" inside the sale process itself), so the rep opening the
+  // sale sees the visitor's own words without hunting through the customer
+  // file.
   const createSale = await apiCall("sales", "POST", {
     customer_id: customerId,
     business_unit: businessUnit,
     channel,
     lead_source: leadSource,
     campaign: utm_campaign || undefined,
+    ...(message ? { qualification_summary: `הערה מטופס הפניה: ${message}` } : {}),
   });
   if (!createSale.ok) {
     return jsonResponse({ error: "failed to create sale", detail: createSale.json }, 502);

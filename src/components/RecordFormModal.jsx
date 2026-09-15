@@ -89,11 +89,21 @@ function Field({ f, value, onChange, opts, businessUnit }) {
     // Entity lists are FILTERED to the active business unit (Sahar 05.09:
     // in Xcon show only Xcon rows, in TRAX only TRAX).
     if (f.optionsFrom) {
+      // "Create and link" (Sahar 10.09, item 4): on the sale form the
+      // customer picker offers an inline "לקוח חדש" toggle — a mini
+      // customer form embedded in THIS modal — so a brand-new caller can
+      // become customer + sale in one pass. Only for customers (the only
+      // entity with a real create flow that makes sense inline).
+      const inlineNew = f.optionsFrom === 'customers'
       const buFiltered = f.optionsFrom !== 'users'
         ? { filter: x => !x.business_unit || x.business_unit === businessUnit }
         : undefined
       return <div className="field">{label}
         <EntityPicker resource={f.optionsFrom} value={value || null} onChange={onChange} placeholder="בחירה…" {...buFiltered} />
+        {inlineNew && <NewCustomerInline
+          businessUnit={businessUnit}
+          onCreated={(row) => onChange(row.id)}
+        />}
       </div>
     }
     const options = fieldOptions(f, opts)
@@ -118,4 +128,65 @@ function Field({ f, value, onChange, opts, businessUnit }) {
     <input type={f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : f.type === 'datetime' ? 'datetime-local' : 'text'}
       dir={f.ltr ? 'ltr' : undefined} value={value ?? ''} onChange={e => onChange(e.target.value)} />
   </div>
+}
+
+// Inline "create a new customer" mini-form, embedded under the customer
+// EntityPicker inside the new-sale modal (Sahar 10.09, item 4 — "צור גם
+// וגם, בטופס אחד"): fill first/last/phone (+optional email), hit יצירה,
+// and the freshly created customer becomes the sale's customer_id. The
+// EntityPicker above stays usable — picking an existing customer simply
+// overrides the inline one.
+function NewCustomerInline({ businessUnit, onCreated }) {
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [form, setForm] = useState({ first_name: '', last_name: '', mobile_phone: '', email: '' })
+  const [createdName, setCreatedName] = useState(null)
+  const set = (k, v) => setForm(s => ({ ...s, [k]: v }))
+  const valid = form.first_name.trim() && form.mobile_phone
+
+  const create = async () => {
+    if (!valid || busy) return
+    setBusy(true)
+    const { data, error } = await supabase.from('customers').insert({
+      first_name: form.first_name.trim(),
+      last_name: form.last_name.trim() || '-',
+      mobile_phone: form.mobile_phone,
+      email: form.email.trim() || null,
+      business_unit: businessUnit,
+      status: 'ליד חדש',
+    }).select('id, first_name, last_name').single()
+    setBusy(false)
+    if (error) { toast('יצירת הלקוח נכשלה: ' + error.message, 'err'); return }
+    toast('הלקוח נוצר ושויך למכירה')
+    setCreatedName(`${data.first_name} ${data.last_name}`)
+    setOpen(false)
+    onCreated(data)
+  }
+
+  if (createdName) {
+    return <div className="small muted" style={{ marginTop: 4 }}>
+      לקוח חדש נוצר: <b style={{ color: 'var(--mp)' }}>{createdName}</b>
+    </div>
+  }
+  return <>
+    {!open
+      ? <button type="button" className="btn subtle sm" style={{ marginTop: 4 }} onClick={() => setOpen(true)}>
+          + לקוח חדש
+        </button>
+      : <div style={{ marginTop: 6, padding: 10, border: '1px solid var(--border)', borderRadius: 'var(--rs)', display: 'grid', gap: 6 }}>
+          <div className="small muted">לקוח חדש, ייווצר וישויך למכירה זו:</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+            <input className="input" placeholder="שם פרטי *" value={form.first_name} onChange={e => set('first_name', e.target.value)} />
+            <input className="input" placeholder="שם משפחה" value={form.last_name} onChange={e => set('last_name', e.target.value)} />
+          </div>
+          <PhoneInput value={form.mobile_phone} onChange={v => set('mobile_phone', v || '')} />
+          <input className="input" dir="ltr" placeholder="אימייל (לא חובה)" value={form.email} onChange={e => set('email', e.target.value)} />
+          <div className="row" style={{ gap: 6 }}>
+            <button type="button" className="btn sm" disabled={busy || !valid} onClick={create}>
+              {busy ? <span className="spinner light" style={{ width: 13, height: 13 }} /> : 'יצירת לקוח ושיוך'}
+            </button>
+            <button type="button" className="btn subtle sm" onClick={() => setOpen(false)}>ביטול</button>
+          </div>
+        </div>}
+  </>
 }

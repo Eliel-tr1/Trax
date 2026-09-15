@@ -6,7 +6,7 @@ export const BUSINESS_UNITS = ['TRAX', 'Xcon']
 
 export const LEAD_SOURCES = ['פייסבוק', 'אינסטגרם', 'גוגל', 'אתר TRAX', 'דף נחיתה', 'המלצה', 'אחר']
 
-export const CUSTOMER_STATUSES = ['ליד חדש', 'בטיפול', 'לקוח פעיל', 'לקוח עבר', 'לא רלוונטי']
+export const CUSTOMER_STATUSES = ['ליד חדש', 'בטיפול', 'לקוח פעיל', 'לקוח עבר', 'לא רלוונטי', 'עסקה הופסדה']
 
 export const LEAD_RATINGS = ['חם', 'פושר', 'קר', 'לא רלוונטי']
 
