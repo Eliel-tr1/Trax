@@ -27,9 +27,6 @@ export default function RecordFormModal({ type, defaults = {}, title, onCreated,
     return init
   })
   const [busy, setBusy] = useState(false)
-  // The inline-created customer, held so the EntityPicker can show him as
-  // an selectable+selected option immediately (cache refresh is async).
-  const [inlineCreated, setInlineCreated] = useState(null)
 
   useEffect(() => { loadOptions().then(setOpts) }, [])
 
@@ -93,6 +90,12 @@ export default function RecordFormModal({ type, defaults = {}, title, onCreated,
 
 function Field({ f, value, onChange, opts, businessUnit }) {
   const label = <label>{f.label}{f.required && <span className="req"> *</span>}</label>
+  // The inline-created customer, held so the EntityPicker can show him as
+  // an selectable+selected option immediately (cache refresh is async).
+  // Lives HERE (inside Field) — it was previously hoisted to the parent
+  // RecordFormModal by mistake, which threw "inlineCreated is not defined"
+  // on every new-sale modal open (Sahar 15.09).
+  const [inlineCreated, setInlineCreated] = useState(null)
   if (f.type === 'checkbox') {
     return <div className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
       <input type="checkbox" checked={!!value} onChange={e => onChange(e.target.checked)} />{label}
@@ -124,6 +127,7 @@ function Field({ f, value, onChange, opts, businessUnit }) {
             // picker via extraItem) and refresh the shared cache in the
             // background so other pickers see him too (Sahar 10.09 round 2).
             setInlineCreated({ id: row.id, first_name: row.first_name, last_name: row.last_name, business_unit: businessUnit })
+            onChange(row.id)
             loadOptions(true)
           }}
         />}
