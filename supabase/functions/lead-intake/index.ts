@@ -9,6 +9,8 @@
 //   utm_medium?, utm_campaign?, utm_content?, utm_term?, page_url? }
 // form_id: "site" | "landing" | "xcon"
 
+import { createClient } from "jsr:@supabase/supabase-js@2";
+
 const API_BASE = Deno.env.get("API_BASE_URL") || `${Deno.env.get("SUPABASE_URL")}/functions/v1/api-v1`;
 // Trusted-internal-caller pattern (see api-v1/index.ts) — the service role
 // key is already auto-injected into every Edge Function in this project,
@@ -25,6 +27,24 @@ const SOURCE_MAP: Record<string, string> = {
   landing: "דף נחיתה",
   referral: "המלצה",
 };
+
+// גולדי — the author of auto-created feed notes and the default owner of
+// new customers/sales coming from forms (Sahar 10.09 round 2: "שייך בדיפולט
+// למשתמש שייצר אותו" — the webhook has no user session, so the CRM's
+// designated default rep owns the lead until reassigned).
+const DEFAULT_OWNER_ID = "772a4955-5302-475a-ba69-2e3a2929d0f0";
+
+// Feed notes aren't exposed through api-v1 (not in its SCHEMA allow-list),
+// so this writes them with the service role key directly.
+async function insertNoteDirect(relatedType: string, relatedId: string, content: string) {
+  const admin = createClient(Deno.env.get("SUPABASE_URL")!, INTERNAL_API_KEY);
+  await admin.from("notes").insert({
+    related_type: relatedType,
+    related_id: relatedId,
+    content,
+    created_by: DEFAULT_OWNER_ID,
+  });
+}
 
 function normalizePhone(raw: string): string {
   const digits = raw.replace(/[^\d+]/g, "");
@@ -97,6 +117,9 @@ Deno.serve(async (req: Request) => {
       campaign: utm_campaign || undefined,
       status: "ליד חדש",
       notes: message || undefined,
+      // Webhook has no user session — the CRM's default rep owns the lead
+      // until reassigned (Sahar 10.09 round 2).
+      owner_id: DEFAULT_OWNER_ID,
     });
     if (!createCustomer.ok) {
       return jsonResponse({ error: "failed to create customer", detail: createCustomer.json }, 502);
@@ -113,6 +136,10 @@ Deno.serve(async (req: Request) => {
     await apiCall(`customers?id=eq.${customerId}`, "PATCH", { notes: appended });
   }
 
+  // The form note as a FEED NOTE on the customer too (Sahar 10.09 round 2):
+  // visible in the left-side הערות feed like a human-written note.
+  if (message && customerId) await insertNoteDirect("customer", customerId, message);
+
   // A repeat inquiry always opens a new sale, even for an existing customer.
   // The form's note is ALSO stamped on the sale (Sahar 10.09: "הערה מטופס
   // הפניה: {ההערה}" inside the sale process itself), so the rep opening the
@@ -124,15 +151,20 @@ Deno.serve(async (req: Request) => {
     channel,
     lead_source: leadSource,
     campaign: utm_campaign || undefined,
+    owner_id: DEFAULT_OWNER_ID,
     ...(message ? { qualification_summary: `הערה מטופס הפניה: ${message}` } : {}),
   });
   if (!createSale.ok) {
     return jsonResponse({ error: "failed to create sale", detail: createSale.json }, 502);
   }
+  const saleId: string = createSale.json.data.id;
+
+  // The form note as a FEED NOTE on the sale too (Sahar 10.09 round 2).
+  if (message) await insertNoteDirect("sale", saleId, message);
 
   return jsonResponse({
     success: true,
     customer_id: customerId,
-    sale_id: createSale.json.data.id,
+    sale_id: saleId,
   }, 201);
 });

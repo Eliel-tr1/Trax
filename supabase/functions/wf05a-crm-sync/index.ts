@@ -39,7 +39,23 @@ const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const CLOSED_STAGES = ["נסגר בהצלחה", "עסקה הופסדה"];
 const CHANNEL = "טופס אתר";
-const DEFAULT_ACCOUNT_MANAGER_ID = "772a4955-5302-475a-ba69-2e3a2929d0f0"; // גולדי — default account manager / sales rep for every new TRAX website lead until reassigned
+// גולדי — default account manager / sales rep for every new TRAX website
+// lead until reassigned. Also the author of auto-created notes: this token
+// (service role) has no auth.users identity, so notes carry this id so the
+// ActivityFeed shows a real person, not "מערכת".
+const DEFAULT_ACCOUNT_MANAGER_ID = "772a4955-5302-475a-ba69-2e3a2929d0f0";
+
+// Inserts a note row for an object (Sahar 10.09 round 2: the form's note
+// should ALSO appear as a human-written note record in the left-side feed
+// of the customer and the sale, not only inside the notes/summary fields).
+async function insertNote(admin, relatedType, relatedId, content) {
+  await admin.from("notes").insert({
+    related_type: relatedType,
+    related_id: relatedId,
+    content,
+    created_by: DEFAULT_ACCOUNT_MANAGER_ID,
+  });
+}
 
 // Lead source: client rule (Sahar 05.09) — Meta ads must NOT land as
 // "אתר TRAX". The utm_source carries the ad platform that drove the lead;
@@ -151,6 +167,9 @@ Deno.serve(async (req: Request) => {
     if (createErr) return jsonResponse({ error: "customer create failed", detail: createErr.message }, 502);
     customerId = created.id;
   }
+  // The form note as a FEED NOTE too (Sahar 10.09 round 2) — visible in the
+  // customer's left-side הערות feed, authored by גולדי.
+  if (message) await insertNote(admin, "customer", customerId, message);
 
   // 2. Sale: search for an OPEN one (anything not won/lost) for this customer, update if found, create if not.
   const { data: existingSales, error: saleLookupErr } = await admin
@@ -233,6 +252,8 @@ Deno.serve(async (req: Request) => {
     if (createErr) return jsonResponse({ error: "sale create failed", detail: createErr.message }, 502);
     saleId = created.id;
   }
+  // The form note as a FEED NOTE on the sale too (Sahar 10.09 round 2).
+  if (message) await insertNote(admin, "sale", saleId, message);
 
   return jsonResponse({ success: true, customer_id: customerId, sale_id: saleId }, 200);
 });

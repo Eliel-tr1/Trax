@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { loadOptions } from '../lib/api'
 import { SCHEMA, fieldOptions } from '../lib/schema'
 import { useBusinessUnitStore } from '../stores/businessUnitStore'
+import { useAuthStore } from '../stores/authStore'
 import { toast } from './Toaster'
 import Modal from './Modal'
 import PhoneInput from './PhoneInput'
@@ -26,6 +27,9 @@ export default function RecordFormModal({ type, defaults = {}, title, onCreated,
     return init
   })
   const [busy, setBusy] = useState(false)
+  // The inline-created customer, held so the EntityPicker can show him as
+  // an selectable+selected option immediately (cache refresh is async).
+  const [inlineCreated, setInlineCreated] = useState(null)
 
   useEffect(() => { loadOptions().then(setOpts) }, [])
 
@@ -111,10 +115,17 @@ function Field({ f, value, onChange, opts, businessUnit }) {
         ? { filter: x => !x.business_unit || x.business_unit === businessUnit }
         : undefined
       return <div className="field">{label}
-        <EntityPicker resource={f.optionsFrom} value={value || null} onChange={onChange} placeholder="בחירה…" {...buFiltered} />
+        <EntityPicker resource={f.optionsFrom} value={value || null} onChange={onChange} placeholder="בחירה…" {...buFiltered}
+          extraItem={inlineCreated} />
         {inlineNew && <NewCustomerInline
           businessUnit={businessUnit}
-          onCreated={(row) => onChange(row.id)}
+          onCreated={row => {
+            // Select the new customer immediately (he's merged into the
+            // picker via extraItem) and refresh the shared cache in the
+            // background so other pickers see him too (Sahar 10.09 round 2).
+            setInlineCreated({ id: row.id, first_name: row.first_name, last_name: row.last_name, business_unit: businessUnit })
+            loadOptions(true)
+          }}
         />}
       </div>
     }
@@ -149,6 +160,7 @@ function Field({ f, value, onChange, opts, businessUnit }) {
 // EntityPicker above stays usable — picking an existing customer simply
 // overrides the inline one.
 function NewCustomerInline({ businessUnit, onCreated }) {
+  const user = useAuthStore(s => s.user)
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [form, setForm] = useState({ first_name: '', last_name: '', mobile_phone: '', email: '' })
@@ -166,6 +178,9 @@ function NewCustomerInline({ businessUnit, onCreated }) {
       email: form.email.trim() || null,
       business_unit: businessUnit,
       status: 'ליד חדש',
+      // Attribution: the user who created the customer owns it (Sahar
+      // 10.09 round 2) — not the default rep.
+      owner_id: user?.id || null,
     }).select('id, first_name, last_name').single()
     setBusy(false)
     if (error) { toast('יצירת הלקוח נכשלה: ' + error.message, 'err'); return }

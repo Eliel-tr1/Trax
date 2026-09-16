@@ -25,6 +25,10 @@ export default function EntityPicker({
   placeholder = 'בחירה…', searchPlaceholder = 'חיפוש…',
   allowEmpty = true, emptyLabel = 'ללא', autoOpen = false, onClose,
   className = '', disabled = false,
+  // extraItem: a freshly created record (e.g. from RecordFormModal's inline
+  // "לקוח חדש" form) merged into the list on top of the cached options, so
+  // it's selectable immediately even before loadOptions' cache refreshes.
+  extraItem,
 }) {
   const [open, setOpen] = useState(autoOpen)
   const [q, setQ] = useState('')
@@ -39,6 +43,12 @@ export default function EntityPicker({
     return () => { live = false }
   }, [resource, items])
 
+  // Merge extraItem into the candidate list whenever it changes — dedup by
+  // id so a cache refresh that already contains it doesn't duplicate.
+  const merged = extraItem
+    ? [extraItem, ...list.filter(x => x.id !== extraItem.id)]
+    : list
+
   useEffect(() => {
     if (!open) return
     const away = e => { if (box.current && !box.current.contains(e.target)) { setOpen(false); onClose?.() } }
@@ -49,8 +59,8 @@ export default function EntityPicker({
   }, [open, onClose])
 
   const labelFn = labelField || DEFAULT_LABEL[resource] || (x => x.name || x.label || String(x.id))
-  const base = filter ? list.filter(filter) : list
-  const selected = base.find(x => x.id === value) || list.find(x => x.id === value)
+  const base = filter ? merged.filter(filter) : merged
+  const selected = base.find(x => x.id === value) || merged.find(x => x.id === value)
   const qq = q.trim().toLowerCase()
   const shown = qq ? base.filter(x => (labelFn(x) || '').toLowerCase().includes(qq)) : base
 
