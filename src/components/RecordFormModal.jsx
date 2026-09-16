@@ -30,6 +30,33 @@ export default function RecordFormModal({ type, defaults = {}, title, onCreated,
 
   useEffect(() => { loadOptions().then(setOpts) }, [])
 
+  // Defaults computed at open (Sahar 15.09): a new sale defaults its sales
+  // rep to the signed-in user, and its מסע מבוקש to the nearest journey
+  // whose status is open for registration — same rule the lead-intake
+  // webhook uses. Only applies when the caller didn't pre-set a value.
+  useEffect(() => {
+    if (type !== 'sale') return
+    const user = useAuthStore.getState().user
+    setForm(s => ({
+      ...s,
+      owner_id: s.owner_id || defaults.owner_id || user?.id || null,
+      journey_id: s.journey_id || defaults.journey_id || null,
+    }))
+    if (!defaults.journey_id && !form.journey_id) {
+      supabase.from('journeys')
+        .select('id')
+        .eq('business_unit', unit)
+        .eq('status', 'פתוח להרשמה')
+        .gte('departure_date', new Date().toISOString().slice(0, 10))
+        .is('deleted_at', null)
+        .order('departure_date', { ascending: true })
+        .limit(1)
+        .maybeSingle()
+        .then(({ data }) => { if (data?.id) setForm(x => ({ ...x, journey_id: x.journey_id || data.id })) })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [type, unit])
+
   const set = (k, v) => setForm(s => ({ ...s, [k]: v }))
   // Per-active-business-unit form (Sahar 05.09): entity pickers list only the
   // current unit's rows, and unit-specific fields hide outside their unit
