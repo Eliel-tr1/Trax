@@ -17,6 +17,7 @@ import EntityPicker from '../components/EntityPicker'
 import FieldTabs from '../components/FieldTabs'
 import SystemFieldsTab from '../components/SystemFieldsTab'
 import { meetingsColumns } from './Meetings'
+import { phoneCallsColumns } from './PhoneCalls'
 import CardcomChargeModal from '../components/CardcomChargeModal'
 import Modal from '../components/Modal'
 import RecordFormModal from '../components/RecordFormModal'
@@ -40,18 +41,20 @@ export default function SaleDetail() {
   const [meetings, setMeetings] = useState([])
   const [showCharge, setShowCharge] = useState(false)
   const [showNewRegistration, setShowNewRegistration] = useState(false)
+  const [calls, setCalls] = useState([])
   const [lossReasonPrompt, setLossReasonPrompt] = useState(false)
   const [savingLossReason, setSavingLossReason] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const load = async () => {
     setLoading(true)
-    const [{ data }, o, { data: mt }] = await Promise.all([
+    const [{ data }, o, { data: mt }, { data: cl }] = await Promise.all([
       supabase.from('sales').select('*, customer:customers(*)').eq('id', id).single(),
       loadOptions(),
       supabase.from('meetings').select('*').eq('related_type', 'sale').eq('related_id', id).is('deleted_at', null).order('start_at', { ascending: false }),
+      supabase.from('phone_calls').select('*').eq('sale_id', id).order('occurred_at', { ascending: false }),
     ])
-    setS(data); setOpts(o); setMeetings(mt || []); setLoading(false)
+    setS(data); setOpts(o); setMeetings(mt || []); setCalls(cl || []); setLoading(false)
   }
   useEffect(() => { load() }, [id])
 
@@ -63,12 +66,13 @@ export default function SaleDetail() {
   // back to the top (Sahar 05.09: "editing a customer field in the sale
   // screen jumps the page").
   const softRefresh = async () => {
-    const [{ data }, o, { data: mt }] = await Promise.all([
+    const [{ data }, o, { data: mt }, { data: cl }] = await Promise.all([
       supabase.from('sales').select('*, customer:customers(*)').eq('id', id).single(),
       loadOptions(),
       supabase.from('meetings').select('*').eq('related_type', 'sale').eq('related_id', id).is('deleted_at', null).order('start_at', { ascending: false }),
+      supabase.from('phone_calls').select('*').eq('sale_id', id).order('occurred_at', { ascending: false }),
     ])
-    setS(data); setOpts(o); setMeetings(mt || [])
+    setS(data); setOpts(o); setMeetings(mt || []); setCalls(cl || [])
   }
 
   const save = async (field, value) => { setS(x => ({ ...x, [field]: value })); await updateField('sales', s, field, value) }
@@ -143,6 +147,12 @@ export default function SaleDetail() {
     { key: 'meetings', label: 'פגישות', count: meetings.length, onOpen: r => `/meetings/${r.id}`,
       resource: 'meetings', filter: { related_type: 'sale', related_id: id },
       listColumns: meetingsColumns(opts, refresh) },
+    // Calls made in this sale's context — calls carry sale_id (migration
+    // 046 + fireberry-call-sync stamps it: prefer the customer's open sale,
+    // else their most recent one). Sahar 16.09.
+    { key: 'calls', label: 'שיחות', count: calls.length, onOpen: r => `/phone-calls/${r.id}`,
+      resource: 'phone_calls', filter: { sale_id: id },
+      listColumns: phoneCallsColumns(opts.users, refresh) },
   ]
 
   return (

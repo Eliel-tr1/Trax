@@ -238,9 +238,24 @@ Deno.serve(async (req: Request) => {
     const assignedUserId = ownerName ? userByName.get(normalizeName(ownerName)) : undefined;
     if (ownerName && !assignedUserId) summary.unmatched_user += 1;
 
+    // Link the call to the customer's most relevant sale (Sahar 16.09):
+    // prefer an OPEN sale (the call is work on an active deal), else the
+    // most recent sale regardless of stage. Null when the customer has no
+    // sales at all — the call still shows on the customer screen.
+    const { data: linkSale } = await admin
+      .from("sales")
+      .select("id, stage")
+      .eq("customer_id", customerId)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false })
+      .limit(10);
+    const openSale = (linkSale || []).find(s => s.stage !== "נסגר בהצלחה" && s.stage !== "עסקה הופסדה");
+    const saleLink = openSale?.id ?? (linkSale && linkSale.length ? linkSale[0].id : null);
+
     const row = {
       related_type: "customer",
       related_id: customerId,
+      sale_id: saleLink ?? null,
       direction: matched!.direction,
       occurred_at: call.pcfsystemfield100 || call.createdon || new Date().toISOString(),
       duration_seconds: typeof call.duration === "number" ? call.duration : null,
