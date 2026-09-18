@@ -171,6 +171,52 @@ Deno.serve(async (req: Request) => {
   // customer's left-side הערות feed, authored by גולדי.
   if (message) await insertNote(admin, "customer", customerId, message);
 
+  // Journey association (Sahar 16.09): if the FB form's "לאיזה מסע תרצה
+  // להירשם?" question carried a trip choice, match it against the journeys
+  // list by name similarity (FB encodes 'מונטנגרו_-_מאי_27'; journeys are
+  // titled 'מונטנגרו, מאי 2026'). Only when there's no choice (or no match)
+  // does the nearest-open default apply. The choice is detected in the
+  // message text the bridge assembled (notes carry 'לאיזה_מסע...: <value>').
+  function detectJourneyChoice(msg?: string): string | null {
+    if (!msg) return null;
+    const m = msg.match(/לאיזה_?מסע[^:]*:\s*([^\n]+)/);
+    if (!m) return null;
+    return m[1].trim().replace(/_/g, " ");
+  }
+  async function resolveJourneyId(msg?: string): Promise<string | null> {
+    const choice = detectJourneyChoice(msg);
+    if (choice) {
+      const { data: journeys } = await admin
+        .from("journeys")
+        .select("id, name")
+        .eq("business_unit", "TRAX")
+        .is("deleted_at", null);
+      // normalize: lowercase, strip non-letters/digits, drop year suffix digits
+      const norm = (s: string) => (s || "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+      const choiceNorm = norm(choice);
+      const match = (journeys || []).find(j => {
+        const jn = norm(j.name);
+        // the choice stem ('מונטנגרו מאי 27') should appear in the journey
+        // name ('מונטנגרו מאי 2026') after normalization
+        const stem = choiceNorm.replace(/20\d\d/, "").trim();
+        return jn.includes(stem) || stem.includes(jn.replace(/20\d\d/, "").trim());
+      });
+      if (match) return match.id;
+    }
+    // No choice / no match: nearest journey OPEN for registration (Sahar 05.09)
+    const { data: nearest } = await admin
+      .from("journeys")
+      .select("id")
+      .eq("business_unit", "TRAX")
+      .eq("status", "פתוח להרשמה")
+      .gte("departure_date", now.slice(0, 10))
+      .is("deleted_at", null)
+      .order("departure_date", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    return nearest?.id ?? null;
+  }
+
   // 2. Sale: search for an OPEN one (anything not won/lost) for this customer, update if found, create if not.
   const { data: existingSales, error: saleLookupErr } = await admin
     .from("sales")
@@ -197,21 +243,9 @@ Deno.serve(async (req: Request) => {
     };
     // Only default a journey if the sale doesn't already have one — never
     // clobber an already-linked journey with the "nearest open" guess.
-    // Client rule (Sahar 05.09): default to the NEAREST journey whose status
-    // is 'פתוח להרשמה', not just any upcoming date (planning-stage journeys
-    // aren't open for registration).
     if (!openSale.journey_id) {
-      const { data: nearest } = await admin
-        .from("journeys")
-        .select("id")
-        .eq("business_unit", "TRAX")
-        .eq("status", "פתוח להרשמה")
-        .gte("departure_date", now.slice(0, 10))
-        .is("deleted_at", null)
-        .order("departure_date", { ascending: true })
-        .limit(1)
-        .maybeSingle();
-      if (nearest) patch.journey_id = nearest.id;
+      const jid = await resolveJourneyId(message);
+      if (jid) patch.journey_id = jid;
     }
     // Form note stamped on the sale too (Sahar 10.09): prepended so the
     // newest submission is the first thing the rep reads in the summary.
@@ -223,24 +257,14 @@ Deno.serve(async (req: Request) => {
     const { error: updErr } = await admin.from("sales").update(patch).eq("id", saleId);
     if (updErr) return jsonResponse({ error: "sale update failed", detail: updErr.message }, 502);
   } else {
-    // Nearest journey OPEN for registration (client rule, Sahar 05.09)
-    const { data: nearest } = await admin
-      .from("journeys")
-      .select("id")
-      .eq("business_unit", "TRAX")
-      .eq("status", "פתוח להרשמה")
-      .gte("departure_date", now.slice(0, 10))
-      .is("deleted_at", null)
-      .order("departure_date", { ascending: true })
-      .limit(1)
-      .maybeSingle();
+    const journeyId = await resolveJourneyId(message);
     const { data: created, error: createErr } = await admin.from("sales").insert({
       customer_id: customerId,
       business_unit: "TRAX",
       channel: CHANNEL,
       lead_source: resolveLeadSource(u.utm_source),
       campaign: u.utm_campaign || null,
-      journey_id: nearest ? nearest.id : null,
+      journey_id: journeyId,
       owner_id: DEFAULT_ACCOUNT_MANAGER_ID,
       next_call_at: now, // "same day the lead came in", per spec
       execution_url: execution_url || null,
