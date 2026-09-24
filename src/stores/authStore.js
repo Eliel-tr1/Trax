@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { supabase } from '../lib/supabase'
 import { usePermissionStore } from './permissionStore'
+import { linkPushIdentity, unlinkPushIdentity } from '../lib/push'
 
 // Maps a Supabase auth user + the matching app_users row into a session
 // profile. TRAX has no permission_level yet (spec: "2 users, both
@@ -47,6 +48,7 @@ export const useAuthStore = create((set, get) => ({
       .maybeSingle()
     set({ user, rep: data })
     usePermissionStore.getState().load(user.id, silent)
+    linkPushIdentity(user.id) // tags this browser's push subscription with our user id
   },
 
   signIn: async (email, password) => {
@@ -59,6 +61,7 @@ export const useAuthStore = create((set, get) => ({
   },
 
   signOut: async () => {
+    await unlinkPushIdentity()
     await supabase.auth.signOut()
     set({ user: null, rep: null })
     usePermissionStore.getState().reset()

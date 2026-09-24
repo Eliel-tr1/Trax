@@ -19,6 +19,7 @@ import ImageCropDialog from '../components/ImageCropDialog'
 import AvatarUpload from '../components/AvatarUpload'
 import PhoneInput, { PhoneDisplay } from '../components/PhoneInput'
 import { formatDateTime } from '../lib/format'
+import { isPushConfigured, requestPushPermission, currentPushPermission } from '../lib/push'
 
 // Fixed dropdown values for the two new app_users columns (see MEMORY.md /
 // project brief: department text, permission_profile text). permission_profile
@@ -33,7 +34,7 @@ const DEPARTMENTS = ['ניהול', 'מכירות', 'שירות לקוחות']
 // (seeded directly in the `permissions` table) — see RolesTab to edit them.
 const ROLE_KEY_FOR_PROFILE = { 'מנהל מערכת': 'owner', 'מנהל צוות': 'team_manager', 'נציג': 'sales_rep' }
 
-const SECTIONS = ['תצוגה', 'פרטי מערכת', 'אוטומציות', 'מפתחות API', 'דוקומנטציה API', 'שדות מותאמים', 'משתמשים', 'תפקידים והרשאות', 'מיזוג כפילויות', 'צ׳קליסטים', 'דיווחים', 'הדרכה', 'סל מיחזור']
+const SECTIONS = ['תצוגה', 'התראות', 'פרטי מערכת', 'אוטומציות', 'מפתחות API', 'דוקומנטציה API', 'שדות מותאמים', 'משתמשים', 'תפקידים והרשאות', 'מיזוג כפילויות', 'צ׳קליסטים', 'דיווחים', 'הדרכה', 'סל מיחזור']
 
 export default function Settings() {
   const [sec, setSec] = useState('תצוגה')
@@ -46,6 +47,7 @@ export default function Settings() {
     <div className="card">
       <div className="sections-tabs">{visibleSections.map(s => <div key={s} className={`sec-tab ${sec === s ? 'active' : ''}`} onClick={() => setSec(s)}>{s}</div>)}</div>
       {sec === 'תצוגה' && <AppearanceTab />}
+      {sec === 'התראות' && <NotificationsTab />}
       {sec === 'פרטי מערכת' && <SystemSettings />}
       {sec === 'אוטומציות' && <AutomationRules />}
       {sec === 'מפתחות API' && <ApiKeys />}
@@ -79,6 +81,99 @@ function AppearanceTab() {
         <button className={`btn ${theme === 'light' ? '' : 'ghost'}`} onClick={() => apply('light')}><Icon name="sun" size={15} /> בהיר</button>
         <button className={`btn ${theme === 'dark' ? '' : 'ghost'}`} onClick={() => apply('dark')}><Icon name="moon" size={15} /> כהה</button>
       </div>
+    </div>
+  )
+}
+
+// ============================================================
+// התראות — OneSignal Web Push. Two parts: (1) browser permission opt-in
+// (explicit button, never auto-prompted - see push.js comment on why), and
+// (2) per-category toggles backed by notification_preferences (migration
+// 047) that edge functions consult before sending a push for that category.
+// ============================================================
+function NotificationsTab() {
+  const user = useAuthStore(s => s.user)
+  const [perm, setPerm] = useState(currentPushPermission())
+  const [prefs, setPrefs] = useState(null)
+  const [busy, setBusy] = useState(false)
+
+  const CATEGORIES = [
+    ['task_assigned', 'משימה חדשה שהוקצתה לי'],
+    ['task_due_soon', 'משימה שמועד היעד שלה מתקרב'],
+    ['meeting_reminder', 'תזכורת לפגישה קרובה'],
+    ['new_lead', 'ליד חדש נכנס למערכת'],
+    ['sale_stage_changed', 'סטטוס מכירה השתנה'],
+  ]
+
+  const load = async () => {
+    if (!user) return
+    const { data } = await supabase.from('notification_preferences').select('*').eq('user_id', user.id).maybeSingle()
+    if (data) { setPrefs(data); return }
+    // first visit: create the row with defaults so future edge-function
+    // reads always find a row (simpler than treating "missing row" as
+    // "everything on" everywhere that reads this table).
+    const { data: created } = await supabase.from('notification_preferences').insert({ user_id: user.id }).select('*').single()
+    setPrefs(created)
+  }
+  useEffect(() => { load() }, [user])
+
+  const enablePush = async () => {
+    setBusy(true)
+    const result = await requestPushPermission()
+    setPerm(result)
+    setBusy(false)
+    if (result === 'granted') toast('התראות הופעלו בדפדפן זה')
+    else if (result === 'denied') toast('ההרשאה נדחתה - ניתן לשנות בהגדרות הדפדפן/מכשיר', 'err')
+  }
+
+  const toggle = async (key) => {
+    const next = { ...prefs, [key]: !prefs[key] }
+    setPrefs(next)
+    const { error } = await supabase.from('notification_preferences').update({ [key]: next[key], updated_at: new Date().toISOString() }).eq('user_id', user.id)
+    if (error) { toast('השמירה נכשלה', 'err'); setPrefs(prefs); return }
+  }
+
+  if (!isPushConfigured()) {
+    return (
+      <div className="card" style={{ maxWidth: 520 }}>
+        <div className="card-title"><Icon name="bell" /> התראות</div>
+        <div className="empty small">שירות ההתראות טרם הוגדר במערכת. פנה למנהל המערכת.</div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="card" style={{ maxWidth: 520 }}>
+      <div className="card-title"><Icon name="bell" /> התראות מתפרצות</div>
+      <p className="muted small" style={{ marginTop: -4, marginBottom: 14, lineHeight: 1.7 }}>
+        קבל התראה בטלפון/מחשב ברגע שקורה אירוע שמעניין אותך, גם כשהמערכת סגורה.
+        באייפון, יש להוסיף קודם את TRAX למסך הבית (שיתוף ← הוספה למסך הבית) כדי שהתראות יעבדו.
+      </p>
+
+      <div className="row" style={{ gap: 10, marginBottom: 16, alignItems: 'center' }}>
+        {perm === 'granted' ? (
+          <span className="badge ok"><Icon name="check" size={12} /> התראות פעילות בדפדפן זה</span>
+        ) : (
+          <button className="btn sm" disabled={busy} onClick={enablePush}>
+            {busy ? <span className="spinner light" style={{ width: 14, height: 14 }} /> : <><Icon name="bell" size={14} /> הפעל התראות בדפדפן זה</>}
+          </button>
+        )}
+        {perm === 'denied' && <span className="muted small">חסום ברמת הדפדפן - יש לאשר ידנית בהגדרות האתר</span>}
+      </div>
+
+      {!prefs ? <div className="empty small"><span className="spinner" /></div> : (
+        <div>
+          <div className="small muted" style={{ fontWeight: 700, marginBottom: 8 }}>אילו התראות לקבל</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {CATEGORIES.map(([key, label]) => (
+              <div key={key} className="row" style={{ padding: '7px 4px', justifyContent: 'space-between' }}>
+                <span className="small">{label}</span>
+                <Switch checked={!!prefs[key]} onCheckedChange={() => toggle(key)} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
