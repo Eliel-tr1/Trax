@@ -126,6 +126,7 @@ Deno.serve(async (req: Request) => {
   if (custLookupErr) return jsonResponse({ error: "customer lookup failed", detail: custLookupErr.message }, 502);
 
   let customerId: string;
+  let customerCreatedNow = false;
   if (existingCustomers && existingCustomers.length) {
     customerId = existingCustomers[0].id;
     const priorNotes = existingCustomers[0].notes as string | null;
@@ -166,6 +167,7 @@ Deno.serve(async (req: Request) => {
     }).select("id").single();
     if (createErr) return jsonResponse({ error: "customer create failed", detail: createErr.message }, 502);
     customerId = created.id;
+    customerCreatedNow = true;
   }
   // The form note as a FEED NOTE too (Sahar 10.09 round 2) — visible in the
   // customer's left-side הערות feed, authored by גולדי.
@@ -183,7 +185,8 @@ Deno.serve(async (req: Request) => {
     if (!m) return null;
     return m[1].trim().replace(/_/g, " ");
   }
-  async function resolveJourneyId(msg?: string): Promise<string | null> {
+  // The lead's explicit form choice ONLY (no default fallback), or null.
+  async function resolveChoiceJourneyId(msg?: string): Promise<string | null> {
     const choice = detectJourneyChoice(msg);
     if (choice) {
       const { data: journeys } = await admin
@@ -203,7 +206,12 @@ Deno.serve(async (req: Request) => {
       });
       if (match) return match.id;
     }
-    // No choice / no match: nearest journey OPEN for registration (Sahar 05.09)
+    return null;
+  }
+  // Nearest journey OPEN for registration (Sahar 05.09). Same rule as the
+  // customers_auto_create_sale DB trigger, so its result equals what the
+  // trigger stamped on a freshly auto-created sale.
+  async function defaultJourneyId(): Promise<string | null> {
     const { data: nearest } = await admin
       .from("journeys")
       .select("id")
@@ -215,6 +223,9 @@ Deno.serve(async (req: Request) => {
       .limit(1)
       .maybeSingle();
     return nearest?.id ?? null;
+  }
+  async function resolveJourneyId(msg?: string): Promise<string | null> {
+    return (await resolveChoiceJourneyId(msg)) ?? (await defaultJourneyId());
   }
 
   // 2. Sale: search for an OPEN one (anything not won/lost) for this customer, update if found, create if not.
@@ -241,10 +252,24 @@ Deno.serve(async (req: Request) => {
       ...(typeof marketing_consent === "boolean" ? { marketing_consent } : {}),
       ...utmPatch,
     };
-    // Only default a journey if the sale doesn't already have one — never
-    // clobber an already-linked journey with the "nearest open" guess.
-    if (!openSale.journey_id) {
-      const jid = await resolveJourneyId(message);
+    // Journey on an existing open sale (fix 01.10): for a NEW customer the
+    // open sale was just opened by the customers_auto_create_sale trigger
+    // with the nearest-open default (Madeira), so "only if empty" meant the
+    // lead's form choice was never applied. Rule now:
+    // - form choice matched AND (customer created in this request OR the
+    //   sale's journey is still the trigger default) -> set the choice.
+    //   A journey a human picked (anything other than the default) on an
+    //   existing customer is never overwritten.
+    // - no choice / no match -> old behavior: default only if empty.
+    const choiceJid = await resolveChoiceJourneyId(message);
+    if (choiceJid) {
+      if (choiceJid !== openSale.journey_id) {
+        const isTriggerDefault = !openSale.journey_id ||
+          openSale.journey_id === (await defaultJourneyId());
+        if (customerCreatedNow || isTriggerDefault) patch.journey_id = choiceJid;
+      }
+    } else if (!openSale.journey_id) {
+      const jid = await defaultJourneyId();
       if (jid) patch.journey_id = jid;
     }
     // Form note stamped on the sale too (Sahar 10.09): prepended so the
