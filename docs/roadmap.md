@@ -34,7 +34,9 @@ now passed). Scope, unchanged:
   (system_settings, automation_rules on/off, read-only api_keys) built.
 - Phone call integration (Voicenter recordings/transcripts → customer card)
   — UI is ready to display rows the moment the integration writes them;
-  the integration itself is still outstanding.
+  the CRM side is built (01/10/2026, decisions/0009: n8n webhook POST ->
+  voicenter-call-sync, tested with synthetic CDRs). Outstanding: Voicenter
+  must enable CDR Notification to the n8n URL for TRAX's account.
 - Xcon view/report separation.
 - Closed-won welcome message trigger.
 - Journeys list has been delivered and seeded (7 live journey rows as of
