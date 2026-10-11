@@ -96,7 +96,7 @@ Edge Functions replace what would have been calls into Origami's API:
 |---|---|---|
 | `lead-intake` | Origami `create_instance` on form submit | site form, landing pages, Xcon form |
 | `whatsapp-inbound` | Origami lead/sale creation from WhatsApp | CloudChat webhook |
-| `voice-webhook` | manual call logging | Voicenter (PBX) |
+| `voicenter-call-sync` | manual call logging | Voicenter CDR Notification -> n8n `Trax Calls - Voicenter` (QqOrRlWGBANByx2C), see decisions/0009 |
 | `payment-webhook` | manual registration update | Sumit |
 | `backup-nightly` | — | pg_cron |
 

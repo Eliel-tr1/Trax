@@ -176,7 +176,7 @@ export const SCHEMA = {
       { key: 'transcript', label: 'תמליל', type: 'textarea', wave: 1 },
       { key: 'summary', label: 'סיכום AI', type: 'textarea', wave: 1 },
       { key: 'assigned_user_id', label: 'נציג משויך', type: 'select', optionsFrom: 'users', wave: 1 },
-      { key: 'external_call_id', label: 'מזהה שיחה (Fireberry)', type: 'text', ltr: true, wave: 2 },
+      { key: 'external_call_id', label: 'מזהה שיחה (Voicenter)', type: 'text', ltr: true, wave: 2 },
     ],
     relations: [],
   },

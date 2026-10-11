@@ -13,6 +13,7 @@ import EditableCell from '../components/EditableCell'
 import UserEditableCell from '../components/UserEditableCell'
 import RelatedLink from '../components/RelatedLink'
 import StatusBadge from '../components/StatusBadge'
+import { PhoneDisplay } from '../components/PhoneInput'
 
 const directionOpts = enumOpts(CALL_DIRECTIONS)
 const resultOpts = enumOpts(CALL_RESULTS)
@@ -41,7 +42,11 @@ export function phoneCallsColumns(users, refresh) {
     { source: 'created_at', label: 'נוצר בתאריך', csv: r => r.created_at,
       render: r => <span className="small">{formatDateTime(r.created_at)}</span> },
     { source: 'related_id', label: 'לקוח', sortable: false, csv: r => r.related_id,
-      render: r => <RelatedLink relatedType={r.related_type} relatedId={r.related_id} showType={false} /> },
+      // Unlinked call (number not in the CRM, data/048): show the number so
+      // the row is still identifiable; the call screen has "הקמת ליד".
+      render: r => r.related_id
+        ? <RelatedLink relatedType={r.related_type} relatedId={r.related_id} showType={false} />
+        : <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}><PhoneDisplay value={r.customer_phone} /><span className="badge warn">לא משויך</span></span> },
     { source: 'direction', label: 'כיוון', csv: r => r.direction,
       render: r => <StatusBadge value={r.direction} field="direction" resource="phone_call" /> },
     { source: 'occurred_at', label: 'תאריך ושעה', csv: r => r.occurred_at,
@@ -60,8 +65,16 @@ export function phoneCallsColumns(users, refresh) {
     { source: 'summary', label: 'סיכום AI', hidden: true, sortable: false, csv: r => r.summary,
       render: r => r.summary ? <span className="small">{r.summary}</span> : '-' },
     { source: 'business_unit', label: 'יחידה עסקית', hidden: true, csv: r => r.business_unit, render: r => r.business_unit || '-' },
-    ...extraHiddenColumns('phone_call', ['created_at', 'related_id', 'direction', 'occurred_at', 'duration_seconds', 'result', 'assigned_user_id', 'recording_url', 'summary', 'business_unit'], { table: 'phone_calls', users, refresh }),
+    ...extraHiddenColumns('phone_call', ['created_at', 'related_id', 'direction', 'occurred_at', 'duration_seconds', 'result', 'assigned_user_id', 'recording_url', 'summary', 'business_unit', 'customer_phone', 'trax_number'], { table: 'phone_calls', users, refresh }),
     ...metadataColumns('phone_call', ['created_at'], { users }),
+    // Every field must be offered in the columns picker (Sahar 11/10/2026).
+    // Appended LAST so users' saved column layouts keep their order.
+    { source: 'trax_number', label: 'מספר TRAX בשיחה', hidden: true, sortable: false, csv: r => r.trax_number,
+      render: r => <PhoneDisplay value={r.trax_number} /> },
+    { source: 'customer_phone', label: 'מספר הצד השני', hidden: true, sortable: false, csv: r => r.customer_phone,
+      render: r => <PhoneDisplay value={r.customer_phone} /> },
+    { source: 'sale_id', label: 'תהליך מכירה', hidden: true, sortable: false, csv: r => r.sale_id,
+      render: r => <RelatedLink relatedType="sale" relatedId={r.sale_id} showType={false} /> },
   ]
 }
 

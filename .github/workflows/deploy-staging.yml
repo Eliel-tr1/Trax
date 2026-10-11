@@ -3,11 +3,21 @@ name: Deploy staging (Cloudflare Pages)
 on:
   push:
     branches: [staging, main]
+  # Manual run (Actions tab / gh workflow run). target=production deploys the
+  # chosen ref to trax-crm.pages.dev. Never automatic: prod only on Sahar's
+  # explicit approval after staging is verified.
+  workflow_dispatch:
+    inputs:
+      target:
+        description: staging or production
+        required: true
+        default: staging
 
 jobs:
   deploy:
-    # Staging only — prod (main → trax-crm.pages.dev) stays manual per ops policy.
-    if: github.ref == 'refs/heads/staging'
+    # Push: staging only. Prod (main, trax-crm.pages.dev) only via a manual
+    # workflow_dispatch with target=production, per ops policy.
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/staging'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,9 +26,17 @@ jobs:
           node-version: 22
       - run: npm ci
       - run: npm i -D wrangler@4
+      # VITE_* are baked into the bundle at build time; without them the app
+      # dies on load with "supabaseUrl is required" (blank page). Both are
+      # public values (the anon key ships in every browser bundle).
       - run: npx vite build --base=/
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+      - name: Guard against a blank build
+        run: grep -q "bkjqwroclpefwtyxjfkl" dist/assets/index-*.js
       - uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: 1156721cbd092576b17bbf0a6839f745
-          command: pages deploy dist --project-name=trax-crm --branch=staging
+          command: pages deploy dist --project-name=trax-crm --branch=${{ github.event.inputs.target == 'production' && 'main' || 'staging' }}
