@@ -46,12 +46,17 @@ export default function PhoneCallDetail() {
   // customer that already has it) and links ALL unlinked calls with it,
   // server-side in create_lead_from_call (data/048).
   const [creating, setCreating] = useState(false)
+  const [newLead, setNewLead] = useState(null) // shown in the picker before its cache refreshes
   const createLead = async () => {
     setCreating(true)
     const { data, error } = await supabase.rpc('create_lead_from_call', { p_call_id: id })
     setCreating(false)
     if (error) { toast(error.message || 'הקמת הליד נכשלה', 'err'); return }
     toast(data.created ? `נפתח ליד חדש, שויכו ${data.linked_calls} שיחות` : `המספר כבר קיים במערכת, שויכו ${data.linked_calls} שיחות ללקוח`)
+    if (data.customer_id) {
+      const { data: cu } = await supabase.from('customers').select('id, first_name, last_name').eq('id', data.customer_id).single()
+      if (cu) setNewLead(cu)
+    }
     setOpts(await loadOptions(true))
     const { data: fresh } = await supabase.from('phone_calls').select('*').eq('id', id).single()
     if (fresh) setC(fresh)
@@ -77,6 +82,7 @@ export default function PhoneCallDetail() {
                 customer by hand; "הקמת ליד" opens a new one for this number. */}
             <EntityPicker resource="customers" value={c.related_type === 'customer' ? c.related_id : null}
               placeholder={c.related_id ? 'בחרו לקוח' : 'לא משויך, בחרו לקוח קיים'} allowEmpty={false}
+              extraItem={newLead || undefined}
               onChange={v => { if (!v) return; save('related_id', v); if (c.related_type !== 'customer') save('related_type', 'customer') }} />
           </div>
           <div className="ef">

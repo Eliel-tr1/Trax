@@ -40,7 +40,8 @@ declare
   v_linked int;
   v_note text;
 begin
-  if not can_access('customers', 'create') then
+  -- can_access has two overloads (3 and 4 args, defaults) -> 2 args is ambiguous (42725)
+  if not can_access('customers'::text, 'create'::text, null::uuid, null::uuid) then
     raise exception 'אין הרשאה ליצור לקוחות';
   end if;
 
