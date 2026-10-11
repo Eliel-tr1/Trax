@@ -46,3 +46,20 @@ push needs only the CDR URL configured on Voicenter's side and is real time.
 aiData shape for TRAX's account (string vs object, Hebrew transcript), exact
 number format in `caller`/`target`, which values are TRAX DIDs (fill
 `OWN_NUMBERS`), and whether `direction` is sent at all for this account.
+
+## Update 11/10/2026 (first real CDR, execution 27083)
+
+- Unknown number now OPENS A LEAD (Sahar): customer `ליד טלפוני <local number>`,
+  lead_source `לא מוכר` (migration 048), owner = the call's rep if matched
+  else גולדי, plus a feed note on the customer and the auto-created sale
+  saying the call came through Voicenter while the lead was not in the CRM.
+  Replaces the "never create" rule above. Calls with no customer phone at
+  all are still only logged.
+- `time` is Israel wall-clock encoded as UTC (3h ahead in IDT). occurred_at
+  now comes from the ivruniqueid prefix converted from Asia/Jerusalem.
+- Summary keeps the AI summary + TRAX-defined questions only; Voicenter's
+  inherited "support" category questions (keywords, resolved, agent score)
+  are dropped.
+- Recording URLs (`cpanel.voicenter.co.il/.../*.enc`) return 403 without a
+  Voicenter session; the CRM player cannot play them until a Voicenter API
+  token lets n8n copy the file to Supabase Storage (requested from Voicenter).

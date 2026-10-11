@@ -44,6 +44,16 @@ const BUSINESS_UNIT = "TRAX";
 const CLOSED_STAGES = ["נסגר בהצלחה", "עסקה הופסדה"];
 const VALID_RESULTS = ["נענתה", "לא נענתה", "תפוס", "השאיר הודעה"];
 const VALID_DIRECTIONS = ["נכנסת", "יוצאת"];
+const LEAD_SOURCE_UNKNOWN = "לא מוכר"; // migration 048
+// גולדי: default owner when the call's rep is not matched (same id as
+// wf05a-crm-sync/lead-intake). Also authors the feed notes: the service role
+// has no auth.users identity, so the feed would otherwise show "מערכת".
+const DEFAULT_OWNER_ID = "772a4955-5302-475a-ba69-2e3a2929d0f0";
+
+async function insertNote(admin: ReturnType<typeof createClient>, relatedType: string, relatedId: string, content: string) {
+  const { error } = await admin.from("notes").insert({ related_type: relatedType, related_id: relatedId, content, created_by: DEFAULT_OWNER_ID });
+  if (error) console.error("voicenter-call-sync: note insert failed", error.message);
+}
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -125,9 +135,49 @@ Deno.serve(async (req: Request) => {
     .limit(1)
     .maybeSingle();
 
+  if (!customerId && !existing && !e164) {
+    await logUnmatched(admin, `voicenter: no customer phone ivruniqueid=${ivr} direction=${body.direction ?? ""} exec=${body.execution_url ?? ""}`);
+    return jsonResponse({ ok: true, status: "no_phone", ivruniqueid: ivr });
+  }
+
+  // Rep match first: the new lead (if any) is owned by the rep on the call.
+  let assignedUserId: string | null = null;
+  if (body.representative_name) {
+    const { data: users } = await admin.from("app_users").select("id, full_name");
+    const want = normalizeName(body.representative_name);
+    assignedUserId = (users || []).find((u) => normalizeName(u.full_name) === want)?.id ?? null;
+  }
+
+  const direction = VALID_DIRECTIONS.includes(body.direction) ? body.direction : "נכנסת";
+  const occurredAt = body.occurred_at || new Date().toISOString();
+
+  // Unknown number -> open a new lead (Sahar 11/10/2026, replaces the ADR
+  // 0005/0009 "never create" rule): lead_source 'לא מוכר', note that the
+  // call came through Voicenter while the lead was not yet in the CRM. The
+  // customers_auto_create_sale trigger opens the sale on the default journey.
+  let createdLead = false;
   if (!customerId && !existing) {
-    await logUnmatched(admin, `voicenter: unmatched number ${e164 ?? body.customer_phone_raw ?? "none"} ivruniqueid=${ivr} direction=${body.direction ?? ""} exec=${body.execution_url ?? ""}`);
-    return jsonResponse({ ok: true, status: "unmatched", phone: e164, ivruniqueid: ivr });
+    const local = "0" + e164!.replace(/^\+972/, "");
+    const when = new Date(occurredAt).toLocaleString("he-IL", { timeZone: "Asia/Jerusalem", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }).replace(",", "");
+    const noteText = `נרשמה שיחה ${direction} דרך Voicenter ב${when}${body.representative_name ? ` (נציג: ${body.representative_name})` : ""}. בעת קבלת השיחה הליד לא היה במערכת, ולכן נפתח אוטומטית.`;
+    const ownerId = assignedUserId ?? DEFAULT_OWNER_ID;
+    const { data: cust, error: cErr } = await admin.from("customers").insert({
+      first_name: "ליד טלפוני",
+      last_name: local,
+      mobile_phone: e164,
+      business_unit: BUSINESS_UNIT,
+      lead_source: LEAD_SOURCE_UNKNOWN,
+      notes: noteText,
+      owner_id: ownerId,
+      account_manager_id: ownerId,
+      execution_url: body.execution_url || null,
+    }).select("id").single();
+    if (cErr) return jsonResponse({ ok: false, status: "error", reason: `create lead: ${cErr.message}` }, 500);
+    customerId = cust.id;
+    createdLead = true;
+    await insertNote(admin, "customer", cust.id, noteText);
+    const { data: autoSale } = await admin.from("sales").select("id").eq("customer_id", cust.id).is("deleted_at", null).order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (autoSale) await insertNote(admin, "sale", autoSale.id, noteText);
   }
 
   const relatedId = customerId ?? existing!.related_id;
@@ -142,20 +192,12 @@ Deno.serve(async (req: Request) => {
   const openSale = (sales || []).find((s) => !CLOSED_STAGES.includes(s.stage));
   const saleId = openSale?.id ?? (sales && sales.length ? sales[0].id : null);
 
-  let assignedUserId: string | null = null;
-  if (body.representative_name) {
-    const { data: users } = await admin.from("app_users").select("id, full_name");
-    const want = normalizeName(body.representative_name);
-    assignedUserId = (users || []).find((u) => normalizeName(u.full_name) === want)?.id ?? null;
-  }
-
-  const direction = VALID_DIRECTIONS.includes(body.direction) ? body.direction : "נכנסת";
   const row: Record<string, unknown> = {
     related_type: "customer",
     related_id: relatedId,
     sale_id: saleId,
     direction,
-    occurred_at: body.occurred_at || new Date().toISOString(),
+    occurred_at: occurredAt,
     duration_seconds: Number.isFinite(Number(body.duration_seconds)) && body.duration_seconds !== null ? Math.round(Number(body.duration_seconds)) : null,
     result: VALID_RESULTS.includes(body.result) ? body.result : null,
     recording_url: body.recording_url || null,
@@ -176,5 +218,5 @@ Deno.serve(async (req: Request) => {
   }
   const { data: ins, error } = await admin.from("phone_calls").insert(row).select("id").single();
   if (error) return jsonResponse({ ok: false, status: "error", reason: `insert: ${error.message}` }, 500);
-  return jsonResponse({ ok: true, status: "inserted", id: ins.id, customer_id: relatedId, sale_id: saleId, assigned_user_id: assignedUserId });
+  return jsonResponse({ ok: true, status: "inserted", id: ins.id, created_lead: createdLead, customer_id: relatedId, sale_id: saleId, assigned_user_id: assignedUserId });
 });

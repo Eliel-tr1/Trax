@@ -21,6 +21,35 @@ const sameNum = (a, b) => {
 };
 const isOwn = (v) => OWN_NUMBERS.some((n) => sameNum(n, v));
 
+// Voicenter's `time` is Israel wall-clock encoded as if it were UTC (first
+// real CDR 11/10/2026: ivruniqueid 20261011172723..., n8n received it at
+// 14:30Z, time decoded to 17:27Z = 3h in the future). The ivruniqueid prefix
+// YYYYMMDDHHmmss is the same Israel wall-clock; convert it to real UTC with
+// the Asia/Jerusalem offset of that moment (DST-aware).
+function jerusalemOffsetMs(utcMs) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Jerusalem', hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  }).formatToParts(new Date(utcMs)).map((x) => [x.type, x.value]));
+  return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second) - utcMs;
+}
+function israelWallToIso(y, mo, d, h, mi, s) {
+  const naive = Date.UTC(y, mo - 1, d, h, mi, s);
+  let utc = naive - jerusalemOffsetMs(naive);
+  utc = naive - jerusalemOffsetMs(utc); // second pass settles DST edges
+  return new Date(utc).toISOString();
+}
+function occurredAtFrom(b) {
+  const m = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/.exec(String(b.ivruniqueid || ''));
+  if (m) return israelWallToIso(+m[1], +m[2], +m[3], +m[4], +m[5], +m[6]);
+  const t = Number(b.time);
+  if (Number.isFinite(t) && t > 1e9) {
+    const d = new Date(t * 1000);
+    return israelWallToIso(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate(), d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds());
+  }
+  return null;
+}
+
 const out = [];
 for (const item of $input.all()) {
   const j = item.json;
@@ -56,6 +85,10 @@ for (const item of $input.all()) {
   else if (dirRaw === 'outgoing') dir = 'יוצאת';
   else if (incomingTypes.includes(typeKey)) dir = 'נכנסת';
   else if (outgoingTypes.includes(typeKey)) dir = 'יוצאת';
+  // A rep's extension on one side settles it: callerextension = the rep
+  // dialed out (caller may be the rep's own mobile, e.g. "זרקוש - 0539694863").
+  if (!dir && b.callerextension && !b.targetextension) dir = 'יוצאת';
+  if (!dir && b.targetextension && !b.callerextension) dir = 'נכנסת';
 
   const caller = b.callerPhone || b.caller || '';
   const target = b.target || (b.dialerData && b.dialerData.Phone) || b.Phone || '';
@@ -77,8 +110,7 @@ for (const item of $input.all()) {
   else if (st === 'VOICEMAIL' || typeKey === 'voicemail') result = 'השאיר הודעה';
   else if (st) result = 'לא נענתה';
 
-  const t = Number(b.time);
-  const occurred_at = Number.isFinite(t) && t > 1e9 ? new Date(t * 1000).toISOString() : null;
+  const occurred_at = occurredAtFrom(b);
   const durRaw = b.actualCallDuration ?? b.duration;
   const duration_seconds = durRaw === undefined || durRaw === '' || durRaw === null ? null : Number(durRaw);
 
@@ -92,9 +124,14 @@ for (const item of $input.all()) {
     const parts = [];
     if (ins.summary) parts.push(String(ins.summary));
     else if (ai.summary) parts.push(String(ai.summary));
+    // Only questions TRAX defined itself. Voicenter's built-in "support"
+    // category questions (source inherited_category: keyword arrays, resolved
+    // true/false, agent score) are noise for a sales rep (Sahar 11/10/2026).
     if (Array.isArray(ins.questions)) {
       for (const q of ins.questions) {
-        if (q && q.answer !== undefined && q.answer !== null && q.answer !== '') {
+        if (!q || q.source === 'inherited_category' || /^keywords_/.test(q.key || '')) continue;
+        if (Array.isArray(q.answer) && !q.answer.length) continue;
+        if (q.answer !== undefined && q.answer !== null && q.answer !== '') {
           parts.push(`${q.key || q.question}: ${typeof q.answer === 'string' ? q.answer : JSON.stringify(q.answer)}`);
         }
       }
