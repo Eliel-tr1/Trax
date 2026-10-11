@@ -95,10 +95,10 @@ Deno.serve(async (req: Request) => {
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-  if (body.skip_reason) {
-    await logUnmatched(admin, `voicenter: skipped ivruniqueid=${ivr} reason=${body.skip_reason} type=${body.voicenter_type ?? ""} exec=${body.execution_url ?? ""}`);
-    return jsonResponse({ ok: true, status: "skipped", reason: body.skip_reason, ivruniqueid: ivr });
-  }
+  // EVERY call is stored, no exceptions (Sahar 11/10/2026): internal calls,
+  // Click2Call leg1 and calls without a customer number included. n8n's
+  // skip_reason is kept only as information in the function log.
+  if (body.skip_reason) console.log(`voicenter-call-sync: note ivruniqueid=${ivr} ${body.skip_reason}`);
 
   const e164 = body.customer_phone_raw ? toE164(String(body.customer_phone_raw)) : null;
   let customerId: string | null = null;
@@ -123,11 +123,6 @@ Deno.serve(async (req: Request) => {
     .eq("external_call_id", ivr)
     .limit(1)
     .maybeSingle();
-
-  if (!customerId && !existing && !e164) {
-    await logUnmatched(admin, `voicenter: no customer phone ivruniqueid=${ivr} direction=${body.direction ?? ""} exec=${body.execution_url ?? ""}`);
-    return jsonResponse({ ok: true, status: "no_phone", ivruniqueid: ivr });
-  }
 
   // Rep on the call (best effort, by app_users.full_name).
   let assignedUserId: string | null = null;

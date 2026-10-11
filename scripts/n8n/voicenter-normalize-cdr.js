@@ -74,6 +74,7 @@ for (const item of $input.all()) {
   const typeKey = typeRaw.toLowerCase().replace(/[\s_]/g, '');
   const dirRaw = String(b.direction ?? '').toLowerCase();
 
+  // Informational only: voicenter-call-sync stores EVERY call (Sahar 11/10/2026).
   let skip_reason = null;
   if (dirRaw === 'internal') skip_reason = 'internal call';
   if (/leg1$/.test(typeKey) && (typeKey.includes('click2call') || typeKey.includes('productivecall') || typeKey.includes('attended'))) skip_reason = `leg1 of ${typeRaw} (leg2 carries the call + recording)`;
