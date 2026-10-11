@@ -65,7 +65,7 @@ export function phoneCallsColumns(users, refresh) {
     { source: 'summary', label: 'סיכום AI', hidden: true, sortable: false, csv: r => r.summary,
       render: r => r.summary ? <span className="small">{r.summary}</span> : '-' },
     { source: 'business_unit', label: 'יחידה עסקית', hidden: true, csv: r => r.business_unit, render: r => r.business_unit || '-' },
-    ...extraHiddenColumns('phone_call', ['created_at', 'related_id', 'direction', 'occurred_at', 'duration_seconds', 'result', 'assigned_user_id', 'recording_url', 'summary', 'business_unit', 'customer_phone'], { table: 'phone_calls', users, refresh }),
+    ...extraHiddenColumns('phone_call', ['created_at', 'related_id', 'direction', 'occurred_at', 'duration_seconds', 'result', 'assigned_user_id', 'recording_url', 'summary', 'business_unit', 'customer_phone', 'trax_number'], { table: 'phone_calls', users, refresh }),
     ...metadataColumns('phone_call', ['created_at'], { users }),
   ]
 }

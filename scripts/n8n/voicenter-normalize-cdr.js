@@ -91,7 +91,9 @@ for (const item of $input.all()) {
   if (!dir && b.callerextension && !b.targetextension) dir = 'יוצאת';
   if (!dir && b.targetextension && !b.callerextension) dir = 'נכנסת';
 
-  const caller = b.callerPhone || b.caller || '';
+  // b.caller first: on the first real CDR (Extension Outgoing) callerPhone held
+  // the DIALED number (= target), caller held the rep's mobile.
+  const caller = b.caller || b.callerPhone || '';
   const target = b.target || (b.dialerData && b.dialerData.Phone) || b.Phone || '';
   const did = b.did || '';
   const notOurs = (v) => isPhone(v) && !isOwn(v) && !(did && sameNum(v, did));
@@ -103,6 +105,14 @@ for (const item of $input.all()) {
     if (notOurs(caller) && !notOurs(target)) { customer = caller; dir = dir || 'נכנסת'; }
     else if (notOurs(target) && !notOurs(caller)) { customer = target; dir = dir || 'יוצאת'; }
   }
+
+  // TRAX side of the call (Sahar 11/10/2026: "שיחה יוצאת ממספר / נכנסת
+  // למספר"). Outgoing: the number the rep called FROM (caller: DID or the
+  // rep's own mobile). Incoming: the number that was called (did, else target).
+  let trax_number = null;
+  if (dir === 'יוצאת') trax_number = isPhone(caller) ? caller : (isPhone(did) ? did : null);
+  else trax_number = isPhone(did) ? did : (isPhone(target) && target !== customer ? target : null);
+  if (trax_number && customer && sameNum(trax_number, customer)) trax_number = null;
 
   const st = String(b.status ?? b.StatusName ?? '').toUpperCase();
   let result = null;
@@ -145,6 +155,9 @@ for (const item of $input.all()) {
     direction: dir,
     skip_reason,
     customer_phone_raw: customer ? String(customer) : null,
+    trax_number_raw: trax_number ? String(trax_number) : null,
+    caller_raw: caller ? String(caller) : null,
+    target_raw: target ? String(target) : null,
     occurred_at,
     duration_seconds: Number.isFinite(duration_seconds) ? duration_seconds : null,
     result,

@@ -13,6 +13,7 @@
 //   direction: "נכנסת" | "יוצאת" | null,
 //   skip_reason: string | null,     // set by n8n for internal / leg1 calls
 //   customer_phone_raw: string|null,// the side that is NOT a TRAX extension/DID
+//   trax_number_raw: string|null,   // TRAX side: outgoing FROM / incoming TO
 //   occurred_at: ISO string | null,
 //   duration_seconds: number | null,
 //   result: "נענתה" | "לא נענתה" | "תפוס" | "השאיר הודעה" | null,
@@ -124,10 +125,19 @@ Deno.serve(async (req: Request) => {
     .limit(1)
     .maybeSingle();
 
-  // Rep on the call (best effort, by app_users.full_name).
+  // Rep on the call (Sahar 11/10/2026): the user whose app_users.phone is ON
+  // the call, TRAX side first (the number the rep called from / that was
+  // called), then the other side (rep-to-rep calls). Fallback: Voicenter's
+  // representative_name vs app_users.full_name.
+  const traxE164 = body.trax_number_raw ? toE164(String(body.trax_number_raw)) : null;
+  const tail9 = (v: unknown) => String(v ?? "").replace(/\D/g, "").slice(-9);
   let assignedUserId: string | null = null;
-  if (body.representative_name) {
-    const { data: users } = await admin.from("app_users").select("id, full_name");
+  const { data: users } = await admin.from("app_users").select("id, full_name, phone");
+  for (const num of [traxE164, e164]) {
+    if (assignedUserId || !num) continue;
+    assignedUserId = (users || []).find((u) => u.phone && tail9(u.phone).length === 9 && tail9(u.phone) === tail9(num))?.id ?? null;
+  }
+  if (!assignedUserId && body.representative_name) {
     const want = normalizeName(body.representative_name);
     assignedUserId = (users || []).find((u) => normalizeName(u.full_name) === want)?.id ?? null;
   }
@@ -169,6 +179,7 @@ Deno.serve(async (req: Request) => {
   // Only overwrite AI text/assignee when this CDR actually carries it, so a
   // retry without aiData never blanks a transcript that already arrived.
   if (e164) row.customer_phone = e164;
+  if (traxE164) row.trax_number = traxE164;
   if (body.transcript) row.transcript = body.transcript;
   if (body.summary) row.summary = body.summary;
   if (assignedUserId) row.assigned_user_id = assignedUserId;

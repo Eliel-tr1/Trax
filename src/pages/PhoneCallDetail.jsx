@@ -64,6 +64,9 @@ export default function PhoneCallDetail() {
 
   if (loading) return <div className="empty"><span className="spinner" /></div>
   if (!c) return <div className="card"><div className="empty">שיחה לא נמצאה.</div></div>
+  const out = c.direction === 'יוצאת'
+  // Transcript/summary arrive one turn per line; render the line breaks.
+  const multiline = (v) => v ? <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7, fontWeight: 400 }}>{v}</div> : undefined
 
   return (
     <RecordLayout
@@ -85,8 +88,14 @@ export default function PhoneCallDetail() {
               extraItem={newLead || undefined}
               onChange={v => { if (!v) return; save('related_id', v); if (c.related_type !== 'customer') save('related_type', 'customer') }} />
           </div>
+          {/* Both sides of the call (Sahar 11/10/2026): the TRAX side ("יוצאת
+              ממספר" / "נכנסת למספר") and the other side. data/049. */}
           <div className="ef">
-            <span className="ef-label">טלפון הצד השני</span>
+            <span className="ef-label">{out ? 'שיחה יוצאת ממספר' : 'שיחה נכנסת למספר'}</span>
+            <span className="ef-val"><PhoneDisplay value={c.trax_number} /></span>
+          </div>
+          <div className="ef">
+            <span className="ef-label">{out ? 'שיחה יוצאת למספר' : 'שיחה נכנסת ממספר'}</span>
             <span className="ef-val" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
               <PhoneDisplay value={c.customer_phone} />
               {!c.related_id && c.customer_phone && (
@@ -109,8 +118,17 @@ export default function PhoneCallDetail() {
           </div>
         </div>
         <div style={{ marginTop: 10 }}><CallRecordingPlayer url={c.recording_url} /></div>
-        <div style={{ marginTop: 10 }}><EditField label="תמליל" value={c.transcript} type="textarea" readOnly readOnlyReason="מגיע אוטומטית מתמלול השיחה" /></div>
-        <div style={{ marginTop: 10 }}><EditField label="סיכום AI" value={c.summary} type="textarea" readOnly readOnlyReason="מגיע אוטומטית מ-Voicenter (סיכום AI)" /></div>
+        {/* Separate download link (Sahar 11/10/2026), independent of the
+            player. Voicenter links need a Voicenter session until the API key
+            lets n8n copy recordings into Storage. */}
+        {c.recording_url && (
+          <div className="ef" style={{ marginTop: 6 }}>
+            <span className="ef-label">הורדת השיחה</span>
+            <span className="ef-val"><a href={c.recording_url} target="_blank" rel="noreferrer" download>הורדת קובץ ההקלטה</a></span>
+          </div>
+        )}
+        <div style={{ marginTop: 10 }}><EditField label="תמליל" value={c.transcript} display={multiline(c.transcript)} type="textarea" readOnly readOnlyReason="מגיע אוטומטית מתמלול השיחה" /></div>
+        <div style={{ marginTop: 10 }}><EditField label="סיכום AI" value={c.summary} display={multiline(c.summary)} type="textarea" readOnly readOnlyReason="מגיע אוטומטית מ-Voicenter (סיכום AI)" /></div>
 
         {/* Wasn't rendered before despite the import — phone_calls had no
             system-fields tab at all, so execution_url/business_unit/audit
