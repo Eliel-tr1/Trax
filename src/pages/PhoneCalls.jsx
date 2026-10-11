@@ -67,6 +67,14 @@ export function phoneCallsColumns(users, refresh) {
     { source: 'business_unit', label: 'יחידה עסקית', hidden: true, csv: r => r.business_unit, render: r => r.business_unit || '-' },
     ...extraHiddenColumns('phone_call', ['created_at', 'related_id', 'direction', 'occurred_at', 'duration_seconds', 'result', 'assigned_user_id', 'recording_url', 'summary', 'business_unit', 'customer_phone', 'trax_number'], { table: 'phone_calls', users, refresh }),
     ...metadataColumns('phone_call', ['created_at'], { users }),
+    // Every field must be offered in the columns picker (Sahar 11/10/2026).
+    // Appended LAST so users' saved column layouts keep their order.
+    { source: 'trax_number', label: 'מספר TRAX בשיחה', hidden: true, sortable: false, csv: r => r.trax_number,
+      render: r => <PhoneDisplay value={r.trax_number} /> },
+    { source: 'customer_phone', label: 'מספר הצד השני', hidden: true, sortable: false, csv: r => r.customer_phone,
+      render: r => <PhoneDisplay value={r.customer_phone} /> },
+    { source: 'sale_id', label: 'תהליך מכירה', hidden: true, sortable: false, csv: r => r.sale_id,
+      render: r => <RelatedLink relatedType="sale" relatedId={r.sale_id} showType={false} /> },
   ]
 }
 
