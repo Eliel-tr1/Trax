@@ -30,9 +30,9 @@
 //   or a later CDR carrying aiData), never duplicated.
 // - Customer match: customers.mobile_phone (business_unit TRAX, not deleted),
 //   compared in both stored formats (+972XXXXXXXXX and 0XXXXXXXXX).
-// - Unknown number: NO customer is created (ADR 0005). The call is logged to
-//   automation_logs (status 'skipped', message prefixed "voicenter:") and the
-//   raw CDR stays in the n8n execution; response says unmatched.
+// - Unknown number: NO customer is created (Sahar 11/10/2026). The call is
+//   stored unlinked (related_id null, customer_phone set); the rep opens a
+//   lead from the call screen ("הקמת ליד", create_lead_from_call in 048).
 // - Sale link: OPEN sale of the customer, else the latest one (same rule as
 //   fireberry-call-sync, Sahar 16.09).
 
@@ -44,17 +44,6 @@ const BUSINESS_UNIT = "TRAX";
 const CLOSED_STAGES = ["נסגר בהצלחה", "עסקה הופסדה"];
 const VALID_RESULTS = ["נענתה", "לא נענתה", "תפוס", "השאיר הודעה"];
 const VALID_DIRECTIONS = ["נכנסת", "יוצאת"];
-const LEAD_SOURCE_UNKNOWN = "לא מוכר"; // migration 048
-// גולדי: default owner when the call's rep is not matched (same id as
-// wf05a-crm-sync/lead-intake). Also authors the feed notes: the service role
-// has no auth.users identity, so the feed would otherwise show "מערכת".
-const DEFAULT_OWNER_ID = "772a4955-5302-475a-ba69-2e3a2929d0f0";
-
-async function insertNote(admin: ReturnType<typeof createClient>, relatedType: string, relatedId: string, content: string) {
-  const { error } = await admin.from("notes").insert({ related_type: relatedType, related_id: relatedId, content, created_by: DEFAULT_OWNER_ID });
-  if (error) console.error("voicenter-call-sync: note insert failed", error.message);
-}
-
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 }
@@ -140,7 +129,7 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ ok: true, status: "no_phone", ivruniqueid: ivr });
   }
 
-  // Rep match first: the new lead (if any) is owned by the rep on the call.
+  // Rep on the call (best effort, by app_users.full_name).
   let assignedUserId: string | null = null;
   if (body.representative_name) {
     const { data: users } = await admin.from("app_users").select("id, full_name");
@@ -151,46 +140,23 @@ Deno.serve(async (req: Request) => {
   const direction = VALID_DIRECTIONS.includes(body.direction) ? body.direction : "נכנסת";
   const occurredAt = body.occurred_at || new Date().toISOString();
 
-  // Unknown number -> open a new lead (Sahar 11/10/2026, replaces the ADR
-  // 0005/0009 "never create" rule): lead_source 'לא מוכר', note that the
-  // call came through Voicenter while the lead was not yet in the CRM. The
-  // customers_auto_create_sale trigger opens the sale on the default journey.
-  let createdLead = false;
-  if (!customerId && !existing) {
-    const local = "0" + e164!.replace(/^\+972/, "");
-    const when = new Date(occurredAt).toLocaleString("he-IL", { timeZone: "Asia/Jerusalem", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }).replace(",", "");
-    const noteText = `נרשמה שיחה ${direction} דרך Voicenter ב${when}${body.representative_name ? ` (נציג: ${body.representative_name})` : ""}. בעת קבלת השיחה הליד לא היה במערכת, ולכן נפתח אוטומטית.`;
-    const ownerId = assignedUserId ?? DEFAULT_OWNER_ID;
-    const { data: cust, error: cErr } = await admin.from("customers").insert({
-      first_name: "ליד טלפוני",
-      last_name: local,
-      mobile_phone: e164,
-      business_unit: BUSINESS_UNIT,
-      lead_source: LEAD_SOURCE_UNKNOWN,
-      notes: noteText,
-      owner_id: ownerId,
-      account_manager_id: ownerId,
-      execution_url: body.execution_url || null,
-    }).select("id").single();
-    if (cErr) return jsonResponse({ ok: false, status: "error", reason: `create lead: ${cErr.message}` }, 500);
-    customerId = cust.id;
-    createdLead = true;
-    await insertNote(admin, "customer", cust.id, noteText);
-    const { data: autoSale } = await admin.from("sales").select("id").eq("customer_id", cust.id).is("deleted_at", null).order("created_at", { ascending: false }).limit(1).maybeSingle();
-    if (autoSale) await insertNote(admin, "sale", autoSale.id, noteText);
+  // Unknown number: NEVER create a lead (Sahar 11/10/2026). The call is
+  // stored UNLINKED (related_id null) with customer_phone; a rep opens the
+  // lead from the call screen ("הקמת ליד" -> create_lead_from_call, 048).
+  const relatedId: string | null = customerId ?? existing?.related_id ?? null;
+
+  let saleId: string | null = null;
+  if (relatedId) {
+    const { data: sales } = await admin
+      .from("sales")
+      .select("id, stage")
+      .eq("customer_id", relatedId)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false })
+      .limit(10);
+    const openSale = (sales || []).find((s) => !CLOSED_STAGES.includes(s.stage));
+    saleId = openSale?.id ?? (sales && sales.length ? sales[0].id : null);
   }
-
-  const relatedId = customerId ?? existing!.related_id;
-
-  const { data: sales } = await admin
-    .from("sales")
-    .select("id, stage")
-    .eq("customer_id", relatedId)
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false })
-    .limit(10);
-  const openSale = (sales || []).find((s) => !CLOSED_STAGES.includes(s.stage));
-  const saleId = openSale?.id ?? (sales && sales.length ? sales[0].id : null);
 
   const row: Record<string, unknown> = {
     related_type: "customer",
@@ -207,6 +173,7 @@ Deno.serve(async (req: Request) => {
   };
   // Only overwrite AI text/assignee when this CDR actually carries it, so a
   // retry without aiData never blanks a transcript that already arrived.
+  if (e164) row.customer_phone = e164;
   if (body.transcript) row.transcript = body.transcript;
   if (body.summary) row.summary = body.summary;
   if (assignedUserId) row.assigned_user_id = assignedUserId;
@@ -218,5 +185,5 @@ Deno.serve(async (req: Request) => {
   }
   const { data: ins, error } = await admin.from("phone_calls").insert(row).select("id").single();
   if (error) return jsonResponse({ ok: false, status: "error", reason: `insert: ${error.message}` }, 500);
-  return jsonResponse({ ok: true, status: "inserted", id: ins.id, created_lead: createdLead, customer_id: relatedId, sale_id: saleId, assigned_user_id: assignedUserId });
+  return jsonResponse({ ok: true, status: "inserted", id: ins.id, linked: !!relatedId, customer_id: relatedId, sale_id: saleId, assigned_user_id: assignedUserId });
 });

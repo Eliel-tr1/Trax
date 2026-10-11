@@ -12,6 +12,8 @@ import { formatDateTime } from '../lib/format'
 import StatusBadge from '../components/StatusBadge'
 import FieldTabs from '../components/FieldTabs'
 import SystemFieldsTab from '../components/SystemFieldsTab'
+import { PhoneDisplay } from '../components/PhoneInput'
+import { toast } from '../components/Toaster'
 
 // Detail-only screen — phone calls are never created by hand (auto-created
 // from Voicenter/Max, see schema.js's comment on `phone_call`). Everything
@@ -39,6 +41,22 @@ export default function PhoneCallDetail() {
 
   const save = async (field, value) => { setC(x => ({ ...x, [field]: value })); await updateField('phone_calls', c, field, value) }
 
+  // "הקמת ליד" (Sahar 11/10/2026): a call from/to a number not in the CRM is
+  // stored unlinked. One click opens a lead for that number (or reuses a
+  // customer that already has it) and links ALL unlinked calls with it,
+  // server-side in create_lead_from_call (data/048).
+  const [creating, setCreating] = useState(false)
+  const createLead = async () => {
+    setCreating(true)
+    const { data, error } = await supabase.rpc('create_lead_from_call', { p_call_id: id })
+    setCreating(false)
+    if (error) { toast(error.message || 'הקמת הליד נכשלה', 'err'); return }
+    toast(data.created ? `נפתח ליד חדש, שויכו ${data.linked_calls} שיחות` : `המספר כבר קיים במערכת, שויכו ${data.linked_calls} שיחות ללקוח`)
+    setOpts(await loadOptions(true))
+    const { data: fresh } = await supabase.from('phone_calls').select('*').eq('id', id).single()
+    if (fresh) setC(fresh)
+  }
+
   if (loading) return <div className="empty"><span className="spinner" /></div>
   if (!c) return <div className="card"><div className="empty">שיחה לא נמצאה.</div></div>
 
@@ -54,12 +72,23 @@ export default function PhoneCallDetail() {
         <div className="field-grid">
           <div className="ef">
             <span className="ef-label">לקוח</span>
-            {/* related_id is NOT NULL on phone_calls (see docs/decisions/0005),
-                so this picker never offers a "none" option — only a swap to a
-                different customer, e.g. to fix a bad phone-match from the sync. */}
+            {/* related_id is null when the number was not in the CRM at call
+                time (data/048). The picker can still link it to an existing
+                customer by hand; "הקמת ליד" opens a new one for this number. */}
             <EntityPicker resource="customers" value={c.related_type === 'customer' ? c.related_id : null}
-              placeholder="בחרו לקוח" allowEmpty={false}
+              placeholder={c.related_id ? 'בחרו לקוח' : 'לא משויך, בחרו לקוח קיים'} allowEmpty={false}
               onChange={v => { if (!v) return; save('related_id', v); if (c.related_type !== 'customer') save('related_type', 'customer') }} />
+          </div>
+          <div className="ef">
+            <span className="ef-label">טלפון הצד השני</span>
+            <span className="ef-val" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <PhoneDisplay value={c.customer_phone} />
+              {!c.related_id && c.customer_phone && (
+                <button className="btn sm" onClick={createLead} disabled={creating}>
+                  {creating ? 'יוצר...' : 'הקמת ליד'}
+                </button>
+              )}
+            </span>
           </div>
           <EditField label="כיוון" value={c.direction} readOnly readOnlyReason="מגיע אוטומטית מהטלפוניה (Voicenter/Max)" />
           <EditField label="תאריך ושעה" value={formatDateTime(c.occurred_at)} readOnly readOnlyReason="מגיע אוטומטית מהטלפוניה" />
@@ -75,7 +104,7 @@ export default function PhoneCallDetail() {
         </div>
         <div style={{ marginTop: 10 }}><CallRecordingPlayer url={c.recording_url} /></div>
         <div style={{ marginTop: 10 }}><EditField label="תמליל" value={c.transcript} type="textarea" readOnly readOnlyReason="מגיע אוטומטית מתמלול השיחה" /></div>
-        <div style={{ marginTop: 10 }}><EditField label="סיכום AI" value={c.summary} type="textarea" readOnly readOnlyReason="מגיע אוטומטית מ-Fireberry (סיכום AI של Voicenter)" /></div>
+        <div style={{ marginTop: 10 }}><EditField label="סיכום AI" value={c.summary} type="textarea" readOnly readOnlyReason="מגיע אוטומטית מ-Voicenter (סיכום AI)" /></div>
 
         {/* Wasn't rendered before despite the import — phone_calls had no
             system-fields tab at all, so execution_url/business_unit/audit

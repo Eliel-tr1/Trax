@@ -49,12 +49,13 @@ number format in `caller`/`target`, which values are TRAX DIDs (fill
 
 ## Update 11/10/2026 (first real CDR, execution 27083)
 
-- Unknown number now OPENS A LEAD (Sahar): customer `ליד טלפוני <local number>`,
-  lead_source `לא מוכר` (migration 048), owner = the call's rep if matched
-  else גולדי, plus a feed note on the customer and the auto-created sale
-  saying the call came through Voicenter while the lead was not in the CRM.
-  Replaces the "never create" rule above. Calls with no customer phone at
-  all are still only logged.
+- Unknown number (Sahar, final): the sync NEVER creates a lead, in or out.
+  The call is stored UNLINKED (`related_id` null, now nullable) with the other
+  side's E.164 number in `customer_phone` (migration 048). The call screen
+  shows "הקמת ליד": RPC `create_lead_from_call` opens a lead (`ליד טלפוני
+  <number>`, lead_source `לא מוכר`, owner = the clicking rep) or reuses a
+  customer that already has the number, links EVERY unlinked call with that
+  number (+ open-else-latest sale), and writes a feed note on customer + sale.
 - `time` is Israel wall-clock encoded as UTC (3h ahead in IDT). occurred_at
   now comes from the ivruniqueid prefix converted from Asia/Jerusalem.
 - Summary keeps the AI summary + TRAX-defined questions only; Voicenter's
