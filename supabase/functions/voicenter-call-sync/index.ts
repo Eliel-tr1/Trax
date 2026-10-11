@@ -127,16 +127,20 @@ Deno.serve(async (req: Request) => {
 
   // Rep on the call (Sahar 11/10/2026): the user whose app_users.phone is ON
   // the call, TRAX side first (the number the rep called from / that was
-  // called), then the other side (rep-to-rep calls). Fallback: Voicenter's
+  // called), then the other side. If BOTH are users, the dialing one. Fallback: Voicenter's
   // representative_name vs app_users.full_name.
   const traxE164 = body.trax_number_raw ? toE164(String(body.trax_number_raw)) : null;
   const tail9 = (v: unknown) => String(v ?? "").replace(/\D/g, "").slice(-9);
-  let assignedUserId: string | null = null;
   const { data: users } = await admin.from("app_users").select("id, full_name, phone");
-  for (const num of [traxE164, e164]) {
-    if (assignedUserId || !num) continue;
-    assignedUserId = (users || []).find((u) => u.phone && tail9(u.phone).length === 9 && tail9(u.phone) === tail9(num))?.id ?? null;
-  }
+  const userByNum = (num: string | null) => num ? (users || []).find((u) => u.phone && tail9(u.phone).length === 9 && tail9(u.phone) === tail9(num))?.id ?? null : null;
+  const traxUser = userByNum(traxE164);
+  const otherUser = userByNum(e164);
+  // Both sides are users (rep-to-rep call): the DIALING user wins (Sahar
+  // 11/10/2026). Outgoing: the TRAX side dialed; incoming: the other side did.
+  const isOut = body.direction === "יוצאת";
+  let assignedUserId: string | null = traxUser && otherUser
+    ? (isOut ? traxUser : otherUser)
+    : (traxUser ?? otherUser);
   if (!assignedUserId && body.representative_name) {
     const want = normalizeName(body.representative_name);
     assignedUserId = (users || []).find((u) => normalizeName(u.full_name) === want)?.id ?? null;
