@@ -64,3 +64,14 @@ number format in `caller`/`target`, which values are TRAX DIDs (fill
 - Recording URLs (`cpanel.voicenter.co.il/.../*.enc`) return 403 without a
   Voicenter session; the CRM player cannot play them until a Voicenter API
   token lets n8n copy the file to Supabase Storage (requested from Voicenter).
+
+## Retro import 12/10/2026
+
+All 116 calls in the TRAX Voicenter account (23/08 to 11/10) were pulled from
+the Call Log API and pushed through the same n8n webhook (scripts/voicenter-
+retro-build.js). Call Log rows carry no aiData, so retro calls have no
+transcript/summary. TRAX side with no user phone match falls back to the rep
+Voicenter names for the extension, so the dialer rule still holds for reps'
+Voicenter lines (053-969-4863 זרקוש, 053-969-5154 גולדי). Recording links are
+Voicenter panel URLs behind a Cloudflare browser challenge: the API code does
+not unlock them, a recording-download method from Voicenter is still needed.
