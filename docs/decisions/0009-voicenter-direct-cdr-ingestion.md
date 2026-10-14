@@ -75,3 +75,11 @@ Voicenter names for the extension, so the dialer rule still holds for reps'
 Voicenter lines (053-969-4863 זרקוש, 053-969-5154 גולדי). Recording links are
 Voicenter panel URLs behind a Cloudflare browser challenge: the API code does
 not unlock them, a recording-download method from Voicenter is still needed.
+
+## Recordings + transcripts (14/10/2026)
+
+voicenter-call-enrich (data/051) pulls Voicenter's Call History API per call,
+decrypts transcript + MP3 and stores the MP3 in private bucket call-recordings.
+Live calls: the n8n workflow calls it right after voicenter-call-sync (node
+"העשרה: הקלטה ותמליל", 3 retries), no schedule (Sahar: immediate, not polled).
+Past calls: run once with {missing:true} until nothing is left.
