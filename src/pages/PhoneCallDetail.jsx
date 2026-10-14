@@ -160,12 +160,18 @@ export default function PhoneCallDetail() {
           <div className="ef" style={{ marginTop: 10 }}>
             <span className="ef-label">הקלטה</span>
             <span className="ef-val" style={{ fontWeight: 400 }}>
-              <span className="muted">ההקלטה עוד לא הועתקה למערכת. בינתיים: </span>
-              <a href={c.recording_url} target="_blank" rel="noreferrer">פתיחת ההקלטה בפאנל Voicenter</a>
+              <span className="muted">ההקלטה עוד לא הועתקה למערכת. </span>
+              <a href={c.recording_url} target="_blank" rel="noreferrer">פתיחת השיחה ב-Voicenter (הקלטה וניתוח)</a>
             </span>
           </div>
         ) : (
           <div style={{ marginTop: 10 }}><CallRecordingPlayer url={c.recording_url} /></div>
+        )}
+        {voicenterPanel && c.recording_path && (
+          <div className="ef" style={{ marginTop: 6 }}>
+            <span className="ef-label">השיחה המלאה במרכזיה</span>
+            <span className="ef-val"><a href={c.recording_url} target="_blank" rel="noreferrer">פתיחת השיחה ב-Voicenter (הקלטה וניתוח)</a></span>
+          </div>
         )}
         <div style={{ marginTop: 10 }}><EditField label="תמליל" value={c.transcript} display={multiline(c.transcript)} type="textarea" readOnly readOnlyReason="מגיע אוטומטית מתמלול השיחה" /></div>
         <div style={{ marginTop: 10 }}><EditField label="סיכום AI" value={c.summary} display={multiline(c.summary)} type="textarea" readOnly readOnlyReason="מגיע אוטומטית מ-Voicenter (סיכום AI)" /></div>
