@@ -51,6 +51,21 @@ export default function PhoneCallDetail() {
   // "הקמת ליד" opens a form first (Sahar 11/10/2026): full name REQUIRED,
   // the rest optional. The RPC (data/050) also refuses an empty name.
   const [leadForm, setLeadForm] = useState(null)
+  // Recording copied into the private bucket by voicenter-call-enrich (data/051):
+  // play + download through short-lived signed URLs.
+  const [rec, setRec] = useState({ play: null, download: null })
+  useEffect(() => {
+    let live = true
+    setRec({ play: null, download: null })
+    if (c?.recording_path) {
+      const b = supabase.storage.from('call-recordings')
+      Promise.all([
+        b.createSignedUrl(c.recording_path, 3600),
+        b.createSignedUrl(c.recording_path, 3600, { download: `שיחה-${(c.occurred_at || '').slice(0, 10)}-${c.customer_phone || c.external_call_id}.mp3` }),
+      ]).then(([p, d]) => { if (live) setRec({ play: p.data?.signedUrl || null, download: d.data?.signedUrl || null }) })
+    }
+    return () => { live = false }
+  }, [c?.recording_path])
   const openLeadForm = () => setLeadForm({ full_name: '', email: '', lead_source: 'לא מוכר', note: '' })
   const createLead = async () => {
     if (!leadForm?.full_name.trim()) { toast('יש להזין שם מלא', 'err'); return }
@@ -130,24 +145,27 @@ export default function PhoneCallDetail() {
             work inside a logged-in Voicenter session: the player stays silent
             and "download" opens the Voicenter dashboard. Until recordings are
             copied into our Storage, say so honestly instead of a dead player. */}
-        {voicenterPanel ? (
+        {c.recording_path ? (
+          <>
+            <div style={{ marginTop: 10 }}><CallRecordingPlayer url={rec.play} /></div>
+            {rec.download && (
+              <div className="ef" style={{ marginTop: 6 }}>
+                <span className="ef-label">הורדת השיחה</span>
+                <span className="ef-val"><a href={rec.download}>הורדת קובץ ההקלטה (MP3)</a></span>
+              </div>
+            )}
+          </>
+        ) : voicenterPanel ? (
+          /* Not copied yet (Voicenter panel links need a Voicenter session). */
           <div className="ef" style={{ marginTop: 10 }}>
             <span className="ef-label">הקלטה</span>
             <span className="ef-val" style={{ fontWeight: 400 }}>
-              <span className="muted">ההשמעה וההורדה מתוך המערכת יופעלו אחרי חיבור ה-API של Voicenter. בינתיים: </span>
+              <span className="muted">ההקלטה עוד לא הועתקה למערכת. בינתיים: </span>
               <a href={c.recording_url} target="_blank" rel="noreferrer">פתיחת ההקלטה בפאנל Voicenter</a>
             </span>
           </div>
         ) : (
-          <>
-            <div style={{ marginTop: 10 }}><CallRecordingPlayer url={c.recording_url} /></div>
-            {c.recording_url && (
-              <div className="ef" style={{ marginTop: 6 }}>
-                <span className="ef-label">הורדת השיחה</span>
-                <span className="ef-val"><a href={c.recording_url} target="_blank" rel="noreferrer" download>הורדת קובץ ההקלטה</a></span>
-              </div>
-            )}
-          </>
+          <div style={{ marginTop: 10 }}><CallRecordingPlayer url={c.recording_url} /></div>
         )}
         <div style={{ marginTop: 10 }}><EditField label="תמליל" value={c.transcript} display={multiline(c.transcript)} type="textarea" readOnly readOnlyReason="מגיע אוטומטית מתמלול השיחה" /></div>
         <div style={{ marginTop: 10 }}><EditField label="סיכום AI" value={c.summary} display={multiline(c.summary)} type="textarea" readOnly readOnlyReason="מגיע אוטומטית מ-Voicenter (סיכום AI)" /></div>

@@ -61,7 +61,8 @@ export function phoneCallsColumns(users, refresh) {
         ? <UserEditableCell row={r} table="phone_calls" field="assigned_user_id" users={users} placeholder="בחרו נציג" onSaved={() => refresh()} />
         : <span className="muted">{nameFor(r.assigned_user_id)}</span> },
     { source: 'recording_url', label: 'הקלטה', hidden: true, sortable: false, csv: r => r.recording_url,
-      render: r => r.recording_url ? <a href={r.recording_url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}>▶ האזנה</a> : '-' },
+      // Recordings live in a private bucket (signed URLs): play from the call screen.
+      render: r => r.recording_path ? <a href={`#/phone-calls/${r.id}`} onClick={e => e.stopPropagation()}>▶ האזנה</a> : '-' },
     { source: 'summary', label: 'סיכום AI', hidden: true, sortable: false, csv: r => r.summary,
       render: r => r.summary ? <span className="small">{r.summary}</span> : '-' },
     { source: 'business_unit', label: 'יחידה עסקית', hidden: true, csv: r => r.business_unit, render: r => r.business_unit || '-' },
@@ -73,6 +74,8 @@ export function phoneCallsColumns(users, refresh) {
       render: r => <PhoneDisplay value={r.trax_number} /> },
     { source: 'customer_phone', label: 'מספר הצד השני', hidden: true, sortable: false, csv: r => r.customer_phone,
       render: r => <PhoneDisplay value={r.customer_phone} /> },
+    { source: 'enriched_at', label: 'הקלטה ותמליל נמשכו', hidden: true, csv: r => r.enriched_at,
+      render: r => <span className="small">{r.enriched_at ? formatDateTime(r.enriched_at) : '-'}</span> },
     { source: 'sale_id', label: 'תהליך מכירה', hidden: true, sortable: false, csv: r => r.sale_id,
       render: r => <RelatedLink relatedType="sale" relatedId={r.sale_id} showType={false} /> },
   ]

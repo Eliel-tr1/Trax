@@ -133,18 +133,18 @@ Deno.serve(async (req: Request) => {
   const tail9 = (v: unknown) => String(v ?? "").replace(/\D/g, "").slice(-9);
   const { data: users } = await admin.from("app_users").select("id, full_name, phone");
   const userByNum = (num: string | null) => num ? (users || []).find((u) => u.phone && tail9(u.phone).length === 9 && tail9(u.phone) === tail9(num))?.id ?? null : null;
-  const traxUser = userByNum(traxE164);
+  const userByName = (name: unknown) => name ? (users || []).find((u) => normalizeName(u.full_name) === normalizeName(String(name)))?.id ?? null : null;
+  // TRAX side = the rep's number, else the rep Voicenter names for the call's
+  // extension (their Voicenter line, e.g. 053-969-4863 for זרקוש, is not a
+  // user phone). So a rep dialing a colleague's mobile is still the dialer.
+  const traxUser = userByNum(traxE164) ?? userByName(body.representative_name);
   const otherUser = userByNum(e164);
   // Both sides are users (rep-to-rep call): the DIALING user wins (Sahar
   // 11/10/2026). Outgoing: the TRAX side dialed; incoming: the other side did.
   const isOut = body.direction === "יוצאת";
-  let assignedUserId: string | null = traxUser && otherUser
+  const assignedUserId: string | null = traxUser && otherUser
     ? (isOut ? traxUser : otherUser)
     : (traxUser ?? otherUser);
-  if (!assignedUserId && body.representative_name) {
-    const want = normalizeName(body.representative_name);
-    assignedUserId = (users || []).find((u) => normalizeName(u.full_name) === want)?.id ?? null;
-  }
 
   const direction = VALID_DIRECTIONS.includes(body.direction) ? body.direction : "נכנסת";
   const occurredAt = body.occurred_at || new Date().toISOString();
