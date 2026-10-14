@@ -52,14 +52,17 @@ export default function MiniCallPlayer({ path }) {
   }
 
   return (
-    <span onClick={e => e.stopPropagation()} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 170, direction: 'ltr' }}>
-      <button type="button" className="btn subtle sm" onClick={toggle} disabled={loading}
-        aria-label={playing ? 'השהיה' : 'השמעה'} style={{ padding: '2px 6px', lineHeight: 1 }}>
+    // Fixed width: the time counter appearing on play used to widen the cell and
+    // push the play/pause button out of view (Sahar 14/10: "no pause").
+    <span onClick={e => e.stopPropagation()} style={{ display: 'inline-flex', flexDirection: 'row-reverse', alignItems: 'center', gap: 6, width: 196, direction: 'ltr' }}>
+      <button type="button" className={playing ? 'btn sm' : 'btn subtle sm'} onClick={toggle} disabled={loading}
+        aria-label={playing ? 'השהיה' : 'השמעה'} title={playing ? 'השהיה' : 'השמעה'}
+        style={{ padding: '2px 6px', lineHeight: 1, flexShrink: 0 }}>
         {loading ? <span className="spinner" style={{ width: 12, height: 12 }} /> : playing ? <Pause size={13} /> : <Play size={13} />}
       </button>
       <input type="range" min={0} max={dur || 0} step={0.1} value={t} onChange={seek} onClick={e => e.stopPropagation()}
-        disabled={!src} style={{ width: 90, accentColor: 'var(--mp)' }} aria-label="ציר זמן" />
-      <span className="small muted" style={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+        disabled={!src} style={{ width: 84, minWidth: 0, flexShrink: 1, accentColor: 'var(--mp)' }} aria-label="ציר זמן" />
+      <span className="small muted" style={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', width: 62, flexShrink: 0 }}>
         {src ? `${fmt(t)}/${fmt(dur)}` : ''}
       </span>
       <audio ref={audioRef} preload="none"
