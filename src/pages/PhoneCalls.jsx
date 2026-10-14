@@ -14,6 +14,7 @@ import UserEditableCell from '../components/UserEditableCell'
 import RelatedLink from '../components/RelatedLink'
 import StatusBadge from '../components/StatusBadge'
 import { PhoneDisplay } from '../components/PhoneInput'
+import MiniCallPlayer from '../components/MiniCallPlayer'
 
 const directionOpts = enumOpts(CALL_DIRECTIONS)
 const resultOpts = enumOpts(CALL_RESULTS)
@@ -60,13 +61,16 @@ export function phoneCallsColumns(users, refresh) {
       render: r => refresh
         ? <UserEditableCell row={r} table="phone_calls" field="assigned_user_id" users={users} placeholder="בחרו נציג" onSaved={() => refresh()} />
         : <span className="muted">{nameFor(r.assigned_user_id)}</span> },
-    { source: 'recording_url', label: 'הקלטה', hidden: true, sortable: false, csv: r => r.recording_url,
-      // Recordings live in a private bucket (signed URLs): play from the call screen.
-      render: r => r.recording_path ? <a href={`#/phone-calls/${r.id}`} onClick={e => e.stopPropagation()}>▶ האזנה</a> : '-' },
+    // Inline player (Sahar 14/10/2026): plays from the table, no navigation.
+    { source: 'recording_path', label: 'הקלטה', sortable: false, csv: r => r.recording_path,
+      render: r => <MiniCallPlayer path={r.recording_path} /> },
+    // The call in Voicenter's panel (recording + AI analysis there).
+    { source: 'recording_url', label: 'השיחה המלאה במרכזיה', hidden: true, sortable: false, csv: r => r.recording_url,
+      render: r => r.recording_url ? <a href={r.recording_url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}>פתיחה ב-Voicenter</a> : '-' },
     { source: 'summary', label: 'סיכום AI', hidden: true, sortable: false, csv: r => r.summary,
       render: r => r.summary ? <span className="small">{r.summary}</span> : '-' },
     { source: 'business_unit', label: 'יחידה עסקית', hidden: true, csv: r => r.business_unit, render: r => r.business_unit || '-' },
-    ...extraHiddenColumns('phone_call', ['created_at', 'related_id', 'direction', 'occurred_at', 'duration_seconds', 'result', 'assigned_user_id', 'recording_url', 'summary', 'business_unit', 'customer_phone', 'trax_number'], { table: 'phone_calls', users, refresh }),
+    ...extraHiddenColumns('phone_call', ['created_at', 'related_id', 'direction', 'occurred_at', 'duration_seconds', 'result', 'assigned_user_id', 'recording_url', 'recording_path', 'summary', 'business_unit', 'customer_phone', 'trax_number'], { table: 'phone_calls', users, refresh }),
     ...metadataColumns('phone_call', ['created_at'], { users }),
     // Every field must be offered in the columns picker (Sahar 11/10/2026).
     // Appended LAST so users' saved column layouts keep their order.
