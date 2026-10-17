@@ -598,15 +598,33 @@ content-type: application/json</code></pre>
 </main>
 <footer>נוצר אוטומטית מ-<code dir="ltr">supabase/functions/api-v1/index.ts</code> · TRAX CRM</footer>
 <script>
+function copyText(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    return navigator.clipboard.writeText(text);
+  }
+  return new Promise(function (resolve, reject) {
+    try {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      resolve();
+    } catch (e) { reject(e); }
+  });
+}
 document.querySelectorAll(".copy").forEach(function (b) {
   b.addEventListener("click", function () {
     var pre = document.getElementById(b.dataset.copy);
     if (!pre) return;
-    navigator.clipboard.writeText(pre.innerText).then(function () {
+    copyText(pre.innerText).then(function () {
       var t = b.textContent;
       b.textContent = "הועתק";
       setTimeout(function () { b.textContent = t; }, 1200);
-    });
+    }).catch(function () {});
   });
 });
 </script>
