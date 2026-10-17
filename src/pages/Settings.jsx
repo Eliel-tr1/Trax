@@ -34,7 +34,7 @@ const DEPARTMENTS = ['ניהול', 'מכירות', 'שירות לקוחות']
 // (seeded directly in the `permissions` table) — see RolesTab to edit them.
 const ROLE_KEY_FOR_PROFILE = { 'מנהל מערכת': 'owner', 'מנהל צוות': 'team_manager', 'נציג': 'sales_rep' }
 
-const SECTIONS = ['תצוגה', 'התראות', 'פרטי מערכת', 'אוטומציות', 'מפתחות API', 'דוקומנטציה API', 'שדות מותאמים', 'משתמשים', 'תפקידים והרשאות', 'מיזוג כפילויות', 'צ׳קליסטים', 'דיווחים', 'הדרכה', 'סל מיחזור']
+const SECTIONS = ['תצוגה', 'התראות', 'פרטי מערכת', 'אוטומציות', 'מפתחות API', 'שדות מותאמים', 'משתמשים', 'תפקידים והרשאות', 'מיזוג כפילויות', 'צ׳קליסטים', 'דיווחים', 'הדרכה', 'סל מיחזור']
 
 export default function Settings() {
   const [sec, setSec] = useState('תצוגה')
@@ -51,7 +51,6 @@ export default function Settings() {
       {sec === 'פרטי מערכת' && <SystemSettings />}
       {sec === 'אוטומציות' && <AutomationRules />}
       {sec === 'מפתחות API' && <ApiKeys />}
-      {sec === 'דוקומנטציה API' && <ApiDocsTab />}
       {sec === 'שדות מותאמים' && <SchemaTab />}
       {sec === 'משתמשים' && <RequirePermission resource="users"><UsersTab /></RequirePermission>}
       {sec === 'תפקידים והרשאות' && <RequirePermission resource="users"><RolesTab /></RequirePermission>}
@@ -320,6 +319,16 @@ function ApiKeys() {
 
   return (
     <div>
+      <div style={{ background: 'var(--xlp)', border: '1px solid var(--border-soft)', borderRadius: 'var(--rs)', padding: 12, marginBottom: 14 }}>
+        <div className="row wrap" style={{ gap: 10, alignItems: 'center' }}>
+          <div className="small" style={{ flex: 1, minWidth: 260 }}>
+            <b>דוקומנטציית API מלאה וציבורית:</b> כל האובייקטים והפעולות בעמוד אחד, לשיתוף עם מי שמתממשק (לא דורש התחברות).
+          </div>
+          <a className="btn sm" href={`${window.location.origin}/api-docs.html`} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+            <Icon name="link" size={14} /> פתיחת דף הדוקומנטציה
+          </a>
+        </div>
+      </div>
       {canCreate && (
         <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border-soft)', borderRadius: 'var(--rs)', padding: 12, marginBottom: 14 }}>
           <div className="row wrap" style={{ gap: 8 }}>
@@ -362,70 +371,6 @@ function ApiKeys() {
       <div className="muted small" style={{ marginTop: 10 }}>
         <Icon name="help" size={13} /> גיבוי/שחזור ידני דורש פונקציית שרת (Edge Function) שעדיין לא קיימת - לא זמין כאן.
       </div>
-    </div>
-  )
-}
-
-// ============================================================
-// דוקומנטציה API — self-generating docs for the real /api-v1/{object}
-// contract (supabase/functions/api-v1/index.ts's SCHEMA, exact field lists).
-// ============================================================
-const API_SCHEMA = {
-  customers: { fields: ['first_name', 'last_name', 'mobile_phone', 'email', 'business_unit', 'lead_source', 'campaign', 'status', 'notes', 'lead_rating', 'club_member', 'club_joined_at', 'credit_balance', 'extreme_experience_level', 'preferred_language', 'company', 'job_title', 'work_email', 'owner_id', 'custom', 'execution_url'] },
-  sales: { fields: ['customer_id', 'business_unit', 'stage', 'channel', 'lead_source', 'campaign', 'owner_id', 'loss_reason', 'journey_id', 'participants_count', 'expected_value', 'currency', 'qualification_rating', 'qualification_summary', 'next_call_at', 'interest_area', 'custom', 'execution_url'] },
-  journeys: { fields: ['name', 'business_unit', 'destination', 'departure_date', 'return_date', 'seats_total', 'min_seats', 'status', 'price_per_person', 'currency', 'includes_flights', 'short_description', 'page_url', 'operations_notes', 'custom', 'execution_url'] },
-  registrations: { fields: ['customer_id', 'journey_id', 'sale_id', 'status', 'amount_paid', 'currency', 'last_payment_date', 'payment_method', 'invoice_number', 'passport_valid', 'travel_insurance', 'medical_dietary_notes', 'emergency_contact', 'includes_flight_for_participant', 'custom', 'execution_url'] },
-  tasks: { fields: ['subject', 'related_type', 'related_id', 'assignee_id', 'due_at', 'status', 'priority', 'description', 'business_unit', 'execution_url'] },
-  contacts: { fields: ['customer_id', 'name', 'phone', 'email', 'role', 'execution_url'] },
-}
-
-function ApiDocsTab() {
-  const [resource, setResource] = useState('customers')
-  const FUNCTIONS = (import.meta.env.VITE_SUPABASE_URL || '').replace('.supabase.co', '.functions.supabase.co')
-  const url = `${FUNCTIONS}/api-v1`
-  const meta = API_SCHEMA[resource]
-
-  const curlList = `curl "${url}/${resource}?limit=20" \\\n  -H "Authorization: Bearer <API-KEY>"`
-  const curlGet = `curl "${url}/${resource}/<id>" \\\n  -H "Authorization: Bearer <API-KEY>"`
-  const curlCreate = `curl -X POST "${url}/${resource}" \\\n  -H "Authorization: Bearer <API-KEY>" -H "content-type: application/json" \\\n  -d '{"${meta.fields[0]}": "..."}'`
-  const curlPatch = `curl -X PATCH "${url}/${resource}/<id>" \\\n  -H "Authorization: Bearer <API-KEY>" -H "content-type: application/json" \\\n  -d '{"${meta.fields[0]}": "..."}'`
-  const curlDelete = `curl -X DELETE "${url}/${resource}/<id>" \\\n  -H "Authorization: Bearer <API-KEY>"`
-
-  return (
-    <div className="card" style={{ maxWidth: 1000 }}>
-      <div className="card-title"><Icon name="book" /> דוקומנטציית API · /api-v1</div>
-      <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border-soft)', borderRadius: 'var(--rs)', padding: 12, marginBottom: 14 }}>
-        <div className="small" style={{ lineHeight: 2 }}>
-          <b>Base URL:</b> <code dir="ltr">{url}/{'{object}'}</code><br />
-          <b>אימות:</b> כותרת <code dir="ltr">Authorization: Bearer &lt;API-KEY&gt;</code> (הפיקו מפתח בלשונית "מפתחות API").<br />
-          <b>מתודות:</b> GET (רשימה, עם <code>?limit=</code>/<code>?offset=</code>/<code>?sort=</code> ופילטרים לפי כל שדה) · GET/<code dir="ltr">{'{id}'}</code> · POST · PATCH/<code dir="ltr">{'{id}'}</code> · DELETE/<code dir="ltr">{'{id}'}</code> (מחיקה רכה בלבד).<br />
-          <b>מבנה תשובה:</b> <code dir="ltr">{'{ "data": … }'}</code>, רשימה גם עם <code dir="ltr">count</code> · שגיאה: <code dir="ltr">{'{ "error" }'}</code>.
-        </div>
-      </div>
-
-      <div className="row wrap" style={{ gap: 8, marginBottom: 14 }}>
-        {Object.keys(API_SCHEMA).map(r => (
-          <button key={r} className={`chip ${resource === r ? 'active' : ''}`} onClick={() => setResource(r)}>{r}</button>
-        ))}
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {[['רשימה', curlList], ['רשומה בודדת', curlGet], ['יצירה', curlCreate], ['עדכון', curlPatch], ['מחיקה (רכה)', curlDelete]].map(([label, ex]) => (
-          <div key={label}>
-            <div className="small muted" style={{ marginBottom: 4, fontWeight: 700 }}>{label}:</div>
-            <pre dir="ltr" style={{ background: 'var(--surface-2)', padding: 10, borderRadius: 8, fontSize: '0.72rem', overflowX: 'auto', margin: 0 }}>{ex}</pre>
-          </div>
-        ))}
-      </div>
-
-      <div className="card-title" style={{ marginTop: 20 }}><Icon name="tag" /> שדות ניתנים לכתיבה - {resource}</div>
-      <div className="table-wrap">
-        <table className="grid" style={{ fontSize: '0.82rem' }}>
-          <thead><tr><th>שדה</th></tr></thead>
-          <tbody>{meta.fields.map(f => <tr key={f}><td><code dir="ltr">{f}</code></td></tr>)}</tbody>
-        </table>
-      </div>
-      <div className="muted small" style={{ marginTop: 8 }}>שדות שנוצרים אוטומטית (קריאה בלבד): <code dir="ltr">id, created_at, updated_at, deleted_at, created_by, updated_by</code></div>
     </div>
   )
 }

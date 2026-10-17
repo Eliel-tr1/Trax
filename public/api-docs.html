@@ -1,0 +1,632 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="all" />
+<title>TRAX CRM - דוקומנטציית API</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#fff; --ink:#1c2027; --muted:#6b7280; --line:#e5e7eb;
+    --brand:#4b2e83; --accent:#f3f0fa; --ok:#0f766e; --code-bg:#1e2430; --code-ink:#e8ecf4;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Rubik,Arial,sans-serif;line-height:1.6}
+  header{background:var(--brand);color:#fff;padding:28px 20px}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+  header h1{margin:0 0 4px;font-size:1.5rem}
+  header p{margin:0;opacity:.85;font-size:.9rem}
+  main{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+  section{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:20px 22px;margin-bottom:20px}
+  h2{font-size:1.2rem;margin:0 0 12px;border-bottom:2px solid var(--accent);padding-bottom:8px}
+  h3{font-size:1.05rem;margin:22px 0 10px}
+  h4{font-size:.92rem;margin:16px 0 6px;font-weight:700}
+  code{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85em;
+    background:var(--accent);padding:1px 6px;border-radius:5px}
+  .path{background:#eef0f4}
+  .muted{color:var(--muted);font-weight:400}
+  .small{font-size:.85rem}
+  .method{font-size:.72rem;font-weight:700;padding:2px 7px;border-radius:5px;color:#fff;vertical-align:middle}
+  .method.get{background:#2563eb}.method.post{background:#0f766e}
+  .method.patch{background:#b45309}.method.delete{background:#b91c1c}
+  table{width:100%;border-collapse:collapse;font-size:.9rem;margin-top:6px}
+  th,td{text-align:right;padding:7px 10px;border-bottom:1px solid var(--line)}
+  th{background:var(--accent);font-weight:700}
+  .fields td code{background:transparent;padding:0}
+  .code{position:relative;margin:6px 0 4px}
+  .code-bar{display:flex;justify-content:flex-end;margin-bottom:5px}
+  pre{background:var(--code-bg);color:var(--code-ink);padding:14px 16px;border-radius:9px;
+    overflow-x:auto;margin:0;direction:ltr;text-align:left}
+  pre code{background:transparent;color:inherit;padding:0;font-size:.8rem}
+  .copy{background:var(--accent);color:var(--brand);border:1px solid var(--line);
+    border-radius:6px;padding:2px 12px;font-size:.72rem;cursor:pointer;font-family:inherit}
+  .copy:hover{background:#e7e0f5}
+  .note{background:var(--accent);border-inline-start:4px solid var(--brand);
+    padding:10px 14px;border-radius:8px;margin:12px 0;font-size:.9rem}
+  .nav{margin:12px 0 0;font-size:.9rem;color:rgba(255,255,255,.75)}
+  .nav a{color:#fff;text-decoration:none;font-weight:600;opacity:.92}
+  .nav a:hover{text-decoration:underline;opacity:1}
+  footer{text-align:center;color:var(--muted);font-size:.8rem;padding:20px}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>TRAX CRM - דוקומנטציית API</h1>
+    <p>ממשק REST אחיד לכל האובייקטים במערכת. נוצר אוטומטית מתוך קוד ה-API עצמו, תמיד מעודכן.</p>
+    <div class="nav">אובייקטים: <a href="#obj-customers">customers</a> | <a href="#obj-sales">sales</a> | <a href="#obj-journeys">journeys</a> | <a href="#obj-registrations">registrations</a> | <a href="#obj-tasks">tasks</a> | <a href="#obj-contacts">contacts</a></div>
+  </div>
+</header>
+<main>
+
+  <section id="overview">
+    <h2>סקירה כללית</h2>
+    <p>ה-API חושף פעולות CRUD על כל אובייקט במערכת בכתובת אחת, לפי התבנית
+      <code dir="ltr">/api-v1/{object}/{id}</code>. כל אובייקט תומך בחמש פעולות:
+      רשימה, רשומה בודדת, יצירה, עדכון ומחיקה (מחיקה היא מחיקה רכה, הרשומה מסומנת
+      כ-<code dir="ltr">deleted_at</code> ואינה נמחקת פיזית).</p>
+    <p><b>כתובת בסיס:</b></p>
+    <div class="code">
+  <div class="code-bar"><button class="copy" data-copy="base">העתקה</button></div>
+  <pre id="base"><code>https://bkjqwroclpefwtyxjfkl.supabase.co/functions/v1/api-v1</code></pre>
+</div>
+    <div class="note">כל התעבורה ב-HTTPS. אין צורך בהרשאות נוספות מעבר למפתח ה-API.</div>
+  </section>
+
+  <section id="auth">
+    <h2>אימות (Authentication)</h2>
+    <p>כל בקשה חייבת לשאת מפתח API בכותרת <code dir="ltr">Authorization</code>:</p>
+    <div class="code">
+  <div class="code-bar"><button class="copy" data-copy="auth">העתקה</button></div>
+  <pre id="auth"><code>Authorization: Bearer &lt;YOUR_API_KEY&gt;
+content-type: application/json</code></pre>
+</div>
+    <p>מפיקים מפתח במערכת: <b>הגדרות ← מפתחות API ← הפקת מפתח</b>. המפתח המלא מוצג
+      פעם אחת בלבד בעת ההפקה, יש לשמור אותו במקום מאובטח. במערכת נשמר רק ה-hash שלו.</p>
+    <p>לכל מפתח יש תפקיד (<code dir="ltr">role</code>):</p>
+    <table><thead><tr><th>תפקיד</th><th>מיועד ל</th></tr></thead><tbody>
+      <tr><td><code dir="ltr">read</code></td><td>אינטגרציות בקריאה בלבד</td></tr>
+      <tr><td><code dir="ltr">write</code></td><td>אינטגרציות שקוראות וכותבות</td></tr>
+      <tr><td><code dir="ltr">internal</code></td><td>שימוש פנימי של המערכת</td></tr>
+    </tbody></table>
+    <p class="muted small">מפתח לא תקין או לא פעיל מחזיר <code dir="ltr">401</code> עם
+      <code dir="ltr">{"error":"invalid or inactive API key"}</code>.</p>
+  </section>
+
+  <section id="endpoints">
+    <h2>נקודות קצה ופרמטרים</h2>
+    <table>
+      <thead><tr><th>פעולה</th><th>מתודה</th><th>נתיב</th></tr></thead>
+      <tbody>
+        <tr><td>רשימה</td><td><span class="method get">GET</span></td><td><code dir="ltr">/api-v1/{object}</code></td></tr>
+        <tr><td>רשומה בודדת</td><td><span class="method get">GET</span></td><td><code dir="ltr">/api-v1/{object}/{id}</code></td></tr>
+        <tr><td>יצירה</td><td><span class="method post">POST</span></td><td><code dir="ltr">/api-v1/{object}</code></td></tr>
+        <tr><td>עדכון</td><td><span class="method patch">PATCH</span></td><td><code dir="ltr">/api-v1/{object}/{id}</code></td></tr>
+        <tr><td>מחיקה (רכה)</td><td><span class="method delete">DELETE</span></td><td><code dir="ltr">/api-v1/{object}/{id}</code></td></tr>
+      </tbody>
+    </table>
+
+    <h4>פרמטרים לשאילתת רשימה (GET)</h4>
+    <table>
+      <thead><tr><th>פרמטר</th><th>משמעות</th><th>ברירת מחדל</th></tr></thead>
+      <tbody>
+        <tr><td><code dir="ltr">limit</code></td><td>מספר רשומות מקסימלי (עד 200)</td><td><code dir="ltr">50</code></td></tr>
+        <tr><td><code dir="ltr">offset</code></td><td>דילוג על רשומות (עימוד)</td><td><code dir="ltr">0</code></td></tr>
+        <tr><td><code dir="ltr">sort</code></td><td>מיון לפי שדה; <code dir="ltr">-field</code> למיון יורד</td><td>לפי הסדר הטבעי</td></tr>
+        <tr><td><code dir="ltr">&lt;field&gt;=value</code></td><td>סינון לפי כל שדה של האובייקט (התאמה מדויקת)</td><td>-</td></tr>
+      </tbody>
+    </table>
+    <p class="muted small">סינון לפי שדה שאינו קיים באובייקט מחזיר
+      <code dir="ltr">400 unknown filter field</code>.</p>
+
+    <h4>דוגמת רשימה עם סינון, מיון ועימוד</h4>
+    <div class="code">
+  <div class="code-bar"><button class="copy" data-copy="listq">העתקה</button></div>
+  <pre id="listq"><code>curl -X GET \
+  "https://bkjqwroclpefwtyxjfkl.supabase.co/functions/v1/api-v1/customers?status=%D7%9C%D7%99%D7%93%20%D7%97%D7%93%D7%A9&amp;sort=-created_at&amp;limit=20&amp;offset=0" \
+  -H "Authorization: Bearer $TRAX_API_KEY"</code></pre>
+</div>
+  </section>
+
+  <section id="responses">
+    <h2>מבנה תשובה ושגיאות</h2>
+    <p><b>הצלחה:</b> גוף JSON עם מפתח <code dir="ltr">data</code>. ברשימה מתווסף גם
+      <code dir="ltr">count</code> (המספר הכולל, לפני עימוד).</p>
+    <div class="code">
+  <div class="code-bar"><button class="copy" data-copy="resp-ok">העתקה</button></div>
+  <pre id="resp-ok"><code>{ "data": [ { "id": "...", "first_name": "..." } ], "count": 128 }</code></pre>
+</div>
+    <p><b>שגיאה:</b> גוף JSON עם <code dir="ltr">error</code>, ולעיתים גם
+      <code dir="ltr">code</code> (קוד Postgres).</p>
+    <div class="code">
+  <div class="code-bar"><button class="copy" data-copy="resp-err">העתקה</button></div>
+  <pre id="resp-err"><code>{ "error": "unknown field(s): foo", "code": "PGRST204" }</code></pre>
+</div>
+    <table>
+      <thead><tr><th>קוד</th><th>מתי</th></tr></thead>
+      <tbody>
+        <tr><td><code dir="ltr">400</code></td><td>גוף JSON לא תקין, שדה לא מוכר בגוף, או שדה סינון לא מוכר</td></tr>
+        <tr><td><code dir="ltr">401</code></td><td>חסר מפתח API, או מפתח לא תקין / לא פעיל</td></tr>
+        <tr><td><code dir="ltr">404</code></td><td>אובייקט לא מוכר, או רשומה לא נמצאה</td></tr>
+        <tr><td><code dir="ltr">405</code></td><td>מתודה לא נתמכת לנתיב (למשל POST ל-<code dir="ltr">/{id}</code>)</td></tr>
+        <tr><td><code dir="ltr">409</code></td><td>הפרת ייחודיות (<code dir="ltr">23505</code>)</td></tr>
+        <tr><td><code dir="ltr">422</code></td><td>הפרת אילוץ תקינות (<code dir="ltr">23514</code>, למשל ערך לא ברשימה מותרת)</td></tr>
+        <tr><td><code dir="ltr">500</code></td><td>שגיאה פנימית</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="objects">
+    <h2>האובייקטים (6)</h2>
+    <p class="muted small">לכל אובייקט: דוגמאות לכל חמש הפעולות, ורשימת השדות הניתנים לכתיבה.</p>
+  </section>
+
+  <section class="object" id="obj-customers">
+  <h3>customers <span class="muted">/ customers</span></h3>
+  <h4>רשימת רשומות <span class="method get">GET</span> <code dir="ltr" class="path">/customers?limit=20</code></h4>
+<div class="code">
+  <div class="code-bar"><button class="copy" data-copy="obj-customers-GET-">העתקה</button></div>
+  <pre id="obj-customers-GET-"><code>curl -X GET \
+  "https://bkjqwroclpefwtyxjfkl.supabase.co/functions/v1/api-v1/customers?limit=20" \
+  -H "Authorization: Bearer $TRAX_API_KEY"</code></pre>
+</div>
+<h4>רשומה בודדת <span class="method get">GET</span> <code dir="ltr" class="path">/customers/{id}</code></h4>
+<div class="code">
+  <div class="code-bar"><button class="copy" data-copy="obj-customers-GET-">העתקה</button></div>
+  <pre id="obj-customers-GET-"><code>curl -X GET \
+  "https://bkjqwroclpefwtyxjfkl.supabase.co/functions/v1/api-v1/customers/{id}" \
+  -H "Authorization: Bearer $TRAX_API_KEY"</code></pre>
+</div>
+<h4>יצירה <span class="method post">POST</span> <code dir="ltr" class="path">/customers</code></h4>
+<div class="code">
+  <div class="code-bar"><button class="copy" data-copy="obj-customers-POST-">העתקה</button></div>
+  <pre id="obj-customers-POST-"><code>curl -X POST \
+  "https://bkjqwroclpefwtyxjfkl.supabase.co/functions/v1/api-v1/customers" \
+  -H "Authorization: Bearer $TRAX_API_KEY" \
+  -H "content-type: application/json" \
+  -d '{"first_name": "..."}'</code></pre>
+</div>
+<h4>עדכון <span class="method patch">PATCH</span> <code dir="ltr" class="path">/customers/{id}</code></h4>
+<div class="code">
+  <div class="code-bar"><button class="copy" data-copy="obj-customers-PATCH-">העתקה</button></div>
+  <pre id="obj-customers-PATCH-"><code>curl -X PATCH \
+  "https://bkjqwroclpefwtyxjfkl.supabase.co/functions/v1/api-v1/customers/{id}" \
+  -H "Authorization: Bearer $TRAX_API_KEY" \
+  -H "content-type: application/json" \
+  -d '{"first_name": "..."}'</code></pre>
+</div>
+<h4>מחיקה (רכה) <span class="method delete">DELETE</span> <code dir="ltr" class="path">/customers/{id}</code></h4>
+<div class="code">
+  <div class="code-bar"><button class="copy" data-copy="obj-customers-DELETE-">העתקה</button></div>
+  <pre id="obj-customers-DELETE-"><code>curl -X DELETE \
+  "https://bkjqwroclpefwtyxjfkl.supabase.co/functions/v1/api-v1/customers/{id}" \
+  -H "Authorization: Bearer $TRAX_API_KEY"</code></pre>
+</div>
+  <h4>שדות הניתנים לכתיבה</h4>
+  <table class="fields"><thead><tr><th>שדה</th></tr></thead><tbody>
+<tr><td><code dir="ltr">first_name</code></td></tr>
+<tr><td><code dir="ltr">last_name</code></td></tr>
+<tr><td><code dir="ltr">mobile_phone</code></td></tr>
+<tr><td><code dir="ltr">email</code></td></tr>
+<tr><td><code dir="ltr">business_unit</code></td></tr>
+<tr><td><code dir="ltr">lead_source</code></td></tr>
+<tr><td><code dir="ltr">campaign</code></td></tr>
+<tr><td><code dir="ltr">status</code></td></tr>
+<tr><td><code dir="ltr">notes</code></td></tr>
+<tr><td><code dir="ltr">lead_rating</code></td></tr>
+<tr><td><code dir="ltr">club_member</code></td></tr>
+<tr><td><code dir="ltr">club_joined_at</code></td></tr>
+<tr><td><code dir="ltr">credit_balance</code></td></tr>
+<tr><td><code dir="ltr">extreme_experience_level</code></td></tr>
+<tr><td><code dir="ltr">preferred_language</code></td></tr>
+<tr><td><code dir="ltr">company</code></td></tr>
+<tr><td><code dir="ltr">job_title</code></td></tr>
+<tr><td><code dir="ltr">work_email</code></td></tr>
+<tr><td><code dir="ltr">owner_id</code></td></tr>
+<tr><td><code dir="ltr">account_manager_id</code></td></tr>
+<tr><td><code dir="ltr">custom</code></td></tr>
+<tr><td><code dir="ltr">execution_url</code></td></tr>
+<tr><td><code dir="ltr">utm_source</code></td></tr>
+<tr><td><code dir="ltr">utm_medium</code></td></tr>
+<tr><td><code dir="ltr">utm_campaign</code></td></tr>
+<tr><td><code dir="ltr">utm_content</code></td></tr>
+<tr><td><code dir="ltr">utm_term</code></td></tr>
+<tr><td><code dir="ltr">landing_page</code></td></tr>
+<tr><td><code dir="ltr">referrer</code></td></tr>
+<tr><td><code dir="ltr">funnel</code></td></tr>
+<tr><td><code dir="ltr">utm_adset</code></td></tr>
+<tr><td><code dir="ltr">utm_ad</code></td></tr>
+<tr><td><code dir="ltr">utm_placement</code></td></tr>
+<tr><td><code dir="ltr">form_name</code></td></tr>
+<tr><td><code dir="ltr">marketing_consent</code></td></tr>
+  </tbody></table>
+  <p class="muted small">שדות קריאה בלבד שמתווספים אוטומטית לכל רשומה: <code dir="ltr">id, created_at, updated_at, deleted_at, created_by, updated_by</code>.</p>
+</section>
+
+  <section class="object" id="obj-sales">
+  <h3>sales <span class="muted">/ sales</span></h3>
+  <h4>רשימת רשומות <span class="method get">GET</span> <code dir="ltr" class="path">/sales?limit=20</code></h4>
+<div class="code">
+  <div class="code-bar"><button class="copy" data-copy="obj-sales-GET-">העתקה</button></div>
+  <pre id="obj-sales-GET-"><code>curl -X GET \
+  "https://bkjqwroclpefwtyxjfkl.supabase.co/functions/v1/api-v1/sales?limit=20" \
+  -H "Authorization: Bearer $TRAX_API_KEY"</code></pre>
+</div>
+<h4>רשומה בודדת <span class="method get">GET</span> <code dir="ltr" class="path">/sales/{id}</code></h4>
+<div class="code">
+  <div class="code-bar"><button class="copy" data-copy="obj-sales-GET-">העתקה</button></div>
+  <pre id="obj-sales-GET-"><code>curl -X GET \
+  "https://bkjqwroclpefwtyxjfkl.supabase.co/functions/v1/api-v1/sales/{id}" \
+  -H "Authorization: Bearer $TRAX_API_KEY"</code></pre>
+</div>
+<h4>יצירה <span class="method post">POST</span> <code dir="ltr" class="path">/sales</code></h4>
+<div class="code">
+  <div class="code-bar"><button class="copy" data-copy="obj-sales-POST-">העתקה</button></div>
+  <pre id="obj-sales-POST-"><code>curl -X POST \
+  "https://bkjqwroclpefwtyxjfkl.supabase.co/functions/v1/api-v1/sales" \
+  -H "Authorization: Bearer $TRAX_API_KEY" \
+  -H "content-type: application/json" \
+  -d '{"customer_id": "..."}'</code></pre>
+</div>
+<h4>עדכון <span class="method patch">PATCH</span> <code dir="ltr" class="path">/sales/{id}</code></h4>
+<div class="code">
+  <div class="code-bar"><button class="copy" data-copy="obj-sales-PATCH-">העתקה</button></div>
+  <pre id="obj-sales-PATCH-"><code>curl -X PATCH \
+  "https://bkjqwroclpefwtyxjfkl.supabase.co/functions/v1/api-v1/sales/{id}" \
+  -H "Authorization: Bearer $TRAX_API_KEY" \
+  -H "content-type: application/json" \
+  -d '{"customer_id": "..."}'</code></pre>
+</div>
+<h4>מחיקה (רכה) <span class="method delete">DELETE</span> <code dir="ltr" class="path">/sales/{id}</code></h4>
+<div class="code">
+  <div class="code-bar"><button class="copy" data-copy="obj-sales-DELETE-">העתקה</button></div>
+  <pre id="obj-sales-DELETE-"><code>curl -X DELETE \
+  "https://bkjqwroclpefwtyxjfkl.supabase.co/functions/v1/api-v1/sales/{id}" \
+  -H "Authorization: Bearer $TRAX_API_KEY"</code></pre>
+</div>
+  <h4>שדות הניתנים לכתיבה</h4>
+  <table class="fields"><thead><tr><th>שדה</th></tr></thead><tbody>
+<tr><td><code dir="ltr">customer_id</code></td></tr>
+<tr><td><code dir="ltr">business_unit</code></td></tr>
+<tr><td><code dir="ltr">stage</code></td></tr>
+<tr><td><code dir="ltr">channel</code></td></tr>
+<tr><td><code dir="ltr">lead_source</code></td></tr>
+<tr><td><code dir="ltr">campaign</code></td></tr>
+<tr><td><code dir="ltr">owner_id</code></td></tr>
+<tr><td><code dir="ltr">loss_reason</code></td></tr>
+<tr><td><code dir="ltr">journey_id</code></td></tr>
+<tr><td><code dir="ltr">participants_count</code></td></tr>
+<tr><td><code dir="ltr">expected_value</code></td></tr>
+<tr><td><code dir="ltr">currency</code></td></tr>
+<tr><td><code dir="ltr">qualification_rating</code></td></tr>
+<tr><td><code dir="ltr">qualification_summary</code></td></tr>
+<tr><td><code dir="ltr">next_call_at</code></td></tr>
+<tr><td><code dir="ltr">interest_area</code></td></tr>
+<tr><td><code dir="ltr">custom</code></td></tr>
+<tr><td><code dir="ltr">execution_url</code></td></tr>
+<tr><td><code dir="ltr">utm_source</code></td></tr>
+<tr><td><code dir="ltr">utm_medium</code></td></tr>
+<tr><td><code dir="ltr">utm_campaign</code></td></tr>
+<tr><td><code dir="ltr">utm_content</code></td></tr>
+<tr><td><code dir="ltr">utm_term</code></td></tr>
+<tr><td><code dir="ltr">landing_page</code></td></tr>
+<tr><td><code dir="ltr">referrer</code></td></tr>
+<tr><td><code dir="ltr">funnel</code></td></tr>
+<tr><td><code dir="ltr">utm_adset</code></td></tr>
+<tr><td><code dir="ltr">utm_ad</code></td></tr>
+<tr><td><code dir="ltr">utm_placement</code></td></tr>
+<tr><td><code dir="ltr">form_name</code></td></tr>
+<tr><td><code dir="ltr">marketing_consent</code></td></tr>
+  </tbody></table>
+  <p class="muted small">שדות קריאה בלבד שמתווספים אוטומטית לכל רשומה: <code dir="ltr">id, created_at, updated_at, deleted_at, created_by, updated_by</code>.</p>
+</section>
+
+  <section class="object" id="obj-journeys">
+  <h3>journeys <span class="muted">/ journeys</span></h3>
+  <h4>רשימת רשומות <span class="method get">GET</span> <code dir="ltr" class="path">/journeys?limit=20</code></h4>
+<div class="code">
+  <div class="code-bar"><button class="copy" data-copy="obj-journeys-GET-">העתקה</button></div>
+  <pre id="obj-journeys-GET-"><code>curl -X GET \
+  "https://bkjqwroclpefwtyxjfkl.supabase.co/functions/v1/api-v1/journeys?limit=20" \
+  -H "Authorization: Bearer $TRAX_API_KEY"</code></pre>
+</div>
+<h4>רשומה בודדת <span class="method get">GET</span> <code dir="ltr" class="path">/journeys/{id}</code></h4>
+<div class="code">
+  <div class="code-bar"><button class="copy" data-copy="obj-journeys-GET-">העתקה</button></div>
+  <pre id="obj-journeys-GET-"><code>curl -X GET \
+  "https://bkjqwroclpefwtyxjfkl.supabase.co/functions/v1/api-v1/journeys/{id}" \
+  -H "Authorization: Bearer $TRAX_API_KEY"</code></pre>
+</div>
+<h4>יצירה <span class="method post">POST</span> <code dir="ltr" class="path">/journeys</code></h4>
+<div class="code">
+  <div class="code-bar"><button class="copy" data-copy="obj-journeys-POST-">העתקה</button></div>
+  <pre id="obj-journeys-POST-"><code>curl -X POST \
+  "https://bkjqwroclpefwtyxjfkl.supabase.co/functions/v1/api-v1/journeys" \
+  -H "Authorization: Bearer $TRAX_API_KEY" \
+  -H "content-type: application/json" \
+  -d '{"name": "..."}'</code></pre>
+</div>
+<h4>עדכון <span class="method patch">PATCH</span> <code dir="ltr" class="path">/journeys/{id}</code></h4>
+<div class="code">
+  <div class="code-bar"><button class="copy" data-copy="obj-journeys-PATCH-">העתקה</button></div>
+  <pre id="obj-journeys-PATCH-"><code>curl -X PATCH \
+  "https://bkjqwroclpefwtyxjfkl.supabase.co/functions/v1/api-v1/journeys/{id}" \
+  -H "Authorization: Bearer $TRAX_API_KEY" \
+  -H "content-type: application/json" \
+  -d '{"name": "..."}'</code></pre>
+</div>
+<h4>מחיקה (רכה) <span class="method delete">DELETE</span> <code dir="ltr" class="path">/journeys/{id}</code></h4>
+<div class="code">
+  <div class="code-bar"><button class="copy" data-copy="obj-journeys-DELETE-">העתקה</button></div>
+  <pre id="obj-journeys-DELETE-"><code>curl -X DELETE \
+  "https://bkjqwroclpefwtyxjfkl.supabase.co/functions/v1/api-v1/journeys/{id}" \
+  -H "Authorization: Bearer $TRAX_API_KEY"</code></pre>
+</div>
+  <h4>שדות הניתנים לכתיבה</h4>
+  <table class="fields"><thead><tr><th>שדה</th></tr></thead><tbody>
+<tr><td><code dir="ltr">name</code></td></tr>
+<tr><td><code dir="ltr">business_unit</code></td></tr>
+<tr><td><code dir="ltr">destination</code></td></tr>
+<tr><td><code dir="ltr">departure_date</code></td></tr>
+<tr><td><code dir="ltr">return_date</code></td></tr>
+<tr><td><code dir="ltr">seats_total</code></td></tr>
+<tr><td><code dir="ltr">min_seats</code></td></tr>
+<tr><td><code dir="ltr">status</code></td></tr>
+<tr><td><code dir="ltr">price_per_person</code></td></tr>
+<tr><td><code dir="ltr">currency</code></td></tr>
+<tr><td><code dir="ltr">includes_flights</code></td></tr>
+<tr><td><code dir="ltr">short_description</code></td></tr>
+<tr><td><code dir="ltr">page_url</code></td></tr>
+<tr><td><code dir="ltr">operations_notes</code></td></tr>
+<tr><td><code dir="ltr">custom</code></td></tr>
+<tr><td><code dir="ltr">execution_url</code></td></tr>
+  </tbody></table>
+  <p class="muted small">שדות קריאה בלבד שמתווספים אוטומטית לכל רשומה: <code dir="ltr">id, created_at, updated_at, deleted_at, created_by, updated_by</code>.</p>
+</section>
+
+  <section class="object" id="obj-registrations">
+  <h3>registrations <span class="muted">/ registrations</span></h3>
+  <h4>רשימת רשומות <span class="method get">GET</span> <code dir="ltr" class="path">/registrations?limit=20</code></h4>
+<div class="code">
+  <div class="code-bar"><button class="copy" data-copy="obj-registrations-GET-">העתקה</button></div>
+  <pre id="obj-registrations-GET-"><code>curl -X GET \
+  "https://bkjqwroclpefwtyxjfkl.supabase.co/functions/v1/api-v1/registrations?limit=20" \
+  -H "Authorization: Bearer $TRAX_API_KEY"</code></pre>
+</div>
+<h4>רשומה בודדת <span class="method get">GET</span> <code dir="ltr" class="path">/registrations/{id}</code></h4>
+<div class="code">
+  <div class="code-bar"><button class="copy" data-copy="obj-registrations-GET-">העתקה</button></div>
+  <pre id="obj-registrations-GET-"><code>curl -X GET \
+  "https://bkjqwroclpefwtyxjfkl.supabase.co/functions/v1/api-v1/registrations/{id}" \
+  -H "Authorization: Bearer $TRAX_API_KEY"</code></pre>
+</div>
+<h4>יצירה <span class="method post">POST</span> <code dir="ltr" class="path">/registrations</code></h4>
+<div class="code">
+  <div class="code-bar"><button class="copy" data-copy="obj-registrations-POST-">העתקה</button></div>
+  <pre id="obj-registrations-POST-"><code>curl -X POST \
+  "https://bkjqwroclpefwtyxjfkl.supabase.co/functions/v1/api-v1/registrations" \
+  -H "Authorization: Bearer $TRAX_API_KEY" \
+  -H "content-type: application/json" \
+  -d '{"customer_id": "..."}'</code></pre>
+</div>
+<h4>עדכון <span class="method patch">PATCH</span> <code dir="ltr" class="path">/registrations/{id}</code></h4>
+<div class="code">
+  <div class="code-bar"><button class="copy" data-copy="obj-registrations-PATCH-">העתקה</button></div>
+  <pre id="obj-registrations-PATCH-"><code>curl -X PATCH \
+  "https://bkjqwroclpefwtyxjfkl.supabase.co/functions/v1/api-v1/registrations/{id}" \
+  -H "Authorization: Bearer $TRAX_API_KEY" \
+  -H "content-type: application/json" \
+  -d '{"customer_id": "..."}'</code></pre>
+</div>
+<h4>מחיקה (רכה) <span class="method delete">DELETE</span> <code dir="ltr" class="path">/registrations/{id}</code></h4>
+<div class="code">
+  <div class="code-bar"><button class="copy" data-copy="obj-registrations-DELETE-">העתקה</button></div>
+  <pre id="obj-registrations-DELETE-"><code>curl -X DELETE \
+  "https://bkjqwroclpefwtyxjfkl.supabase.co/functions/v1/api-v1/registrations/{id}" \
+  -H "Authorization: Bearer $TRAX_API_KEY"</code></pre>
+</div>
+  <h4>שדות הניתנים לכתיבה</h4>
+  <table class="fields"><thead><tr><th>שדה</th></tr></thead><tbody>
+<tr><td><code dir="ltr">customer_id</code></td></tr>
+<tr><td><code dir="ltr">journey_id</code></td></tr>
+<tr><td><code dir="ltr">sale_id</code></td></tr>
+<tr><td><code dir="ltr">status</code></td></tr>
+<tr><td><code dir="ltr">amount_paid</code></td></tr>
+<tr><td><code dir="ltr">currency</code></td></tr>
+<tr><td><code dir="ltr">last_payment_date</code></td></tr>
+<tr><td><code dir="ltr">payment_method</code></td></tr>
+<tr><td><code dir="ltr">invoice_number</code></td></tr>
+<tr><td><code dir="ltr">passport_valid</code></td></tr>
+<tr><td><code dir="ltr">travel_insurance</code></td></tr>
+<tr><td><code dir="ltr">medical_dietary_notes</code></td></tr>
+<tr><td><code dir="ltr">emergency_contact</code></td></tr>
+<tr><td><code dir="ltr">includes_flight_for_participant</code></td></tr>
+<tr><td><code dir="ltr">custom</code></td></tr>
+<tr><td><code dir="ltr">execution_url</code></td></tr>
+  </tbody></table>
+  <p class="muted small">שדות קריאה בלבד שמתווספים אוטומטית לכל רשומה: <code dir="ltr">id, created_at, updated_at, deleted_at, created_by, updated_by</code>.</p>
+</section>
+
+  <section class="object" id="obj-tasks">
+  <h3>tasks <span class="muted">/ tasks</span></h3>
+  <h4>רשימת רשומות <span class="method get">GET</span> <code dir="ltr" class="path">/tasks?limit=20</code></h4>
+<div class="code">
+  <div class="code-bar"><button class="copy" data-copy="obj-tasks-GET-">העתקה</button></div>
+  <pre id="obj-tasks-GET-"><code>curl -X GET \
+  "https://bkjqwroclpefwtyxjfkl.supabase.co/functions/v1/api-v1/tasks?limit=20" \
+  -H "Authorization: Bearer $TRAX_API_KEY"</code></pre>
+</div>
+<h4>רשומה בודדת <span class="method get">GET</span> <code dir="ltr" class="path">/tasks/{id}</code></h4>
+<div class="code">
+  <div class="code-bar"><button class="copy" data-copy="obj-tasks-GET-">העתקה</button></div>
+  <pre id="obj-tasks-GET-"><code>curl -X GET \
+  "https://bkjqwroclpefwtyxjfkl.supabase.co/functions/v1/api-v1/tasks/{id}" \
+  -H "Authorization: Bearer $TRAX_API_KEY"</code></pre>
+</div>
+<h4>יצירה <span class="method post">POST</span> <code dir="ltr" class="path">/tasks</code></h4>
+<div class="code">
+  <div class="code-bar"><button class="copy" data-copy="obj-tasks-POST-">העתקה</button></div>
+  <pre id="obj-tasks-POST-"><code>curl -X POST \
+  "https://bkjqwroclpefwtyxjfkl.supabase.co/functions/v1/api-v1/tasks" \
+  -H "Authorization: Bearer $TRAX_API_KEY" \
+  -H "content-type: application/json" \
+  -d '{"subject": "..."}'</code></pre>
+</div>
+<h4>עדכון <span class="method patch">PATCH</span> <code dir="ltr" class="path">/tasks/{id}</code></h4>
+<div class="code">
+  <div class="code-bar"><button class="copy" data-copy="obj-tasks-PATCH-">העתקה</button></div>
+  <pre id="obj-tasks-PATCH-"><code>curl -X PATCH \
+  "https://bkjqwroclpefwtyxjfkl.supabase.co/functions/v1/api-v1/tasks/{id}" \
+  -H "Authorization: Bearer $TRAX_API_KEY" \
+  -H "content-type: application/json" \
+  -d '{"subject": "..."}'</code></pre>
+</div>
+<h4>מחיקה (רכה) <span class="method delete">DELETE</span> <code dir="ltr" class="path">/tasks/{id}</code></h4>
+<div class="code">
+  <div class="code-bar"><button class="copy" data-copy="obj-tasks-DELETE-">העתקה</button></div>
+  <pre id="obj-tasks-DELETE-"><code>curl -X DELETE \
+  "https://bkjqwroclpefwtyxjfkl.supabase.co/functions/v1/api-v1/tasks/{id}" \
+  -H "Authorization: Bearer $TRAX_API_KEY"</code></pre>
+</div>
+  <h4>שדות הניתנים לכתיבה</h4>
+  <table class="fields"><thead><tr><th>שדה</th></tr></thead><tbody>
+<tr><td><code dir="ltr">subject</code></td></tr>
+<tr><td><code dir="ltr">related_type</code></td></tr>
+<tr><td><code dir="ltr">related_id</code></td></tr>
+<tr><td><code dir="ltr">assignee_id</code></td></tr>
+<tr><td><code dir="ltr">due_at</code></td></tr>
+<tr><td><code dir="ltr">status</code></td></tr>
+<tr><td><code dir="ltr">priority</code></td></tr>
+<tr><td><code dir="ltr">description</code></td></tr>
+<tr><td><code dir="ltr">business_unit</code></td></tr>
+<tr><td><code dir="ltr">execution_url</code></td></tr>
+  </tbody></table>
+  <p class="muted small">שדות קריאה בלבד שמתווספים אוטומטית לכל רשומה: <code dir="ltr">id, created_at, updated_at, deleted_at, created_by, updated_by</code>.</p>
+</section>
+
+  <section class="object" id="obj-contacts">
+  <h3>contacts <span class="muted">/ contacts</span></h3>
+  <h4>רשימת רשומות <span class="method get">GET</span> <code dir="ltr" class="path">/contacts?limit=20</code></h4>
+<div class="code">
+  <div class="code-bar"><button class="copy" data-copy="obj-contacts-GET-">העתקה</button></div>
+  <pre id="obj-contacts-GET-"><code>curl -X GET \
+  "https://bkjqwroclpefwtyxjfkl.supabase.co/functions/v1/api-v1/contacts?limit=20" \
+  -H "Authorization: Bearer $TRAX_API_KEY"</code></pre>
+</div>
+<h4>רשומה בודדת <span class="method get">GET</span> <code dir="ltr" class="path">/contacts/{id}</code></h4>
+<div class="code">
+  <div class="code-bar"><button class="copy" data-copy="obj-contacts-GET-">העתקה</button></div>
+  <pre id="obj-contacts-GET-"><code>curl -X GET \
+  "https://bkjqwroclpefwtyxjfkl.supabase.co/functions/v1/api-v1/contacts/{id}" \
+  -H "Authorization: Bearer $TRAX_API_KEY"</code></pre>
+</div>
+<h4>יצירה <span class="method post">POST</span> <code dir="ltr" class="path">/contacts</code></h4>
+<div class="code">
+  <div class="code-bar"><button class="copy" data-copy="obj-contacts-POST-">העתקה</button></div>
+  <pre id="obj-contacts-POST-"><code>curl -X POST \
+  "https://bkjqwroclpefwtyxjfkl.supabase.co/functions/v1/api-v1/contacts" \
+  -H "Authorization: Bearer $TRAX_API_KEY" \
+  -H "content-type: application/json" \
+  -d '{"customer_id": "..."}'</code></pre>
+</div>
+<h4>עדכון <span class="method patch">PATCH</span> <code dir="ltr" class="path">/contacts/{id}</code></h4>
+<div class="code">
+  <div class="code-bar"><button class="copy" data-copy="obj-contacts-PATCH-">העתקה</button></div>
+  <pre id="obj-contacts-PATCH-"><code>curl -X PATCH \
+  "https://bkjqwroclpefwtyxjfkl.supabase.co/functions/v1/api-v1/contacts/{id}" \
+  -H "Authorization: Bearer $TRAX_API_KEY" \
+  -H "content-type: application/json" \
+  -d '{"customer_id": "..."}'</code></pre>
+</div>
+<h4>מחיקה (רכה) <span class="method delete">DELETE</span> <code dir="ltr" class="path">/contacts/{id}</code></h4>
+<div class="code">
+  <div class="code-bar"><button class="copy" data-copy="obj-contacts-DELETE-">העתקה</button></div>
+  <pre id="obj-contacts-DELETE-"><code>curl -X DELETE \
+  "https://bkjqwroclpefwtyxjfkl.supabase.co/functions/v1/api-v1/contacts/{id}" \
+  -H "Authorization: Bearer $TRAX_API_KEY"</code></pre>
+</div>
+  <h4>שדות הניתנים לכתיבה</h4>
+  <table class="fields"><thead><tr><th>שדה</th></tr></thead><tbody>
+<tr><td><code dir="ltr">customer_id</code></td></tr>
+<tr><td><code dir="ltr">name</code></td></tr>
+<tr><td><code dir="ltr">phone</code></td></tr>
+<tr><td><code dir="ltr">email</code></td></tr>
+<tr><td><code dir="ltr">role</code></td></tr>
+<tr><td><code dir="ltr">execution_url</code></td></tr>
+  </tbody></table>
+  <p class="muted small">שדות קריאה בלבד שמתווספים אוטומטית לכל רשומה: <code dir="ltr">id, created_at, updated_at, deleted_at, created_by, updated_by</code>.</p>
+</section>
+
+  <section id="lead-intake">
+    <h2>נספח: קליטת לידים מהטפסים</h2>
+    <p>נקודת קצה נפרדת לקליטת ליד מטופס באתר, דף נחיתה או Xcon. היא מבצעת
+      נירמול טלפון, זיהוי לקוח קיים, פתיחת עסקה חדשה ורישום הערת הטופס,
+      ואז כותבת דרך אותו API. אינה דורשת מפתח API (משמשת אתרי טפסים).</p>
+    <h4>יצירת ליד <span class="method post">POST</span> <code dir="ltr" class="path">/functions/v1/lead-intake</code></h4>
+    <div class="code">
+  <div class="code-bar"><button class="copy" data-copy="lead-intake">העתקה</button></div>
+  <pre id="lead-intake"><code>curl -X POST \
+  "https://bkjqwroclpefwtyxjfkl.supabase.co/functions/v1/lead-intake" \
+  -H "content-type: application/json" \
+  -d '{
+    "full_name": "ישראל ישראלי",
+    "phone": "050-1234567",
+    "email": "israel@example.com",
+    "message": "מתעניין בטיול",
+    "form_id": "site",
+    "utm_source": "facebook"
+  }'</code></pre>
+</div>
+    <table>
+      <thead><tr><th>שדה</th><th>חובה</th><th>הערות</th></tr></thead>
+      <tbody>
+        <tr><td><code dir="ltr">full_name</code></td><td>כן</td><td>שם מלא</td></tr>
+        <tr><td><code dir="ltr">phone</code></td><td>כן</td><td>מנורמל אוטומטית</td></tr>
+        <tr><td><code dir="ltr">email</code></td><td>לא</td><td>-</td></tr>
+        <tr><td><code dir="ltr">message</code></td><td>לא</td><td>נשמר כהערה על הלקוח ועל העסקה</td></tr>
+        <tr><td><code dir="ltr">form_id</code></td><td>כן</td><td><code dir="ltr">site</code> | <code dir="ltr">landing</code> | <code dir="ltr">xcon</code></td></tr>
+        <tr><td><code dir="ltr">utm_source, utm_medium, utm_campaign, utm_content, utm_term</code></td><td>לא</td><td>שיוך מקור</td></tr>
+        <tr><td><code dir="ltr">page_url</code></td><td>לא</td><td>כתובת העמוד ששלח</td></tr>
+      </tbody>
+    </table>
+    <p class="muted small">תשובה בהצלחה: <code dir="ltr">201</code> עם
+      <code dir="ltr">{"success":true,"customer_id":"...","sale_id":"..."}</code>.</p>
+  </section>
+
+</main>
+<footer>נוצר אוטומטית מ-<code dir="ltr">supabase/functions/api-v1/index.ts</code> · TRAX CRM</footer>
+<script>
+function copyText(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    return navigator.clipboard.writeText(text);
+  }
+  return new Promise(function (resolve, reject) {
+    try {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      resolve();
+    } catch (e) { reject(e); }
+  });
+}
+document.querySelectorAll(".copy").forEach(function (b) {
+  b.addEventListener("click", function () {
+    var pre = document.getElementById(b.dataset.copy);
+    if (!pre) return;
+    copyText(pre.innerText).then(function () {
+      var t = b.textContent;
+      b.textContent = "הועתק";
+      setTimeout(function () { b.textContent = t; }, 1200);
+    }).catch(function () {});
+  });
+});
+</script>
+</body>
+</html>

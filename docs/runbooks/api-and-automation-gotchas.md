@@ -1,5 +1,19 @@
 # API layer & automation engine — operational notes
 
+## Public API documentation page
+
+`public/api-docs.html` (served at `/api-docs`, Cloudflare Pages rewrites the
+`.html`) is the shareable, login-free API reference handed to integrators. It is
+GENERATED, never hand-written: `scripts/build-api-docs.mjs` reads the `SCHEMA`
+allow-list out of `supabase/functions/api-v1/index.ts`. The Settings > "מפתחות
+API" tab links straight to it; there is no separate in-app docs tab anymore.
+
+Run it after any change to the api-v1 schema: `node scripts/build-api-docs.mjs`.
+It also runs as `npm run prebuild` and as a step in the staging deploy workflow,
+and the workflow fails the build if the page is missing from `dist`. If you add
+an object or a field to the edge function, the docs update themselves; you only
+edit the prose sections in the generator.
+
 ## Generic object API
 
 `supabase/functions/api-v1/` — `/api-v1/{object}[/{id}]`, GET/POST/PATCH/DELETE,
@@ -19,6 +33,14 @@
   Bearer token. `api-v1` recognizes an exact match against its own service
   role key as a trusted internal caller and skips the `api_keys` lookup —
   see the comment in `api-v1/index.ts`. No extra secret to provision.
+
+**Known gap (not fixed, flagged 2026-10-17):** `apiKey.role` is read from
+`verify_api_key` but never enforced, so a key issued as `read` can still POST,
+PATCH and DELETE. The function's header comment ("role-checked") is optimistic.
+Enforcing it needs a decision first: the n8n lead-intake key is seeded with role
+`integration`, which is not one of the three roles the Settings UI offers, so a
+naive "writes require write/internal" check would break that path. Do not
+document the roles as enforced until this is closed.
 
 `supabase/functions/lead-intake/` implements the exact payload contract
 already committed to the client's site/landing/Xcon forms
