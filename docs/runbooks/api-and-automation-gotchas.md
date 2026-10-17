@@ -40,7 +40,22 @@ PATCH and DELETE. The function's header comment ("role-checked") is optimistic.
 Enforcing it needs a decision first: the n8n lead-intake key is seeded with role
 `integration`, which is not one of the three roles the Settings UI offers, so a
 naive "writes require write/internal" check would break that path. Do not
-document the roles as enforced until this is closed.
+document the roles as enforced until this is closed. Related: `api_keys.role`
+has no DB CHECK constraint either, so an arbitrary role value is accepted.
+
+**API-key management repair (2026-10-17, applied to the live DB via
+`data/052_fix_api_key_management.sql`):** issuing a key from Settings was dead
+for two independent reasons, both fixed in that one file. (1) the `authenticated`
+role had lost its EXECUTE grant on `create_api_key` (007's grant was not in
+effect, so the RPC answered 42501). (2) after restoring it, the function body
+itself failed with 42725 because its `can_access('settings','create')` was a
+2-arg call and can_access gained a 4-arg overload in 037; the function is
+recreated with the 4-cast form as its only change. Same file also flips
+`api_request_logs.api_key_id` to `ON DELETE SET NULL`, because anyone deleting a
+key that had ever served a request hit a bare 409 (the FK blocked the delete)
+even though the key row is what the user asked to remove. Full lifecycle
+re-verified afterwards through the real UI on production: create, use against
+api-v1, delete.
 
 `supabase/functions/lead-intake/` implements the exact payload contract
 already committed to the client's site/landing/Xcon forms
