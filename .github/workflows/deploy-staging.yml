@@ -26,6 +26,11 @@ jobs:
           node-version: 22
       - run: npm ci
       - run: npm i -D wrangler@4
+      # Public API docs are GENERATED from the live edge function schema
+      # (scripts/build-api-docs.mjs), never hand-written, so the published
+      # contract can never drift behind the real API.
+      - name: Generate public API docs
+        run: node scripts/build-api-docs.mjs
       # VITE_* are baked into the bundle at build time; without them the app
       # dies on load with "supabaseUrl is required" (blank page). Both are
       # public values (the anon key ships in every browser bundle).
@@ -35,6 +40,8 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
       - name: Guard against a blank build
         run: grep -q "bkjqwroclpefwtyxjfkl" dist/assets/index-*.js
+      - name: Guard the generated API docs shipped
+        run: grep -q "functions/v1/api-v1" dist/api-docs.html
       - uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}

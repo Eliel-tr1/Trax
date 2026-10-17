@@ -1,0 +1,157 @@
+{
+  "base_url": "https://bkjqwroclpefwtyxjfkl.supabase.co/functions/v1/api-v1",
+  "objects": {
+    "customers": {
+      "table": "customers",
+      "fields": [
+        "first_name",
+        "last_name",
+        "mobile_phone",
+        "email",
+        "business_unit",
+        "lead_source",
+        "campaign",
+        "status",
+        "notes",
+        "lead_rating",
+        "club_member",
+        "club_joined_at",
+        "credit_balance",
+        "extreme_experience_level",
+        "preferred_language",
+        "company",
+        "job_title",
+        "work_email",
+        "owner_id",
+        "account_manager_id",
+        "custom",
+        "execution_url",
+        "utm_source",
+        "utm_medium",
+        "utm_campaign",
+        "utm_content",
+        "utm_term",
+        "landing_page",
+        "referrer",
+        "funnel",
+        "utm_adset",
+        "utm_ad",
+        "utm_placement",
+        "form_name",
+        "marketing_consent"
+      ]
+    },
+    "sales": {
+      "table": "sales",
+      "fields": [
+        "customer_id",
+        "business_unit",
+        "stage",
+        "channel",
+        "lead_source",
+        "campaign",
+        "owner_id",
+        "loss_reason",
+        "journey_id",
+        "participants_count",
+        "expected_value",
+        "currency",
+        "qualification_rating",
+        "qualification_summary",
+        "next_call_at",
+        "interest_area",
+        "custom",
+        "execution_url",
+        "utm_source",
+        "utm_medium",
+        "utm_campaign",
+        "utm_content",
+        "utm_term",
+        "landing_page",
+        "referrer",
+        "funnel",
+        "utm_adset",
+        "utm_ad",
+        "utm_placement",
+        "form_name",
+        "marketing_consent"
+      ]
+    },
+    "journeys": {
+      "table": "journeys",
+      "fields": [
+        "name",
+        "business_unit",
+        "destination",
+        "departure_date",
+        "return_date",
+        "seats_total",
+        "min_seats",
+        "status",
+        "price_per_person",
+        "currency",
+        "includes_flights",
+        "short_description",
+        "page_url",
+        "operations_notes",
+        "custom",
+        "execution_url"
+      ]
+    },
+    "registrations": {
+      "table": "registrations",
+      "fields": [
+        "customer_id",
+        "journey_id",
+        "sale_id",
+        "status",
+        "amount_paid",
+        "currency",
+        "last_payment_date",
+        "payment_method",
+        "invoice_number",
+        "passport_valid",
+        "travel_insurance",
+        "medical_dietary_notes",
+        "emergency_contact",
+        "includes_flight_for_participant",
+        "custom",
+        "execution_url"
+      ]
+    },
+    "tasks": {
+      "table": "tasks",
+      "fields": [
+        "subject",
+        "related_type",
+        "related_id",
+        "assignee_id",
+        "due_at",
+        "status",
+        "priority",
+        "description",
+        "business_unit",
+        "execution_url"
+      ]
+    },
+    "contacts": {
+      "table": "contacts",
+      "fields": [
+        "customer_id",
+        "name",
+        "phone",
+        "email",
+        "role",
+        "execution_url"
+      ]
+    }
+  },
+  "read_only_fields": [
+    "id",
+    "created_at",
+    "updated_at",
+    "deleted_at",
+    "created_by",
+    "updated_by"
+  ]
+}

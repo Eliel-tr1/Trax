@@ -20,6 +20,7 @@ import AvatarUpload from '../components/AvatarUpload'
 import PhoneInput, { PhoneDisplay } from '../components/PhoneInput'
 import { formatDateTime } from '../lib/format'
 import { isPushConfigured, requestPushPermission, currentPushPermission } from '../lib/push'
+import apiSchema from '../lib/apiSchema.generated.json'
 
 // Fixed dropdown values for the two new app_users columns (see MEMORY.md /
 // project brief: department text, permission_profile text). permission_profile
@@ -368,22 +369,19 @@ function ApiKeys() {
 
 // ============================================================
 // דוקומנטציה API — self-generating docs for the real /api-v1/{object}
-// contract (supabase/functions/api-v1/index.ts's SCHEMA, exact field lists).
+// contract. The schema is GENERATED from the live edge function by
+// scripts/build-api-docs.mjs (npm prebuild), never hand-maintained here, so it
+// can no longer drift behind the real API (the old hand-copied list was
+// missing every utm_* field). The full, public, shareable version of these
+// docs lives at /api-docs.html and is linked below.
 // ============================================================
-const API_SCHEMA = {
-  customers: { fields: ['first_name', 'last_name', 'mobile_phone', 'email', 'business_unit', 'lead_source', 'campaign', 'status', 'notes', 'lead_rating', 'club_member', 'club_joined_at', 'credit_balance', 'extreme_experience_level', 'preferred_language', 'company', 'job_title', 'work_email', 'owner_id', 'custom', 'execution_url'] },
-  sales: { fields: ['customer_id', 'business_unit', 'stage', 'channel', 'lead_source', 'campaign', 'owner_id', 'loss_reason', 'journey_id', 'participants_count', 'expected_value', 'currency', 'qualification_rating', 'qualification_summary', 'next_call_at', 'interest_area', 'custom', 'execution_url'] },
-  journeys: { fields: ['name', 'business_unit', 'destination', 'departure_date', 'return_date', 'seats_total', 'min_seats', 'status', 'price_per_person', 'currency', 'includes_flights', 'short_description', 'page_url', 'operations_notes', 'custom', 'execution_url'] },
-  registrations: { fields: ['customer_id', 'journey_id', 'sale_id', 'status', 'amount_paid', 'currency', 'last_payment_date', 'payment_method', 'invoice_number', 'passport_valid', 'travel_insurance', 'medical_dietary_notes', 'emergency_contact', 'includes_flight_for_participant', 'custom', 'execution_url'] },
-  tasks: { fields: ['subject', 'related_type', 'related_id', 'assignee_id', 'due_at', 'status', 'priority', 'description', 'business_unit', 'execution_url'] },
-  contacts: { fields: ['customer_id', 'name', 'phone', 'email', 'role', 'execution_url'] },
-}
+const API_SCHEMA = apiSchema.objects
 
 function ApiDocsTab() {
   const [resource, setResource] = useState('customers')
-  const FUNCTIONS = (import.meta.env.VITE_SUPABASE_URL || '').replace('.supabase.co', '.functions.supabase.co')
-  const url = `${FUNCTIONS}/api-v1`
+  const url = apiSchema.base_url
   const meta = API_SCHEMA[resource]
+  const publicDocsUrl = `${window.location.origin}/api-docs.html`
 
   const curlList = `curl "${url}/${resource}?limit=20" \\\n  -H "Authorization: Bearer <API-KEY>"`
   const curlGet = `curl "${url}/${resource}/<id>" \\\n  -H "Authorization: Bearer <API-KEY>"`
@@ -394,6 +392,16 @@ function ApiDocsTab() {
   return (
     <div className="card" style={{ maxWidth: 1000 }}>
       <div className="card-title"><Icon name="book" /> דוקומנטציית API · /api-v1</div>
+      <div style={{ background: 'var(--xlp)', border: '1px solid var(--border-soft)', borderRadius: 'var(--rs)', padding: 12, marginBottom: 14 }}>
+        <div className="small">
+          <b>דף דוקומנטציה מלא וציבורי:</b> כל האובייקטים והפעולות בעמוד אחד, לשיתוף עם מי שמתממשק (לא דורש התחברות):
+          <div style={{ marginTop: 6 }}>
+            <a className="btn sm" href={publicDocsUrl} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+              <Icon name="link" size={14} /> פתיחת דף הדוקומנטציה הציבורי
+            </a>
+          </div>
+        </div>
+      </div>
       <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border-soft)', borderRadius: 'var(--rs)', padding: 12, marginBottom: 14 }}>
         <div className="small" style={{ lineHeight: 2 }}>
           <b>Base URL:</b> <code dir="ltr">{url}/{'{object}'}</code><br />
