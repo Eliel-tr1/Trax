@@ -5,9 +5,8 @@
 `public/api-docs.html` (served at `/api-docs`, Cloudflare Pages rewrites the
 `.html`) is the shareable, login-free API reference handed to integrators. It is
 GENERATED, never hand-written: `scripts/build-api-docs.mjs` reads the `SCHEMA`
-allow-list out of `supabase/functions/api-v1/index.ts` and emits both the page
-and `src/lib/apiSchema.generated.json` (which the in-app Settings tab imports,
-so the two can no longer disagree).
+allow-list out of `supabase/functions/api-v1/index.ts`. The Settings > "מפתחות
+API" tab links straight to it; there is no separate in-app docs tab anymore.
 
 Run it after any change to the api-v1 schema: `node scripts/build-api-docs.mjs`.
 It also runs as `npm run prebuild` and as a step in the staging deploy workflow,

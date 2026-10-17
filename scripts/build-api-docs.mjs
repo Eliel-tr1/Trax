@@ -1,7 +1,7 @@
 // build-api-docs.mjs
-// Generates the PUBLIC API documentation page (public/api-docs.html) and the
-// shared schema module (src/lib/apiSchema.generated.json) from the ONE source
-// of truth: the SCHEMA allow-list inside supabase/functions/api-v1/index.ts.
+// Generates the PUBLIC API documentation page (public/api-docs.html) from the
+// ONE source of truth: the SCHEMA allow-list inside
+// supabase/functions/api-v1/index.ts.
 //
 // Why generated and not hand-written: the old in-app "דוקומנטציה API" tab kept
 // its own hard-coded copy of the schema and silently drifted behind the real
@@ -20,7 +20,6 @@ import vm from "node:vm";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const FUNCTION_FILE = resolve(ROOT, "supabase/functions/api-v1/index.ts");
 const OUT_HTML = resolve(ROOT, "public/api-docs.html");
-const OUT_JSON = resolve(ROOT, "src/lib/apiSchema.generated.json");
 
 const PROJECT_REF = "bkjqwroclpefwtyxjfkl";
 
@@ -342,17 +341,7 @@ document.querySelectorAll(".copy").forEach(function (b) {
 `;
 
 mkdirSync(dirname(OUT_HTML), { recursive: true });
-mkdirSync(dirname(OUT_JSON), { recursive: true });
 writeFileSync(OUT_HTML, html, "utf8");
-writeFileSync(
-  OUT_JSON,
-  JSON.stringify(
-    { base_url: BASE, objects: SCHEMA, read_only_fields: ["id", "created_at", "updated_at", "deleted_at", "created_by", "updated_by"] },
-    null,
-    2
-  ) + "\n",
-  "utf8"
-);
 console.log(
   `api-docs: ${OBJECTS.length} objects, ${OBJECTS.reduce((n, o) => n + SCHEMA[o].fields.length, 0)} fields -> ${OUT_HTML}`
 );

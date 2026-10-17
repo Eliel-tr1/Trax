@@ -20,7 +20,6 @@ import AvatarUpload from '../components/AvatarUpload'
 import PhoneInput, { PhoneDisplay } from '../components/PhoneInput'
 import { formatDateTime } from '../lib/format'
 import { isPushConfigured, requestPushPermission, currentPushPermission } from '../lib/push'
-import apiSchema from '../lib/apiSchema.generated.json'
 
 // Fixed dropdown values for the two new app_users columns (see MEMORY.md /
 // project brief: department text, permission_profile text). permission_profile
@@ -35,7 +34,7 @@ const DEPARTMENTS = ['ניהול', 'מכירות', 'שירות לקוחות']
 // (seeded directly in the `permissions` table) — see RolesTab to edit them.
 const ROLE_KEY_FOR_PROFILE = { 'מנהל מערכת': 'owner', 'מנהל צוות': 'team_manager', 'נציג': 'sales_rep' }
 
-const SECTIONS = ['תצוגה', 'התראות', 'פרטי מערכת', 'אוטומציות', 'מפתחות API', 'דוקומנטציה API', 'שדות מותאמים', 'משתמשים', 'תפקידים והרשאות', 'מיזוג כפילויות', 'צ׳קליסטים', 'דיווחים', 'הדרכה', 'סל מיחזור']
+const SECTIONS = ['תצוגה', 'התראות', 'פרטי מערכת', 'אוטומציות', 'מפתחות API', 'שדות מותאמים', 'משתמשים', 'תפקידים והרשאות', 'מיזוג כפילויות', 'צ׳קליסטים', 'דיווחים', 'הדרכה', 'סל מיחזור']
 
 export default function Settings() {
   const [sec, setSec] = useState('תצוגה')
@@ -52,7 +51,6 @@ export default function Settings() {
       {sec === 'פרטי מערכת' && <SystemSettings />}
       {sec === 'אוטומציות' && <AutomationRules />}
       {sec === 'מפתחות API' && <ApiKeys />}
-      {sec === 'דוקומנטציה API' && <ApiDocsTab />}
       {sec === 'שדות מותאמים' && <SchemaTab />}
       {sec === 'משתמשים' && <RequirePermission resource="users"><UsersTab /></RequirePermission>}
       {sec === 'תפקידים והרשאות' && <RequirePermission resource="users"><RolesTab /></RequirePermission>}
@@ -321,6 +319,16 @@ function ApiKeys() {
 
   return (
     <div>
+      <div style={{ background: 'var(--xlp)', border: '1px solid var(--border-soft)', borderRadius: 'var(--rs)', padding: 12, marginBottom: 14 }}>
+        <div className="row wrap" style={{ gap: 10, alignItems: 'center' }}>
+          <div className="small" style={{ flex: 1, minWidth: 260 }}>
+            <b>דוקומנטציית API מלאה וציבורית:</b> כל האובייקטים והפעולות בעמוד אחד, לשיתוף עם מי שמתממשק (לא דורש התחברות).
+          </div>
+          <a className="btn sm" href={`${window.location.origin}/api-docs.html`} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+            <Icon name="link" size={14} /> פתיחת דף הדוקומנטציה
+          </a>
+        </div>
+      </div>
       {canCreate && (
         <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border-soft)', borderRadius: 'var(--rs)', padding: 12, marginBottom: 14 }}>
           <div className="row wrap" style={{ gap: 8 }}>
@@ -363,77 +371,6 @@ function ApiKeys() {
       <div className="muted small" style={{ marginTop: 10 }}>
         <Icon name="help" size={13} /> גיבוי/שחזור ידני דורש פונקציית שרת (Edge Function) שעדיין לא קיימת - לא זמין כאן.
       </div>
-    </div>
-  )
-}
-
-// ============================================================
-// דוקומנטציה API — self-generating docs for the real /api-v1/{object}
-// contract. The schema is GENERATED from the live edge function by
-// scripts/build-api-docs.mjs (npm prebuild), never hand-maintained here, so it
-// can no longer drift behind the real API (the old hand-copied list was
-// missing every utm_* field). The full, public, shareable version of these
-// docs lives at /api-docs.html and is linked below.
-// ============================================================
-const API_SCHEMA = apiSchema.objects
-
-function ApiDocsTab() {
-  const [resource, setResource] = useState('customers')
-  const url = apiSchema.base_url
-  const meta = API_SCHEMA[resource]
-  const publicDocsUrl = `${window.location.origin}/api-docs.html`
-
-  const curlList = `curl "${url}/${resource}?limit=20" \\\n  -H "Authorization: Bearer <API-KEY>"`
-  const curlGet = `curl "${url}/${resource}/<id>" \\\n  -H "Authorization: Bearer <API-KEY>"`
-  const curlCreate = `curl -X POST "${url}/${resource}" \\\n  -H "Authorization: Bearer <API-KEY>" -H "content-type: application/json" \\\n  -d '{"${meta.fields[0]}": "..."}'`
-  const curlPatch = `curl -X PATCH "${url}/${resource}/<id>" \\\n  -H "Authorization: Bearer <API-KEY>" -H "content-type: application/json" \\\n  -d '{"${meta.fields[0]}": "..."}'`
-  const curlDelete = `curl -X DELETE "${url}/${resource}/<id>" \\\n  -H "Authorization: Bearer <API-KEY>"`
-
-  return (
-    <div className="card" style={{ maxWidth: 1000 }}>
-      <div className="card-title"><Icon name="book" /> דוקומנטציית API · /api-v1</div>
-      <div style={{ background: 'var(--xlp)', border: '1px solid var(--border-soft)', borderRadius: 'var(--rs)', padding: 12, marginBottom: 14 }}>
-        <div className="small">
-          <b>דף דוקומנטציה מלא וציבורי:</b> כל האובייקטים והפעולות בעמוד אחד, לשיתוף עם מי שמתממשק (לא דורש התחברות):
-          <div style={{ marginTop: 6 }}>
-            <a className="btn sm" href={publicDocsUrl} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
-              <Icon name="link" size={14} /> פתיחת דף הדוקומנטציה הציבורי
-            </a>
-          </div>
-        </div>
-      </div>
-      <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border-soft)', borderRadius: 'var(--rs)', padding: 12, marginBottom: 14 }}>
-        <div className="small" style={{ lineHeight: 2 }}>
-          <b>Base URL:</b> <code dir="ltr">{url}/{'{object}'}</code><br />
-          <b>אימות:</b> כותרת <code dir="ltr">Authorization: Bearer &lt;API-KEY&gt;</code> (הפיקו מפתח בלשונית "מפתחות API").<br />
-          <b>מתודות:</b> GET (רשימה, עם <code>?limit=</code>/<code>?offset=</code>/<code>?sort=</code> ופילטרים לפי כל שדה) · GET/<code dir="ltr">{'{id}'}</code> · POST · PATCH/<code dir="ltr">{'{id}'}</code> · DELETE/<code dir="ltr">{'{id}'}</code> (מחיקה רכה בלבד).<br />
-          <b>מבנה תשובה:</b> <code dir="ltr">{'{ "data": … }'}</code>, רשימה גם עם <code dir="ltr">count</code> · שגיאה: <code dir="ltr">{'{ "error" }'}</code>.
-        </div>
-      </div>
-
-      <div className="row wrap" style={{ gap: 8, marginBottom: 14 }}>
-        {Object.keys(API_SCHEMA).map(r => (
-          <button key={r} className={`chip ${resource === r ? 'active' : ''}`} onClick={() => setResource(r)}>{r}</button>
-        ))}
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {[['רשימה', curlList], ['רשומה בודדת', curlGet], ['יצירה', curlCreate], ['עדכון', curlPatch], ['מחיקה (רכה)', curlDelete]].map(([label, ex]) => (
-          <div key={label}>
-            <div className="small muted" style={{ marginBottom: 4, fontWeight: 700 }}>{label}:</div>
-            <pre dir="ltr" style={{ background: 'var(--surface-2)', padding: 10, borderRadius: 8, fontSize: '0.72rem', overflowX: 'auto', margin: 0 }}>{ex}</pre>
-          </div>
-        ))}
-      </div>
-
-      <div className="card-title" style={{ marginTop: 20 }}><Icon name="tag" /> שדות ניתנים לכתיבה - {resource}</div>
-      <div className="table-wrap">
-        <table className="grid" style={{ fontSize: '0.82rem' }}>
-          <thead><tr><th>שדה</th></tr></thead>
-          <tbody>{meta.fields.map(f => <tr key={f}><td><code dir="ltr">{f}</code></td></tr>)}</tbody>
-        </table>
-      </div>
-      <div className="muted small" style={{ marginTop: 8 }}>שדות שנוצרים אוטומטית (קריאה בלבד): <code dir="ltr">id, created_at, updated_at, deleted_at, created_by, updated_by</code></div>
     </div>
   )
 }
