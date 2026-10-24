@@ -263,7 +263,7 @@ export default function SaleDetail() {
       {showCharge && <CardcomChargeModal onClose={() => setShowCharge(false)} />}
       {showNewRegistration && (
         <RecordFormModal type="registration"
-          defaults={{ sale_id: s.id, customer_id: s.customer_id, journey_id: s.journey_id, business_unit: s.business_unit, participants_count: 1 }}
+          defaults={{ sale_id: s.id, customer_id: s.customer_id, journey_id: s.journey_id }}
           onClose={() => setShowNewRegistration(false)}
           onCreated={row => nav(`/registrations/${row.id}`)} />
       )}
