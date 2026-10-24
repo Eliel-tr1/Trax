@@ -121,5 +121,6 @@ not change without updating every form): `full_name`, `phone`, `email`,
 
 `outbound_webhooks` + an AFTER INSERT trigger on `sales` (pg_net) post
 `sale.created` to every active hook; results in `webhook_deliveries` and
-`webhook_delivery_log()`. Today the only hook feeds the WhatsApp agent flow
-(decisions/0010). Managed in Settings > "וואטסאפ וסוכן AI".
+`webhook_delivery_log()`. Hooks: `sale.created` feeds the WhatsApp agent flow (decisions/0010);
+`registration.changed` feeds "ברוך הבא למסע" (decisions/0011, table
+`journey_messages`). Managed in Settings > "וואטסאפ וסוכן AI".

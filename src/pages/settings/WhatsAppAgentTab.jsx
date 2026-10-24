@@ -11,6 +11,16 @@ import { formatDateTime } from '../../lib/format'
 // 2. Opening-message settings read by the Edge Function cloudchat-bridge.
 // 3. Delivery log (pg_net result per webhook call).
 
+const PLACEHOLDERS_JOURNEY = '{first_name} {trip_name} {destination} {start_date} {end_date} {participants} {days_to_trip} {trip_url}'
+const JOURNEY_SETTINGS = [
+  { key: 'whatsapp_reserved_template_name', label: 'תבנית "שמירת מקום" (הרשמה במשוריין)', ltr: true, hint: 'ריק = לא נשלחת הודעה.' },
+  { key: 'whatsapp_reserved_template_lang', label: 'שפת תבנית שמירת מקום', ltr: true },
+  { key: 'whatsapp_reserved_template_params', label: 'משתני תבנית שמירת מקום (JSON)', ltr: true, type: 'textarea', hint: `אפשר: ${PLACEHOLDERS_JOURNEY}. תאריכים בפורמט DD.MM.YYYY. משתנה שיוצא ריק עוצר את השליחה ופותח משימה לנציג.` },
+  { key: 'whatsapp_welcome_template_name', label: 'תבנית "ברוך הבא למסע" (מקדמה או תשלום מלא)', ltr: true, hint: 'ריק = לא נשלחת הודעה.' },
+  { key: 'whatsapp_welcome_template_lang', label: 'שפת תבנית ברוך הבא', ltr: true },
+  { key: 'whatsapp_welcome_template_params', label: 'משתני תבנית ברוך הבא (JSON)', ltr: true, type: 'textarea', hint: `אפשר: ${PLACEHOLDERS_JOURNEY}.` },
+]
+
 const SETTINGS = [
   { key: 'whatsapp_lead_template_name', label: 'שם תבנית הפתיחה (כפי שאושרה במטא)', ltr: true,
     hint: 'ריק = לא נשלחת הודעה, והמכירה מסומנת "השליחה נכשלה" עם הסבר.' },
@@ -41,7 +51,7 @@ export default function WhatsAppAgentTab() {
   useEffect(() => { load() }, [])
 
   const saveSetting = async (key, value) => {
-    if (key === 'whatsapp_lead_template_params' && value) {
+    if (key.endsWith('_template_params') && value) {
       try { JSON.parse(value) } catch { toast('JSON לא תקין', 'err'); throw new Error('bad json') }
     }
     const { error } = await supabase.from('system_settings').update({ value: value ?? '', updated_at: new Date().toISOString() }).eq('key', key)
@@ -99,9 +109,29 @@ export default function WhatsAppAgentTab() {
       </section>
 
       <section>
-        <h3 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: 8, color: 'var(--heading)' }}>הודעת הפתיחה</h3>
+        <h3 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: 8, color: 'var(--heading)' }}>הודעת הפתיחה לליד חדש</h3>
         <div className="field-grid">
           {SETTINGS.map(f => (
+            <div key={f.key}>
+              <EditField label={f.label} value={settings[f.key] ?? ''} ltr={f.ltr} type={f.type || 'text'} onSave={v => saveSetting(f.key, v)} />
+              {f.hint && <div className="small muted" style={{ marginTop: -4 }}>{f.hint}</div>}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <h3 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: 8, color: 'var(--heading)' }}>ברוך הבא למסע</h3>
+        <div className="small muted" style={{ marginBottom: 8 }}>
+          הרשמה שעוברת ל"משוריין" מקבלת "שמירת מקום", ול"שולמה מקדמה" או "שולם במלואו" מקבלת "ברוך הבא". נשלח ללקוח ולכל נוסע עם טלפון, פעם אחת לכל הרשמה, הודעה וטלפון.
+        </div>
+        <div className="row" style={{ alignItems: 'center', gap: 10, marginBottom: 10 }}>
+          <Switch checked={settings.whatsapp_journey_require_sale_won !== 'false'}
+            onCheckedChange={() => saveSetting('whatsapp_journey_require_sale_won', settings.whatsapp_journey_require_sale_won !== 'false' ? 'false' : 'true')} />
+          <span>לשלוח רק אחרי שהמכירה המקושרת נסגרה בהצלחה</span>
+        </div>
+        <div className="field-grid">
+          {JOURNEY_SETTINGS.map(f => (
             <div key={f.key}>
               <EditField label={f.label} value={settings[f.key] ?? ''} ltr={f.ltr} type={f.type || 'text'} onSave={v => saveSetting(f.key, v)} />
               {f.hint && <div className="small muted" style={{ marginTop: -4 }}>{f.hint}</div>}
@@ -139,13 +169,13 @@ export default function WhatsAppAgentTab() {
         </div>
         <div className="table-wrap">
           <table className="grid">
-            <thead><tr><th>זמן</th><th>אירוע</th><th>מכירה</th><th>תוצאה</th></tr></thead>
+            <thead><tr><th>זמן</th><th>אירוע</th><th>רשומה</th><th>תוצאה</th></tr></thead>
             <tbody>
               {(log || []).map(r => (
                 <tr key={r.id}>
                   <td className="small">{formatDateTime(r.created_at)}</td>
                   <td dir="ltr">{r.event}</td>
-                  <td>{r.record_id ? <a href={`#/sales/${r.record_id}`}>פתיחה</a> : '-'}</td>
+                  <td>{r.record_id ? <a href={`#/${r.event === 'registration.changed' ? 'registrations' : 'sales'}/${r.record_id}`}>פתיחה</a> : '-'}</td>
                   <td>{r.error
                     ? <span className="badge err" title={r.error}>שגיאה</span>
                     : r.status_code

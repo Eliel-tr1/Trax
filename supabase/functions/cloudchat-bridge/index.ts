@@ -10,6 +10,11 @@
 //         CRM 'sale.created' webhook. Auth: header x-bridge-secret.
 //   sync  {}                        reply / error / no-reply follow-up, run by the
 //         n8n schedule every 5 minutes. Auth: header x-bridge-secret.
+//   journey {registration_id}       "ברוך הבא למסע": seat-reserved / welcome
+//         template to the customer and every passenger with a phone, once per
+//         (registration, kind, phone). Called by n8n "TRAX - ברוך הבא למסע" on
+//         the CRM 'registration.changed' webhook (docs/decisions/0011).
+//         Auth: header x-bridge-secret.
 //
 // The CloudChat workspace key (TRAX_CLOUDCHAT_API_KEY) never leaves this
 // function. verify_jwt is OFF so n8n can call send/sync with the bridge
@@ -114,6 +119,7 @@ async function settings(admin: SupabaseClient) {
   let params: Record<string, string> = {};
   try { params = JSON.parse(s.whatsapp_lead_template_params || "{}") || {}; } catch { params = {}; }
   return {
+    raw: s,
     templateName: (s.whatsapp_lead_template_name || "").trim(),
     templateLang: (s.whatsapp_lead_template_lang || "he").trim(),
     templateParams: params,
@@ -137,7 +143,7 @@ async function resolveTemplate(name: string, lang: string) {
   const comps = typeof t.components === "string" ? safeJson(t.components) : t.components;
   const bodyText = String((Array.isArray(comps) ? comps.find((c: any) => String(c.type).toUpperCase() === "BODY")?.text : null) || t.body || t.content || "");
   const vars = new Set((bodyText.match(/\{\{\d+\}\}/g) || [])).size;
-  return { namespace: t.namespace || t.name_space || "", name: t.name, lang: t.language || t.lang || lang, vars };
+  return { namespace: t.namespace || t.name_space || "", name: t.name, lang: t.language || t.lang || lang, vars, bodyText };
 }
 const safeJson = (s: string) => { try { return JSON.parse(s); } catch { return null; } };
 
@@ -254,12 +260,26 @@ async function sync(admin: SupabaseClient, saleIds?: string[]) {
   // user_ns and "(#<code>) <text>". One call per run, mapped by user_ns.
   const flowErrors = new Map<string, { ts: number; text: string }[]>();
   const oldest = Math.min(...(rows || []).map((r) => Math.floor(new Date(r.ai_message_sent_at as string).getTime() / 1000)), Math.floor(now));
-  const el = await cc("GET", `/flow/error-logs/data?limit=1000&start_time=${Math.max(oldest - 60, Math.floor(now) - 29 * 86400)}&end_time=${Math.floor(now) + 60}`);
+  const errSince = Math.min(oldest - 60, Math.floor(now) - 2 * 86400);
+  const el = await cc("GET", `/flow/error-logs/data?limit=1000&start_time=${Math.max(errSince, Math.floor(now) - 29 * 86400)}&end_time=${Math.floor(now) + 60}`);
   for (const e of (Array.isArray(el.data?.data) ? el.data.data : [])) {
     if (!e.user_ns) continue;
     const list = flowErrors.get(e.user_ns) || [];
     list.push({ ts: Math.floor(new Date(e.created_at).getTime() / 1000), text: String(e.description || "") });
     flowErrors.set(e.user_ns, list);
+  }
+
+  // Journey messages (ADR 0011) rejected by Meta after the send was accepted.
+  const { data: jm } = await admin.from("journey_messages").select("id, user_ns, sent_at")
+    .eq("status", "sent").not("user_ns", "is", null).gte("sent_at", new Date(Date.now() - 2 * 86400_000).toISOString());
+  for (const m of jm || []) {
+    const sent = Math.floor(new Date(m.sent_at as string).getTime() / 1000);
+    const e = (flowErrors.get(m.user_ns as string) || []).find((x) => x.ts >= sent - 10);
+    if (e) {
+      const code = /\(#(\d+)\)/.exec(e.text)?.[1] || null;
+      await admin.from("journey_messages").update({ status: "failed", reason: [code ? META_ERR_HE[code] : null, e.text].filter(Boolean).join(": ").slice(0, 500), updated_at: new Date().toISOString() }).eq("id", m.id);
+      (out as any).journey_failed = ((out as any).journey_failed || 0) + 1;
+    }
   }
 
   for (const s of rows || []) {
@@ -317,6 +337,177 @@ async function sync(admin: SupabaseClient, saleIds?: string[]) {
   return out;
 }
 
+// ------------------------------------------------------------------ journey
+const REG_KIND: Record<string, "seat_reserved" | "welcome"> = {
+  "משוריין": "seat_reserved", "שולמה מקדמה": "welcome", "שולם במלואו": "welcome",
+};
+const KIND_HE = { seat_reserved: "שמירת מקום", welcome: "ברוך הבא למסע" };
+const VAR_HE: Record<string, string> = {
+  trip_name: "שם היציאה", destination: "יעד", start_date: "תאריך יציאה", end_date: "תאריך חזרה",
+  participants: "מספר משתתפים", days_to_trip: "ימים עד היציאה", trip_url: "קישור לעמוד המסע", customer_first_name: "שם הלקוח",
+};
+const ddmmyyyy = (d: string | null) => (d ? d.slice(0, 10).split("-").reverse().join(".") : "");
+
+async function journey(admin: SupabaseClient, registrationId: string) {
+  const { data: reg } = await admin.from("registrations").select("*").eq("id", registrationId).maybeSingle();
+  if (!reg || reg.deleted_at) return { result: "skipped", reason: "registration_not_found" };
+  const kind = REG_KIND[reg.status];
+  if (!kind) return { result: "skipped", reason: "status_not_relevant", status: reg.status };
+  const cfg = await settings(admin);
+  const raw = cfg.raw;
+
+  const [{ data: cust }, { data: trip }, { data: pax }, saleRes] = await Promise.all([
+    admin.from("customers").select("*").eq("id", reg.customer_id).maybeSingle(),
+    admin.from("journeys").select("*").eq("id", reg.journey_id).maybeSingle(),
+    admin.from("registration_passengers").select("id, full_name, phone, is_primary").eq("registration_id", reg.id),
+    reg.sale_id ? admin.from("sales").select("id, stage, owner_id, business_unit, participants_count").eq("id", reg.sale_id).maybeSingle() : Promise.resolve({ data: null }),
+  ]);
+  const sale: any = (saleRes as any).data;
+  if (!cust) return { result: "skipped", reason: "customer_not_found" };
+  if ((sale?.business_unit || cust.business_unit) !== "TRAX") return { result: "skipped", reason: "not_trax" };
+  if ((raw.whatsapp_journey_require_sale_won || "true") !== "false" && sale && sale.stage !== "נסגר בהצלחה") {
+    return { result: "skipped", reason: "sale_not_won", sale_stage: sale.stage };
+  }
+
+  // Recipients: the customer, then every passenger with a phone; one per number.
+  const recipients: { phone: string; name: string; passengerId: string | null; isCustomer: boolean }[] = [];
+  const seen = new Set<string>();
+  const add = (phone: string | null, name: string, passengerId: string | null, isCustomer: boolean) => {
+    const d = digits(phone);
+    if (d.length < 11 || d.includes("*") || seen.has(d)) return;
+    seen.add(d);
+    recipients.push({ phone: d, name: (name || "").trim().split(/\s+/)[0] || "", passengerId, isCustomer });
+  };
+  add(cust.mobile_phone, cust.first_name, (pax || []).find((p: any) => p.is_primary)?.id || null, true);
+  for (const p of pax || []) add(p.phone, p.full_name, p.id, false);
+  if (!recipients.length) return { result: "skipped", reason: "no_phone" };
+
+  const tplName = (raw[`whatsapp_${kind === "welcome" ? "welcome" : "reserved"}_template_name`] || "").trim();
+  const tplLang = (raw[`whatsapp_${kind === "welcome" ? "welcome" : "reserved"}_template_lang`] || "he").trim();
+  let mapping: Record<string, string> = {};
+  try { mapping = JSON.parse(raw[`whatsapp_${kind === "welcome" ? "welcome" : "reserved"}_template_params`] || "{}") || {}; } catch { mapping = {}; }
+
+  const daysToTrip = trip?.departure_date ? Math.ceil((new Date(trip.departure_date + "T00:00:00Z").getTime() - Date.now()) / 86400_000) : null;
+  const participants = String(Math.max((pax || []).length, Number(sale?.participants_count || 0), 1));
+  const baseCtx: Record<string, string> = {
+    customer_first_name: cust.first_name || "",
+    trip_name: trip?.name || "", destination: trip?.destination || "",
+    start_date: ddmmyyyy(trip?.departure_date), end_date: ddmmyyyy(trip?.return_date),
+    participants, days_to_trip: daysToTrip !== null ? String(Math.max(daysToTrip, 0)) : "",
+    trip_url: trip?.page_url || "",
+  };
+
+  // Never send with an empty variable: required trip fields + every mapped one.
+  const missing: string[] = [];
+  if (!baseCtx.trip_name) missing.push("שם היציאה");
+  if (!baseCtx.destination) missing.push("יעד");
+  if (!baseCtx.start_date) missing.push("תאריך יציאה");
+  for (const v of Object.values(mapping)) {
+    for (const k of String(v).match(/\{(\w+)\}/g) || []) {
+      const key = k.slice(1, -1);
+      if (key in baseCtx && !baseCtx[key]) missing.push(VAR_HE[key] || key);
+    }
+  }
+
+  const ownerId = sale?.owner_id || cust.account_manager_id || cust.owner_id || null;
+  const mark = async (status: string, reason: string, r: typeof recipients[number]) => {
+    const { data: ex } = await admin.from("journey_messages").select("id, status").eq("registration_id", reg.id).eq("kind", kind).eq("phone", r.phone).maybeSingle();
+    if (ex?.status === "sent") return;
+    if (ex) await admin.from("journey_messages").update({ status, reason, updated_at: new Date().toISOString() }).eq("id", ex.id);
+    else await admin.from("journey_messages").insert({ registration_id: reg.id, kind, phone: r.phone, passenger_id: r.passengerId, recipient_name: r.name, status, reason });
+  };
+
+  if (missing.length) {
+    const subject = "חסרים פרטי מסע: הודעת וואטסאפ למשתתפים לא נשלחה";
+    const { data: open } = await admin.from("tasks").select("id").eq("related_type", "registration").eq("related_id", reg.id).eq("subject", subject).eq("status", "פתוחה").is("deleted_at", null).limit(1);
+    if (!open?.length) {
+      await admin.from("tasks").insert({
+        subject, related_type: "registration", related_id: reg.id, assignee_id: ownerId, due_at: new Date().toISOString(),
+        status: "פתוחה", priority: "דחופה", business_unit: "TRAX",
+        description: `הודעת "${KIND_HE[kind]}" לא נשלחה כי חסר ביציאה "${trip?.name || ""}": ${[...new Set(missing)].join(", ")}. משלימים את הפרטים במסע, ואז מעדכנים שוב את סטטוס ההרשמה או פונים לצוות.`,
+      });
+      if (ownerId) await admin.from("notifications").insert({ user_id: ownerId, text: "חסרים פרטי מסע, הודעת וואטסאפ למשתתפים לא נשלחה", type: "automation", related_type: "registrations", related_id: reg.id });
+    }
+    for (const r of recipients) await mark("skipped", `חסר: ${[...new Set(missing)].join(", ")}`, r);
+    return { result: "skipped", reason: "missing_data", missing: [...new Set(missing)] };
+  }
+
+  // Per-recipient gates first, so every row says why it was not sent.
+  const out: any[] = [];
+  const eligible: typeof recipients = [];
+  for (const r of recipients) {
+    if (r.isCustomer && cust.whatsapp_opt_out) { await mark("skipped", "הלקוח ביקש לא לפנות בוואטסאפ", r); out.push({ phone: r.phone, result: "opt_out" }); continue; }
+    if (cfg.testMode && !cfg.testPhones.includes(r.phone)) { await mark("skipped", "מצב בדיקה", r); out.push({ phone: r.phone, result: "test_mode" }); continue; }
+    if (kind === "seat_reserved") {
+      const { data: w } = await admin.from("journey_messages").select("id").eq("registration_id", reg.id).eq("kind", "welcome").eq("phone", r.phone).eq("status", "sent").limit(1);
+      if (w?.length) { out.push({ phone: r.phone, result: "welcome_already_sent" }); continue; }
+    }
+    eligible.push(r);
+  }
+  if (!eligible.length) return { result: "done", kind, recipients: out };
+
+  let tpl: any = null;
+  if (!tplName) {
+    for (const r of eligible) await mark("skipped", "לא הוגדרה תבנית", r);
+    return { result: "skipped", reason: "no_template", kind, recipients: out.concat(eligible.map((r) => ({ phone: r.phone, result: "no_template" }))) };
+  }
+  tpl = await resolveTemplate(tplName, tplLang);
+  if (tpl.error) {
+    for (const r of eligible) await mark("skipped", tpl.error, r);
+    return { result: "skipped", reason: "template_unavailable", error: tpl.error };
+  }
+
+  const sentLines: string[] = [];
+  for (const r of eligible) {
+    const { data: claimId } = await admin.rpc("claim_journey_message", {
+      p_registration_id: reg.id, p_kind: kind, p_phone: r.phone, p_passenger_id: r.passengerId, p_name: r.name,
+    });
+    if (!claimId) { out.push({ phone: r.phone, result: "already_sent" }); continue; }
+
+    const ctx = { ...baseCtx, first_name: r.name, full_name: r.name };
+    const params: Record<string, string> = {};
+    for (const [k, v] of Object.entries(mapping)) params[k] = fill(String(v), ctx);
+    if (!Object.keys(params).length && tpl.vars >= 1) params["BODY_{{1}}"] = ctx.first_name;
+
+    const res = await cc("POST", "/subscriber/send-whatsapp-template-by-user-id", {
+      user_id: r.phone, create_if_not_found: "yes",
+      content: { namespace: tpl.namespace, name: tpl.name, lang: tpl.lang, params },
+      contact: { first_name: r.name },
+    });
+    const ok = res.ok && res.data && res.data.status !== "error" && res.data.success !== false;
+    if (!ok) {
+      await admin.from("journey_messages").update({ status: "failed", reason: `CloudChat HTTP ${res.status}: ${JSON.stringify(res.data).slice(0, 300)}`, template: tpl.name, updated_at: new Date().toISOString() }).eq("id", claimId);
+      out.push({ phone: r.phone, result: "failed" });
+      continue;
+    }
+    const info = await cc("GET", `/subscriber/get-info-by-user-id?user_id=${r.phone}`);
+    const userNs = info.data?.data?.user_ns || null;
+    await admin.from("journey_messages").update({ status: "sent", reason: null, template: tpl.name, user_ns: userNs, sent_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", claimId);
+    if (userNs) {
+      if (r.isCustomer) await admin.from("customers").update({ cloudchat_user_ns: userNs, cloudchat_chat_url: CHAT_URL(userNs) }).eq("id", cust.id).is("cloudchat_user_ns", null);
+      await cc("PUT", "/subscriber/set-user-fields-by-name", {
+        user_ns: userNs,
+        data: [
+          { name: "crm_customer_id", value: cust.id },
+          { name: "crm_registration_id", value: reg.id },
+          { name: "crm_journey_name", value: baseCtx.trip_name },
+          { name: "crm_registration_status", value: reg.status },
+        ],
+      }).catch(() => null);
+    }
+    const body = tpl.bodyText ? String(tpl.bodyText).replace(/\{\{(\d+)\}\}/g, (_: string, n: string) => params[`BODY_{{${n}}}`] ?? "") : "";
+    sentLines.push(`${r.name || "-"} (${r.phone})${r.isCustomer ? "" : ", נוסע נוסף"}`);
+    out.push({ phone: r.phone, result: "sent" });
+    if (body && sentLines.length === 1) sentLines.unshift(`נוסח: ${body}`);
+  }
+
+  if (out.some((o) => o.result === "sent")) {
+    await note(admin, "customer", cust.id, `נשלחה הודעת וואטסאפ "${KIND_HE[kind]}" (תבנית ${tpl.name}) להרשמה ${reg.registration_name || ""}:\n${sentLines.join("\n")}`);
+    if (cust.status !== "לקוח פעיל") await admin.from("customers").update({ status: "לקוח פעיל" }).eq("id", cust.id);
+  }
+  return { result: "done", kind, recipients: out };
+}
+
 // ------------------------------------------------------------------ chat
 async function chat(req: Request, body: any) {
   const auth = req.headers.get("Authorization") || "";
@@ -363,12 +554,16 @@ Deno.serve(async (req) => {
   const action = body.action;
   try {
     if (action === "chat") return await chat(req, body);
-    if (action === "send" || action === "sync") {
+    if (action === "send" || action === "sync" || action === "journey") {
       if (!BRIDGE_SECRET || req.headers.get("x-bridge-secret") !== BRIDGE_SECRET) return json({ error: "unauthorized" }, 401);
       const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
       if (action === "send") {
         if (!body.sale_id) return json({ error: "sale_id required" }, 400);
         return json(await send(admin, String(body.sale_id)));
+      }
+      if (action === "journey") {
+        if (!body.registration_id) return json({ error: "registration_id required" }, 400);
+        return json(await journey(admin, String(body.registration_id)));
       }
       return json(await sync(admin, Array.isArray(body.sale_ids) ? body.sale_ids.map(String) : undefined));
     }

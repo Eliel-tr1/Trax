@@ -155,3 +155,19 @@ check the Postgres logs before assuming the bug is in your own code.
 - API template sends appear in the chat as `type: agent`, `msg_type: wa_template`.
 - api-v1: `contacts` has no `deleted_at`; list/get no longer filter on it (was
   a 500 on every call) and DELETE answers 405.
+
+## "ברוך הבא למסע" (2026-10-24, decisions/0011)
+
+- Flow: registration status -> trigger `registrations_journey_webhook` (also
+  `passengers_journey_webhook`, `sales_journey_webhook` on won) -> n8n
+  `kENOh7fdnPaZmYbl` (waits 30 s) -> `cloudchat-bridge {action:'journey',
+  registration_id}`. Re-run by hand with the same call; it is idempotent.
+- Settings: `whatsapp_reserved_template_*`, `whatsapp_welcome_template_*`,
+  `whatsapp_journey_require_sale_won`; test mode and test phones are shared
+  with the lead flow.
+- `journey_messages` is the audit trail and the dedupe key. To deliberately
+  re-send to someone, delete (or set to 'failed') their row, then touch the
+  registration status. Never update a 'sent' row to resend by accident.
+- Placeholders: {first_name} (of each recipient) {trip_name} {destination}
+  {start_date} {end_date} (DD.MM.YYYY) {participants} {days_to_trip} {trip_url}
+  {customer_first_name}.
