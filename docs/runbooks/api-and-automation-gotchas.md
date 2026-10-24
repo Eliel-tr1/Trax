@@ -181,3 +181,10 @@ check the Postgres logs before assuming the bug is in your own code.
 - Placeholders: {first_name} (of each recipient) {trip_name} {destination}
   {start_date} {end_date} (DD.MM.YYYY) {participants} {days_to_trip} {trip_url}
   {customer_first_name}.
+
+## Sale expected value and currency (data/055)
+- Trigger `sales_expected_value` (BEFORE INSERT, or UPDATE OF journey_id / participants_count when they change): `expected_value = journeys.price_per_person x participants_count`, `currency = journeys.currency`. Any source (screen, api-v1, Max). A hand-edited expected_value stays until the journey or head count changes. No head count yet: only the currency is set.
+- Backfill 24/10/2026: currency filled on 168 open sales from their journey (all EUR); no existing value overwritten.
+
+## Entity pickers
+- `loadOptions()` cache expires after 60 s and refreshes when a picker opens; a preset id missing from the cache is fetched by id (a customer created after the page loaded was "not found" in the registration form). Customer pickers also match the phone (0533435240, +972533435240).

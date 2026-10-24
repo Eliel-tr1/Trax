@@ -77,7 +77,16 @@ export default function SaleDetail() {
     setS(data); setOpts(o); setMeetings(mt || []); setCalls(cl || [])
   }
 
-  const save = async (field, value) => { setS(x => ({ ...x, [field]: value })); await updateField('sales', s, field, value) }
+  const save = async (field, value) => {
+    setS(x => ({ ...x, [field]: value }))
+    await updateField('sales', s, field, value)
+    // שווי צפוי and מטבע are recomputed by the DB from the journey price x
+    // participants (data/055): show the new values right away.
+    if (field === 'journey_id' || field === 'participants_count') {
+      const { data } = await supabase.from('sales').select('expected_value, currency, deal_name').eq('id', s.id).maybeSingle()
+      if (data) setS(x => ({ ...x, ...data }))
+    }
+  }
 
   // Saves a field on the OWNING CUSTOMER (the phone/email shown here ARE the
   // customer's fields mirrored — Sahar 05.09: edit them here, customer screen

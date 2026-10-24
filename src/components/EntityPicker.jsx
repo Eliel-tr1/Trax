@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Check, ChevronDown, Search, X } from 'lucide-react'
 import { Input } from './ui/input'
 import { loadOptions } from '../lib/api'
+import { supabase } from '../lib/supabase'
 
 // Generic typeahead picker for an entity reference (customer/journey/sale/
 // etc.), modeled directly on UserPicker.jsx's popup+search pattern (same
@@ -13,6 +14,23 @@ import { loadOptions } from '../lib/api'
 //   directly when the candidate list is already filtered/local (e.g.
 //   MeetingFormModal's related-type-dependent list).
 // labelField: (item) => string. Defaults per known resource.
+// A preset value that is not in the cached list (a record created after the
+// cache was filled) is fetched by id so the picker shows it instead of an
+// empty "בחירה…" (Sahar 24/10: new registration from a sale).
+const FETCH_ONE = {
+  customers: { table: 'customers', select: 'id, first_name, last_name, business_unit, mobile_phone' },
+  journeys: { table: 'journeys', select: 'id, name, business_unit' },
+  sales: { table: 'sales', select: 'id, deal_name, business_unit' },
+}
+
+// Phone search for customers: 0533435240, 053-343-5240 and +972533435240
+// all match the stored E.164 number.
+const phoneKey = v => {
+  let d = String(v || '').replace(/\D/g, '')
+  if (d.startsWith('972')) d = d.slice(3)
+  return d.replace(/^0+/, '')
+}
+
 const DEFAULT_LABEL = {
   customers: c => c.name || `${c.first_name || ''} ${c.last_name || ''}`.trim(),
   journeys: j => j.name,
@@ -43,11 +61,33 @@ export default function EntityPicker({
     return () => { live = false }
   }, [resource, items])
 
+  // Refresh the shared list each time the picker opens (cheap, cached for a
+  // minute) so records created meanwhile are searchable.
+  useEffect(() => {
+    if (!open || items || !resource) return
+    let live = true
+    loadOptions().then(o => { if (live) setList(o[resource] || []) })
+    return () => { live = false }
+  }, [open])
+
+  const [fetched, setFetched] = useState(null)
+  useEffect(() => {
+    if (!value || items || !FETCH_ONE[resource]) return
+    if (list.some(x => x.id === value) || (extraItem && extraItem.id === value)) return
+    if (fetched?.id === value) return
+    let live = true
+    const f = FETCH_ONE[resource]
+    supabase.from(f.table).select(f.select).eq('id', value).maybeSingle()
+      .then(({ data }) => { if (live && data) setFetched(data) })
+    return () => { live = false }
+  }, [value, list, resource])
+
   // Merge extraItem into the candidate list whenever it changes — dedup by
   // id so a cache refresh that already contains it doesn't duplicate.
-  const merged = extraItem
+  let merged = extraItem
     ? [extraItem, ...list.filter(x => x.id !== extraItem.id)]
     : list
+  if (fetched && !merged.some(x => x.id === fetched.id)) merged = [fetched, ...merged]
 
   useEffect(() => {
     if (!open) return
@@ -62,7 +102,11 @@ export default function EntityPicker({
   const base = filter ? merged.filter(filter) : merged
   const selected = base.find(x => x.id === value) || merged.find(x => x.id === value)
   const qq = q.trim().toLowerCase()
-  const shown = qq ? base.filter(x => (labelFn(x) || '').toLowerCase().includes(qq)) : base
+  const qPhone = resource === 'customers' ? phoneKey(q) : ''
+  const shown = qq
+    ? base.filter(x => (labelFn(x) || '').toLowerCase().includes(qq)
+      || (qPhone.length >= 4 && x.mobile_phone && phoneKey(x.mobile_phone).includes(qPhone)))
+    : base
 
   const pick = (id) => { onChange(id); setOpen(false); setQ(''); onClose?.() }
 
