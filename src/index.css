@@ -509,3 +509,7 @@ table.grid > tbody { display: table-row-group; }
 .wa-note { align-self: center; background: var(--warn-bg); color: var(--text); font-size: 12.5px; }
 .wa-system { align-self: center; background: var(--gray-bg); color: var(--text-2); font-size: 12px; max-width: 90%; }
 .wa-error { align-self: center; background: var(--err-bg); color: var(--err); font-size: 12.5px; max-width: 90%; }
+.wa-media { display: block; max-width: 100%; max-height: 260px; border-radius: 8px; margin: 2px 0 4px; }
+.wa-audio { display: block; width: 240px; max-width: 100%; margin: 2px 0 4px; }
+.wa-media-missing { font-size: 12px; color: var(--text-2); margin-bottom: 2px; }
+.wa-transcript { font-size: 12.5px; margin-top: 4px; padding-top: 4px; border-top: 1px dashed var(--border); }

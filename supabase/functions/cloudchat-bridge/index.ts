@@ -615,12 +615,32 @@ async function journey(admin: SupabaseClient, registrationId: string) {
 }
 
 // ------------------------------------------------------------------ chat
-async function chat(req: Request, body: any) {
+// The CRM panel reads the conversation from the agent portal API (the
+// platform keeps it equal to CloudChat, including templates with their
+// rendered text, console agents, flow replies, Meta errors, media and voice
+// transcripts) so it never spends the CloudChat request budget (Sahar 24/10).
+const PORTAL_API_BASE = (Deno.env.get("TRAX_PORTAL_API_BASE") || "").replace(/\/+$/, "");
+const PORTAL_API_KEY = Deno.env.get("TRAX_PORTAL_API_KEY") || "";
+
+async function crmUser(req: Request) {
   const auth = req.headers.get("Authorization") || "";
-  if (!auth.startsWith("Bearer ")) return json({ error: "unauthorized" }, 401);
+  if (!auth.startsWith("Bearer ")) return null;
   const userClient = createClient(SUPABASE_URL, ANON_KEY, { global: { headers: { Authorization: auth } } });
   const { data: u } = await userClient.auth.getUser();
-  if (!u?.user) return json({ error: "unauthorized" }, 401);
+  return u?.user ? userClient : null;
+}
+
+async function portalGet(path: string) {
+  const r = await fetch(`${PORTAL_API_BASE}${path}`, { headers: { Authorization: `Bearer ${PORTAL_API_KEY}` } });
+  let data: any = null;
+  try { data = await r.json(); } catch { data = null; }
+  return { ok: r.ok, status: r.status, data };
+}
+
+async function chat(req: Request, body: any) {
+  const userClient = await crmUser(req);
+  if (!userClient) return json({ error: "unauthorized" }, 401);
+  if (!PORTAL_API_BASE || !PORTAL_API_KEY) return json({ error: "TRAX_PORTAL_API_KEY is not set" }, 500);
 
   let customerId = body.customer_id as string | undefined;
   if (!customerId && body.sale_id) {
@@ -631,22 +651,38 @@ async function chat(req: Request, body: any) {
   const { data: c } = await userClient.from("customers").select("id, mobile_phone, cloudchat_user_ns, cloudchat_chat_url").eq("id", customerId).maybeSingle();
   if (!c) return json({ error: "not found" }, 404);
 
-  let userNs = c.cloudchat_user_ns as string | null;
-  let linked = !!userNs;
-  if (!userNs) {
-    // Read-only lookup by phone: shows a chat the lead opened on his own,
-    // without writing anything.
-    const d = digits(c.mobile_phone);
-    if (d.length >= 11) {
-      const info = await cc("GET", `/subscriber/get-info-by-user-id?user_id=${d}`);
-      userNs = info.ok ? (info.data?.data?.user_ns || null) : null;
-    }
-  }
-  if (!userNs) return json({ linked: false, user_ns: null, messages: [] });
-  const msgs = await chatMessages(userNs, 100);
+  const userNs = c.cloudchat_user_ns as string | null;
+  const phone = digits(c.mobile_phone);
+  const q = userNs ? `user_ns=${encodeURIComponent(userNs)}` : (phone.length >= 11 ? `phone=${phone}` : "");
+  const base = { linked: !!userNs, user_ns: userNs, chat_url: c.cloudchat_chat_url || (userNs ? CHAT_URL(userNs) : null) };
+  if (!q) return json({ ...base, messages: [] });
+  const limit = Math.min(Number(body.limit) || 200, 200);
+  const before = body.before ? `&before=${encodeURIComponent(String(body.before))}` : "";
+  const r = await portalGet(`/conversations/messages?${q}&limit=${limit}${before}`);
+  if (r.status === 404) return json({ ...base, messages: [] });
+  if (!r.ok) return json({ error: `portal HTTP ${r.status}` }, 502);
+  const d = r.data?.data || {};
   return json({
-    linked, user_ns: userNs, chat_url: c.cloudchat_chat_url || CHAT_URL(userNs),
-    messages: msgs.map((m) => ({ id: m.id, type: m.type, msg_type: m.msg_type, ts: m.ts, text: m.text, username: m.username })),
+    ...base,
+    user_ns: userNs || d.conversation?.user_ns || null,
+    messages: Array.isArray(d.messages) ? d.messages : [],
+    has_more: !!r.data?.pagination?.has_more,
+    next_before: r.data?.pagination?.next_before || null,
+  });
+}
+
+// Media bytes of one message, streamed through the portal API (key never
+// reaches the browser). Signed in CRM users only.
+async function media(req: Request, body: any) {
+  const userClient = await crmUser(req);
+  if (!userClient) return json({ error: "unauthorized" }, 401);
+  const id = String(body.id || "");
+  if (!/^[A-Za-z0-9_-]{1,80}$/.test(id)) return json({ error: "bad id" }, 400);
+  const r = await fetch(`${PORTAL_API_BASE}/conversations/media/${id}`, { headers: { Authorization: `Bearer ${PORTAL_API_KEY}` } });
+  if (!r.ok || !r.body) return json({ error: `portal HTTP ${r.status}` }, r.status === 404 ? 404 : 502);
+  return new Response(r.body, {
+    status: 200,
+    headers: { ...cors, "Content-Type": r.headers.get("Content-Type") || "application/octet-stream", "Cache-Control": "private, max-age=3600" },
   });
 }
 
@@ -660,6 +696,7 @@ Deno.serve(async (req) => {
   const action = body.action;
   try {
     if (action === "chat") return await chat(req, body);
+    if (action === "media") return await media(req, body);
     if (action === "send" || action === "sync" || action === "journey" || action === "link") {
       if (!BRIDGE_SECRET || req.headers.get("x-bridge-secret") !== BRIDGE_SECRET) return json({ error: "unauthorized" }, 401);
       const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
