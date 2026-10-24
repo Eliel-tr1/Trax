@@ -14,7 +14,10 @@ const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 // Allow-listed objects and their writable fields. Adding an object here is
 // the only code change needed for it to become available at every verb —
 // per the playbook: "הוספת אובייקט חדש למערכת חייבת להיות זמינה ב-API מיד".
-const SCHEMA: Record<string, { table: string; fields: string[] }> = {
+// softDelete: false for tables without a deleted_at column (contacts): their
+// list/get must not filter on it (that was a 500 on every contacts call) and
+// DELETE is refused (405) rather than becoming a hard delete.
+const SCHEMA: Record<string, { table: string; fields: string[]; softDelete?: boolean }> = {
   customers: {
     table: "customers",
     fields: [
@@ -25,6 +28,7 @@ const SCHEMA: Record<string, { table: string; fields: string[] }> = {
       "company", "job_title", "work_email", "owner_id", "account_manager_id", "custom", "execution_url",
       "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "landing_page", "referrer",
       "funnel", "utm_adset", "utm_ad", "utm_placement", "form_name", "marketing_consent",
+      "cloudchat_user_ns", "cloudchat_chat_url", "send_lead_whatsapp", "whatsapp_opt_out",
     ],
   },
   sales: {
@@ -37,6 +41,7 @@ const SCHEMA: Record<string, { table: string; fields: string[] }> = {
       "interest_area", "custom", "execution_url",
       "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "landing_page", "referrer",
       "funnel", "utm_adset", "utm_ad", "utm_placement", "form_name", "marketing_consent",
+      "send_lead_whatsapp", "ai_chat_status", "ai_message_sent_at", "ai_first_reply_at", "ai_send_error",
     ],
   },
   journeys: {
@@ -67,6 +72,7 @@ const SCHEMA: Record<string, { table: string; fields: string[] }> = {
   contacts: {
     table: "contacts",
     fields: ["customer_id", "name", "phone", "email", "role", "execution_url"],
+    softDelete: false,
   },
 };
 
@@ -134,7 +140,8 @@ Deno.serve(async (req: Request) => {
 
   try {
     if (req.method === "GET" && !recordId) {
-      let query = admin.from(def.table).select("*").is("deleted_at", null);
+      let query = admin.from(def.table).select("*");
+      if (def.softDelete !== false) query = query.is("deleted_at", null);
       for (const [k, v] of url.searchParams.entries()) {
         if (k === "limit" || k === "offset" || k === "sort") continue;
         if (!def.fields.includes(k) && k !== "id") {
@@ -159,7 +166,9 @@ Deno.serve(async (req: Request) => {
     }
 
     if (req.method === "GET" && recordId) {
-      const { data, error } = await admin.from(def.table).select("*").eq("id", recordId).is("deleted_at", null).maybeSingle();
+      let one = admin.from(def.table).select("*").eq("id", recordId);
+      if (def.softDelete !== false) one = one.is("deleted_at", null);
+      const { data, error } = await one.maybeSingle();
       if (error) throw error;
       if (!data) {
         await logRequest(admin, apiKey.id, url.pathname, req.method, 404, startedAt);
@@ -217,6 +226,11 @@ Deno.serve(async (req: Request) => {
 
     if (req.method === "DELETE" && recordId) {
       // soft-delete only — see CLAUDE.md, nothing hard-deletes from these tables.
+      // A table without deleted_at (contacts) cannot be soft-deleted: refuse.
+      if (def.softDelete === false) {
+        await logRequest(admin, apiKey.id, url.pathname, req.method, 405, startedAt);
+        return jsonResponse({ error: `DELETE is not supported for "${objectName}"` }, 405);
+      }
       const { data, error } = await admin.from(def.table).update({ deleted_at: new Date().toISOString() }).eq("id", recordId).select().maybeSingle();
       if (error) throw error;
       if (!data) {

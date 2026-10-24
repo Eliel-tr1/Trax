@@ -21,8 +21,9 @@ import { toast } from '../components/Toaster'
 import StatusBadge, { badgeClassFor } from '../components/StatusBadge'
 import FieldTabs from '../components/FieldTabs'
 import SystemFieldsTab from '../components/SystemFieldsTab'
+import WhatsAppPanel from '../components/WhatsAppPanel'
 
-const SECTIONS = ['פרטים', 'מועדון']
+const SECTIONS = ['פרטים', 'מועדון', 'וואטסאפ']
 
 export default function CustomerDetail() {
   const { id } = useParams()
@@ -44,7 +45,7 @@ export default function CustomerDetail() {
     setC(data)
     loadOptions().then(setOpts)
     const [{ data: s }, { data: ct }, { data: reg }, { data: mt }, { data: pc }] = await Promise.all([
-      supabase.from('sales').select('id, deal_name, stage').eq('customer_id', id).is('deleted_at', null).order('created_at', { ascending: false }),
+      supabase.from('sales').select('id, deal_name, stage, ai_chat_status').eq('customer_id', id).is('deleted_at', null).order('created_at', { ascending: false }),
       supabase.from('contacts').select('*').eq('customer_id', id).order('created_at', { ascending: false }),
       supabase.from('registrations').select('id, registration_name, status').eq('customer_id', id).is('deleted_at', null).order('created_at', { ascending: false }),
       supabase.from('meetings').select('*').eq('related_type', 'customer').eq('related_id', id).is('deleted_at', null).order('start_at', { ascending: false }),
@@ -134,7 +135,7 @@ export default function CustomerDetail() {
         </div>
       )}
       <div className="card">
-        <div className="sections-tabs">{SECTIONS.map(s => <div key={s} className={`sec-tab ${sec === s ? 'active' : ''}`} onClick={() => setSec(s)}>{s}</div>)}</div>
+        <div className="sections-tabs">{SECTIONS.filter(s => s !== 'וואטסאפ' || !isXcon).map(s => <div key={s} className={`sec-tab ${sec === s ? 'active' : ''}`} onClick={() => setSec(s)}>{s}</div>)}</div>
         {sec === 'פרטים' && <div className="field-grid">
           <EditField label="שם פרטי" value={c.first_name} onSave={v => save('first_name', v)} />
           <EditField label="שם משפחה" value={c.last_name} onSave={v => save('last_name', v)} />
@@ -159,6 +160,18 @@ export default function CustomerDetail() {
           <EditField label="יתרת קרדיט" value={c.credit_balance} type="number" onSave={v => save('credit_balance', v)} />
           <EditField label="רמת ניסיון באקסטרים" value={c.extreme_experience_level} type="select" options={enumOpts(EXPERIENCE_LEVELS)} onSave={v => save('extreme_experience_level', v)} />
           <EditField label="שפה מועדפת" value={c.preferred_language} type="select" options={enumOpts(PREFERRED_LANGUAGES)} onSave={v => save('preferred_language', v)} />
+        </div>}
+        {sec === 'וואטסאפ' && <div className="field-grid">
+          {/* WhatsApp AI agent (migration 053, docs/decisions/0010). The two
+              CloudChat fields are written by cloudchat-bridge when the opening
+              message is sent; editable here for manual linking. The sale
+              screen mirrors them read-only. */}
+          <EditField label="מזהה קלאודצ'אט" value={c.cloudchat_user_ns} ltr placeholder="f296163u..." onSave={v => save('cloudchat_user_ns', v)} />
+          <EditField label="קישור לצ'אט" value={c.cloudchat_chat_url} ltr
+            display={c.cloudchat_chat_url ? <a href={c.cloudchat_chat_url} target="_blank" rel="noreferrer" dir="ltr" onClick={e => e.stopPropagation()}>{c.cloudchat_chat_url}</a> : '-'}
+            onSave={v => save('cloudchat_chat_url', v)} />
+          <EditField label="לא לפנות בוואטסאפ" value={c.whatsapp_opt_out} type="checkbox" onSave={v => save('whatsapp_opt_out', v)} />
+          <EditField label="סטטוס שיחה עם סוכן AI (מכירה אחרונה)" value={sales[0]?.ai_chat_status || ''} display={sales[0]?.ai_chat_status || 'לא נשלחה הודעה'} readOnly readOnlyReason="מתעדכן אוטומטית במכירה" />
         </div>}
         <div style={{ marginTop: 10 }}><EditField label="הערות" value={c.notes} type="textarea" onSave={v => save('notes', v)} /></div>
 
@@ -192,6 +205,7 @@ export default function CustomerDetail() {
           },
         ]} />
       </div>
+      {!isXcon && <WhatsAppPanel customerId={id} status={sales[0]?.ai_chat_status ?? null} />}
     </RecordLayout>
   )
 }

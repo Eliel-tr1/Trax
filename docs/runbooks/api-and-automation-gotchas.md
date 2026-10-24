@@ -117,3 +117,34 @@ the bug (different connection each time), so the real signal was reading
 function and line, `parsed.query` showed the actual PostgREST-generated SQL.
 When a bug only reproduces through the API and not through a direct query,
 check the Postgres logs before assuming the bug is in your own code.
+
+## WhatsApp AI agent (CloudChat): operations (2026-10-24, decisions/0010)
+
+- Flow: sale INSERT -> trigger `sales_created_webhook` -> n8n `aZ475pR5nxSdzhuU`
+  (header auth `X-Trax-Webhook-Secret`, waits 60 s) -> `cloudchat-bridge`
+  `{action:'send', sale_id}` (header `x-bridge-secret`). Reply sync: n8n
+  `lo7rijctoKVu3DwV` every 5 min -> `{action:'sync'}`; `{action:'sync',
+  sale_ids:[...]}` re-checks specific sales. Chat panel: `{action:'chat'}` with
+  the user's JWT.
+- Function secrets (Supabase): `TRAX_CLOUDCHAT_API_KEY` (workspace "TRAX
+  Club" 326381 key), `TRAX_CLOUDCHAT_BASE`, `CLOUDCHAT_BRIDGE_SECRET`. n8n
+  credentials: "TRAX CRM webhook secret", "TRAX cloudchat-bridge secret".
+  Deployed with verify_jwt OFF (send/sync check the bridge secret, chat checks
+  the user JWT itself).
+- Settings live in `system_settings` (`whatsapp_*`): template name/lang/params,
+  test mode + test phones, dedupe days, no-reply hours. Test mode ON until
+  Sahar says go live: staging and production share this DB.
+- `send` result reasons when skipped: disabled_on_sale, not_trax, opt_out,
+  already_sent, no_valid_phone, test_mode, dedupe. A missing or unapproved
+  template marks the sale `השליחה נכשלה` with the reason in `ai_send_error`;
+  a failed sale is retried by the next `send` for it.
+- Max hands over by PATCH `/api-v1/sales/{id}` with `stage: 'שיחת מכירה עם
+  נציג אנושי'` + qualification fields; trigger `sales_ai_handoff` opens the task.
+  Max finds the ids in the CloudChat subscriber fields `crm_customer_id`,
+  `crm_sale_id`.
+- Known: the automation engine's `create_record` writes `related_type` as the
+  TABLE name (`sales`), which `tasks_related_type_check` rejects: rule "משימת
+  מעקב לתאריך שיחה הבאה" has failed 22 times. Not fixed here (changes behavior
+  of a live rule; needs Sahar).
+- api-v1: `contacts` has no `deleted_at`; list/get no longer filter on it (was
+  a 500 on every call) and DELETE answers 405.

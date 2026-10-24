@@ -12,7 +12,7 @@ import {
   LOSS_REASONS, QUALIFICATION_RATINGS, CURRENCIES, INTEREST_AREAS,
   JOURNEY_DESTINATIONS, JOURNEY_STATUSES, REGISTRATION_STATUSES,
   PAYMENT_METHODS, TASK_STATUSES, TASK_PRIORITIES, MEETING_TYPES, MEETING_STATUSES,
-  CALL_DIRECTIONS, CALL_RESULTS, enumOpts,
+  CALL_DIRECTIONS, CALL_RESULTS, AI_CHAT_STATUSES, enumOpts,
 } from './constants'
 import { formatDate, formatDateTime, formatNumber } from './format'
 import UserEditableCell from '../components/UserEditableCell'
@@ -50,6 +50,13 @@ export const SCHEMA = {
       { key: 'site', label: 'אתר', type: 'text', wave: 1, xconOnly: true },
       { key: 'job_title', label: 'תפקיד', type: 'text', wave: 1, xconOnly: true },
       { key: 'work_email', label: 'מייל עבודה', type: 'text', ltr: true, wave: 1, xconOnly: true },
+      // WhatsApp AI agent (migration 053). The create-form choice is copied to
+      // the auto-created sale by customer_auto_create_sale(). TRAX only: the
+      // agent is TRAX's, Xcon leads never get it.
+      { key: 'send_lead_whatsapp', label: 'לשלוח וואטסאפ ליד חדש', type: 'checkbox', default: true, wave: 1, traxOnly: true },
+      { key: 'whatsapp_opt_out', label: 'לא לפנות בוואטסאפ', type: 'checkbox', default: false, wave: 1, traxOnly: true, createHidden: true },
+      { key: 'cloudchat_user_ns', label: 'מזהה קלאודצ\'אט', type: 'text', ltr: true, wave: 1, traxOnly: true, createHidden: true },
+      { key: 'cloudchat_chat_url', label: 'קישור לצ\'אט', type: 'text', ltr: true, wave: 1, traxOnly: true, createHidden: true },
     ],
     relations: [
       { childType: 'sale', fkOnChild: 'customer_id', label: 'מכירה' },
@@ -77,6 +84,11 @@ export const SCHEMA = {
       { key: 'next_call_at', label: 'תאריך שיחה הבאה', type: 'datetime', wave: 2 },
       // Xcon-only
       { key: 'interest_area', label: 'תחום עניין', type: 'select', options: enumOpts(INTEREST_AREAS), wave: 1, xconOnly: true },
+      // WhatsApp AI agent (migration 053, docs/decisions/0010).
+      { key: 'send_lead_whatsapp', label: 'לשלוח וואטסאפ ליד חדש', type: 'checkbox', default: true, wave: 1, traxOnly: true },
+      { key: 'ai_chat_status', label: 'סטטוס שיחה עם סוכן AI', type: 'select', options: enumOpts(AI_CHAT_STATUSES), wave: 1, traxOnly: true, createHidden: true },
+      { key: 'ai_message_sent_at', label: 'הודעת סוכן נשלחה', type: 'datetime', wave: 1, traxOnly: true, createHidden: true },
+      { key: 'ai_first_reply_at', label: 'ענה לסוכן בתאריך', type: 'datetime', wave: 1, traxOnly: true, createHidden: true },
     ],
     relations: [],
   },

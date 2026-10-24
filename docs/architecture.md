@@ -95,7 +95,7 @@ Edge Functions replace what would have been calls into Origami's API:
 | Function | Replaces | Fed by |
 |---|---|---|
 | `lead-intake` | Origami `create_instance` on form submit | site form, landing pages, Xcon form |
-| `whatsapp-inbound` | Origami lead/sale creation from WhatsApp | CloudChat webhook |
+| `cloudchat-bridge` | Origami WhatsApp lead handling | n8n `TRAX - WhatsApp ליד חדש` (aZ475pR5nxSdzhuU, fed by the CRM `sale.created` webhook) and `TRAX - WhatsApp סנכרון מענה וסטטוס` (lo7rijctoKVu3DwV, every 5 min); the CRM chat panel. See decisions/0010 |
 | `voicenter-call-sync` | manual call logging | Voicenter CDR Notification -> n8n `Trax Calls - Voicenter` (QqOrRlWGBANByx2C), see decisions/0009 |
 | `payment-webhook` | manual registration update | Sumit |
 | `backup-nightly` | — | pg_cron |
@@ -116,3 +116,10 @@ not change without updating every form): `full_name`, `phone`, `email`,
 - See [blockers.md](blockers.md) for the live list of client-side blockers
   (journeys list, price conflict, Meta verification) that affect Wave 2 and
   the WhatsApp/voice agent regardless of which CRM platform is underneath.
+
+## Outbound webhooks (since 2026-10-24)
+
+`outbound_webhooks` + an AFTER INSERT trigger on `sales` (pg_net) post
+`sale.created` to every active hook; results in `webhook_deliveries` and
+`webhook_delivery_log()`. Today the only hook feeds the WhatsApp agent flow
+(decisions/0010). Managed in Settings > "וואטסאפ וסוכן AI".

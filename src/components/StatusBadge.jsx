@@ -37,6 +37,9 @@ export const BADGES = {
     'הצעה נשלחה': 'warn', 'ממתין להחלטה': 'warn',
     'נסגר בהצלחה': 'ok', 'עסקה הופסדה': 'err',
   },
+  'sale.ai_chat_status': {
+    'נשלחה הודעה': 'info', 'ענה לסוכן': 'ok', 'השליחה נכשלה': 'err',
+  },
   'sale.qualification_rating': {
     'עומד בקריטריונים': 'ok', 'חלקי': 'warn', 'לא עומד': 'err', 'ספאם': 'gray',
   },

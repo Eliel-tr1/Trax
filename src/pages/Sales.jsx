@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useRefresh } from 'ra-core'
-import { CUSTOMER_STATUSES, LEAD_SOURCES, LEAD_RATINGS, PREFERRED_LANGUAGES, SALE_STAGES, SALE_STAGES_CLOSED, LOSS_REASONS, enumOpts } from '../lib/constants'
+import { CUSTOMER_STATUSES, LEAD_SOURCES, LEAD_RATINGS, PREFERRED_LANGUAGES, SALE_STAGES, SALE_STAGES_CLOSED, LOSS_REASONS, AI_CHAT_STATUSES, enumOpts } from '../lib/constants'
 import { extraHiddenColumns, metadataColumns } from '../lib/schema'
 import { useDrillInitialFilter } from './Customers'
 import { formatDateTime } from '../lib/format'
@@ -56,6 +56,9 @@ export function salesColumns(opts, refresh) {
     { source: 'journey_id', label: 'מסע מבוקש', csv: r => journeys.find(j => j.id === r.journey_id)?.name || '',
       render: r => <ReferenceEditableCell row={r} table="sales" field="journey_id" resource="journeys" items={journeys}
         placeholder="בחרו מסע" onSaved={() => refresh()} /> },
+    // WhatsApp AI agent status (migration 053). Empty = no message was sent.
+    { source: 'ai_chat_status', label: 'סוכן AI', csv: r => r.ai_chat_status || '',
+      render: r => r.ai_chat_status ? <StatusBadge value={r.ai_chat_status} field="ai_chat_status" resource="sale" /> : <span className="small muted">-</span> },
     { source: 'loss_reason', label: 'סיבת אי סגירה', hidden: true, csv: r => r.loss_reason, render: r => r.loss_reason || '-' },
     // ----- Customer-mirror columns (read-only here — the customer screen is
     // their editing home; editing customer fields inside the sales TABLE was
@@ -72,7 +75,7 @@ export function salesColumns(opts, refresh) {
       render: r => r.customer == null ? '-' : (r.customer.club_member ? <span className="badge ok">✓ כן</span> : <span className="badge gray">✗ לא</span>) },
     { source: 'customer.lead_rating', label: 'דירוג ליד', hidden: true, csv: r => r.customer?.lead_rating || '', render: r => r.customer?.lead_rating || '-' },
     { source: 'customer.preferred_language', label: 'שפה מועדפת', hidden: true, csv: r => r.customer?.preferred_language || '', render: r => r.customer?.preferred_language || '-' },
-    ...extraHiddenColumns('sale', ['created_at', 'deal_name', 'customer_id', 'stage', 'channel', 'lead_source', 'owner_id', 'journey_id', 'loss_reason'], { table: 'sales', users, opts, refresh }),
+    ...extraHiddenColumns('sale', ['created_at', 'deal_name', 'customer_id', 'stage', 'channel', 'lead_source', 'owner_id', 'journey_id', 'loss_reason', 'ai_chat_status'], { table: 'sales', users, opts, refresh }),
     ...metadataColumns('sale', ['created_at'], { users }),
   ]
 }
@@ -95,6 +98,11 @@ export default function Sales() {
   const presets = [
     { key: 'all', label: 'הכול' },
     { key: 'open', label: 'עסקאות פתוחות', filter: { 'stage@in': OPEN_STAGES } },
+    // WhatsApp AI agent: who got the opening message, who answered, who not.
+    { key: 'ai_sent', label: 'קיבלו הודעה מהסוכן', filter: { 'ai_chat_status@in': ['נשלחה הודעה', 'ענה לסוכן'] } },
+    { key: 'ai_replied', label: 'ענו לסוכן', filter: { ai_chat_status: 'ענה לסוכן' } },
+    { key: 'ai_noreply', label: 'לא ענו לסוכן', filter: { ai_chat_status: 'נשלחה הודעה' } },
+    { key: 'ai_none', label: 'לא נשלחה הודעה', filter: { 'ai_chat_status@is': null } },
     ...(user?.id ? [{ key: 'mine_due', label: 'ממתין לי', filter: { owner_id: user.id, 'next_call_at@lte': new Date().toISOString() } }] : []),
   ]
 
@@ -111,6 +119,7 @@ export default function Sales() {
         facets={[
           { field: 'stage', title: 'שלב מכירה', options: stageOpts },
           { field: 'loss_reason', title: 'סיבת אי סגירה', options: enumOpts(LOSS_REASONS) },
+          { field: 'ai_chat_status', title: 'סוכן AI', options: enumOpts(AI_CHAT_STATUSES) },
         ]}
         filters={filterGroups}
         rowPath={r => `/sales/${r.id}`}
