@@ -169,11 +169,11 @@ check the Postgres logs before assuming the bug is in your own code.
 ## "ברוך הבא למסע" (2026-10-24, decisions/0011)
 
 - Flow: registration status -> trigger `registrations_journey_webhook` (also
-  `passengers_journey_webhook`, `sales_journey_webhook` on won) -> n8n
+  `passengers_journey_webhook`; the sale-won trigger was dropped in 056) -> n8n
   `kENOh7fdnPaZmYbl` (waits 30 s) -> `cloudchat-bridge {action:'journey',
   registration_id}`. Re-run by hand with the same call; it is idempotent.
-- Settings: `whatsapp_reserved_template_*`, `whatsapp_welcome_template_*`,
-  `whatsapp_journey_require_sale_won`; test mode and test phones are shared
+- Settings: `whatsapp_reserved_template_*`, `whatsapp_welcome_template_*`;
+  the sale stage never gates the message (056); test mode and test phones are shared
   with the lead flow.
 - `journey_messages` is the audit trail and the dedupe key. To deliberately
   re-send to someone, delete (or set to 'failed') their row, then touch the

@@ -125,11 +125,6 @@ export default function WhatsAppAgentTab() {
         <div className="small muted" style={{ marginBottom: 8 }}>
           הרשמה שעוברת ל"משוריין" מקבלת "שמירת מקום", ול"שולמה מקדמה" או "שולם במלואו" מקבלת "ברוך הבא". נשלח ללקוח ולכל נוסע עם טלפון, פעם אחת לכל הרשמה, הודעה וטלפון.
         </div>
-        <div className="row" style={{ alignItems: 'center', gap: 10, marginBottom: 10 }}>
-          <Switch checked={settings.whatsapp_journey_require_sale_won !== 'false'}
-            onCheckedChange={() => saveSetting('whatsapp_journey_require_sale_won', settings.whatsapp_journey_require_sale_won !== 'false' ? 'false' : 'true')} />
-          <span>לשלוח רק אחרי שהמכירה המקושרת נסגרה בהצלחה</span>
-        </div>
         <div className="field-grid">
           {JOURNEY_SETTINGS.map(f => (
             <div key={f.key}>
