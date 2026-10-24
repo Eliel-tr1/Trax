@@ -70,7 +70,7 @@ export default function WhatsAppPanel({ customerId, saleId, status }) {
           {msgs.map(m => {
             const isErr = m.msg_type === 'error'
             const kind = isErr ? 'error' : (m.type === 'in' ? 'in' : m.type === 'note' ? 'note' : m.type === 'system' ? 'system' : 'out')
-            const who = isErr ? 'שגיאת שליחה' : (m.type === 'agent' && m.username ? `נציג: ${m.username}` : WHO[m.type] || m.type)
+            const who = isErr ? 'שגיאת שליחה' : m.msg_type === 'wa_template' ? 'תבנית וואטסאפ' : (m.type === 'agent' && m.username ? `נציג: ${m.username}` : WHO[m.type] || m.type)
             return (
               <div key={m.id} className={`wa-msg wa-${kind}`}>
                 <div className="wa-meta">{who} · {formatDateTime(new Date(m.ts * 1000).toISOString())}</div>

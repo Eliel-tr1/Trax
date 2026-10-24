@@ -146,5 +146,12 @@ check the Postgres logs before assuming the bug is in your own code.
   TABLE name (`sales`), which `tasks_related_type_check` rejects: rule "משימת
   מעקב לתאריך שיחה הבאה" has failed 22 times. Not fixed here (changes behavior
   of a live rule; needs Sahar).
+- CloudChat answers `send-whatsapp-template-by-user-id` with
+  `{"status":"ok","mid":...}` even for a template that does not exist (checked
+  24/10): "ok" means queued, not sent. The rejection shows up in
+  `/flow/error-logs/data` (user_ns + "(#132001) ..."), not always as a chat
+  row; `sync` reads both. That is also why `send` refuses a template that is
+  not in `/whatsapp-template/list` as APPROVED.
+- API template sends appear in the chat as `type: agent`, `msg_type: wa_template`.
 - api-v1: `contacts` has no `deleted_at`; list/get no longer filter on it (was
   a 500 on every call) and DELETE answers 405.

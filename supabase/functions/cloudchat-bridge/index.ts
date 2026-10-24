@@ -249,6 +249,19 @@ async function sync(admin: SupabaseClient, saleIds?: string[]) {
   const out = { checked: 0, replied: 0, failed: 0, opted_out: 0, noreply_tasks: 0, errors: [] as string[] };
   const now = Date.now() / 1000;
 
+  // Meta rejections. Checked live 24/10: a rejected template does NOT always
+  // leave an error row in the chat; it lands in /flow/error-logs with the
+  // user_ns and "(#<code>) <text>". One call per run, mapped by user_ns.
+  const flowErrors = new Map<string, { ts: number; text: string }[]>();
+  const oldest = Math.min(...(rows || []).map((r) => Math.floor(new Date(r.ai_message_sent_at as string).getTime() / 1000)), Math.floor(now));
+  const el = await cc("GET", `/flow/error-logs/data?limit=1000&start_time=${Math.max(oldest - 60, Math.floor(now) - 29 * 86400)}&end_time=${Math.floor(now) + 60}`);
+  for (const e of (Array.isArray(el.data?.data) ? el.data.data : [])) {
+    if (!e.user_ns) continue;
+    const list = flowErrors.get(e.user_ns) || [];
+    list.push({ ts: Math.floor(new Date(e.created_at).getTime() / 1000), text: String(e.description || "") });
+    flowErrors.set(e.user_ns, list);
+  }
+
   for (const s of rows || []) {
     const c: any = (s as any).customers;
     const sentTs = Math.floor(new Date(s.ai_message_sent_at as string).getTime() / 1000);
@@ -269,6 +282,14 @@ async function sync(admin: SupabaseClient, saleIds?: string[]) {
             await note(admin, "customer", c.id, "הליד ביקש בוואטסאפ להפסיק לקבל הודעות. סומן \"לא לפנות בוואטסאפ\".");
             out.opted_out++;
           }
+          continue;
+        }
+        const logged = (flowErrors.get(c.cloudchat_user_ns) || []).find((e) => e.ts >= sentTs - 10);
+        if (!err && logged) {
+          const code = /\(#(\d+)\)/.exec(logged.text)?.[1] || null;
+          const text = [code ? META_ERR_HE[code] : null, logged.text].filter(Boolean).join(": ");
+          await admin.from("sales").update({ ai_chat_status: STATUS_FAILED, ai_send_error: text.slice(0, 500) }).eq("id", s.id);
+          out.failed++;
           continue;
         }
         if (err) {
