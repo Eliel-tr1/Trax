@@ -138,6 +138,12 @@ check the Postgres logs before assuming the bug is in your own code.
   already_sent, no_valid_phone, test_mode, dedupe. A missing or unapproved
   template marks the sale `השליחה נכשלה` with the reason in `ai_send_error`;
   a failed sale is retried by the next `send` for it.
+- `send` also skips a lead who is ALREADY chatting with Max (CloudChat subscriber
+  with an inbound message in the last 24 h, or sale channel `וואטסאפ`): links the
+  chat, sets `ענה לסוכן`, notes it, sends nothing (reason already_in_conversation).
+- Any sale INSERT fires the flow, whatever the source: CRM UI, api-v1 (POST
+  customers / sales), lead-intake, wf05a (site + Facebook). Gap: wf05a REUSES an
+  open sale for a returning lead (no INSERT), so a repeat submission sends nothing.
 - Max hands over by PATCH `/api-v1/sales/{id}` with `stage: 'שיחת מכירה עם
   נציג אנושי'` + qualification fields; trigger `sales_ai_handoff` opens the task.
   Max finds the ids in the CloudChat subscriber fields `crm_customer_id`,

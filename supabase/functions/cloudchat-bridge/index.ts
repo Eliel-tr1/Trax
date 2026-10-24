@@ -178,6 +178,30 @@ async function send(admin: SupabaseClient, saleId: string) {
     .eq("customer_id", cust.id).neq("id", sale.id).gte("ai_message_sent_at", since).limit(1);
   if (recent && recent.length) return { result: "skipped", reason: "dedupe", other_sale_id: recent[0].id };
 
+  // A lead who is ALREADY talking to Max on WhatsApp (wrote in first; Max
+  // opened the customer/sale through api-v1, or the sale's channel is
+  // WhatsApp) must not get the opening template on top of the live chat.
+  // Link the chat and mark the sale "ענה לסוכן" instead.
+  {
+    const info = await cc("GET", `/subscriber/get-info-by-user-id?user_id=${phone}`);
+    const ns: string = info.ok ? (info.data?.data?.user_ns || "") : "";
+    let inbound: Msg[] = [];
+    if (ns) {
+      try { inbound = (await chatMessages(ns, 50)).filter((m) => m.type === "in" && m.ts >= Date.now() / 1000 - 24 * 3600); } catch { inbound = []; }
+    }
+    if (ns && (inbound.length || sale.channel === "וואטסאפ")) {
+      await admin.from("customers").update({ cloudchat_user_ns: ns, cloudchat_chat_url: CHAT_URL(ns) }).eq("id", cust.id);
+      const patch: Record<string, unknown> = { ai_chat_status: STATUS_REPLIED, ai_send_error: null };
+      if (inbound.length) patch.ai_first_reply_at = new Date(inbound[0].ts * 1000).toISOString();
+      await admin.from("sales").update(patch).eq("id", sale.id);
+      await cc("PUT", "/subscriber/set-user-fields-by-name", {
+        user_ns: ns, data: [{ name: "crm_customer_id", value: cust.id }, { name: "crm_sale_id", value: sale.id }],
+      }).catch(() => null);
+      await note(admin, "sale", sale.id, "הליד כבר בשיחה פעילה עם מקס בוואטסאפ, ולכן לא נשלחה הודעת פתיחה.");
+      return { result: "skipped", reason: "already_in_conversation", user_ns: ns };
+    }
+  }
+
   const fail = async (msg: string) => {
     await admin.from("sales").update({ ai_chat_status: STATUS_FAILED, ai_send_error: msg.slice(0, 500) }).eq("id", sale.id);
     return { result: "failed", error: msg };
