@@ -26,6 +26,8 @@ import { formatCurrency, formatDateTime, formatDate } from '../lib/format'
 import StatusBadge, { badgeClassFor } from '../components/StatusBadge'
 import { celebrateWin } from '../lib/celebration'
 import { recalcCustomerStatus } from '../lib/customerStatus'
+import WhatsAppPanel from '../components/WhatsAppPanel'
+import { AI_CHAT_STATUSES } from '../lib/constants'
 
 const LOST_STAGE = 'עסקה הופסדה'
 const WON_STAGE = 'נסגר בהצלחה'
@@ -75,7 +77,16 @@ export default function SaleDetail() {
     setS(data); setOpts(o); setMeetings(mt || []); setCalls(cl || [])
   }
 
-  const save = async (field, value) => { setS(x => ({ ...x, [field]: value })); await updateField('sales', s, field, value) }
+  const save = async (field, value) => {
+    setS(x => ({ ...x, [field]: value }))
+    await updateField('sales', s, field, value)
+    // שווי צפוי and מטבע are recomputed by the DB from the journey price x
+    // participants (data/055): show the new values right away.
+    if (field === 'journey_id' || field === 'participants_count') {
+      const { data } = await supabase.from('sales').select('expected_value, currency, deal_name').eq('id', s.id).maybeSingle()
+      if (data) setS(x => ({ ...x, ...data }))
+    }
+  }
 
   // Saves a field on the OWNING CUSTOMER (the phone/email shown here ARE the
   // customer's fields mirrored — Sahar 05.09: edit them here, customer screen
@@ -204,6 +215,23 @@ export default function SaleDetail() {
           {
             key: 'customer', label: 'פרטי לקוח', content: <CustomerSnapshot customer={s.customer} users={opts.users} onSaved={softRefresh} />,
           },
+          ...(!isXcon ? [{
+            // WhatsApp AI agent (migration 053, docs/decisions/0010). The
+            // CloudChat id and chat link are CUSTOMER fields, mirrored here
+            // read-only (edit them on the customer screen).
+            key: 'ai', label: 'סוכן AI בוואטסאפ', content: <>
+              <EditField label="סטטוס שיחה עם סוכן AI" value={s.ai_chat_status} type="select" options={enumOpts(AI_CHAT_STATUSES)}
+                display={s.ai_chat_status ? <StatusBadge value={s.ai_chat_status} field="ai_chat_status" resource="sale" /> : 'לא נשלחה הודעה'}
+                onSave={v => save('ai_chat_status', v)} />
+              <EditField label="לשלוח וואטסאפ ליד חדש" value={s.send_lead_whatsapp} type="checkbox" onSave={v => save('send_lead_whatsapp', v)} />
+              <EditField label="הודעת סוכן נשלחה" value={s.ai_message_sent_at} display={formatDateTime(s.ai_message_sent_at)} readOnly readOnlyReason="נכתב אוטומטית בשליחה" />
+              <EditField label="ענה לסוכן בתאריך" value={s.ai_first_reply_at} display={formatDateTime(s.ai_first_reply_at)} readOnly readOnlyReason="נכתב אוטומטית בסנכרון" />
+              {s.ai_send_error && <EditField label="סיבת כישלון שליחה" value={s.ai_send_error} readOnly readOnlyReason="מהקלאודצ'אט / מטא" />}
+              <EditField label="מזהה קלאודצ'אט (מהלקוח)" value={s.customer?.cloudchat_user_ns} ltr readOnly readOnlyReason="שדה של הלקוח, עורכים במסך הלקוח" />
+              <EditField label="קישור לצ'אט (מהלקוח)" value={s.customer?.cloudchat_chat_url} ltr readOnly readOnlyReason="שדה של הלקוח, עורכים במסך הלקוח"
+                display={s.customer?.cloudchat_chat_url ? <a href={s.customer.cloudchat_chat_url} target="_blank" rel="noreferrer" dir="ltr">{s.customer.cloudchat_chat_url}</a> : '-'} />
+            </>,
+          }] : []),
           {
             key: 'system', label: 'נתוני מערכת', content: <SystemFieldsTab record={s} users={opts.users} onSaveBusinessUnit={v => save('business_unit', v)} />,
           },
@@ -231,6 +259,7 @@ export default function SaleDetail() {
           },
         ]} />
       </div>
+      {!isXcon && <WhatsAppPanel saleId={id} status={s.ai_chat_status ?? null} />}
       {showCharge && <CardcomChargeModal onClose={() => setShowCharge(false)} />}
       {showNewRegistration && (
         <RecordFormModal type="registration"

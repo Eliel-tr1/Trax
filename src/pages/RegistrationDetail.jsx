@@ -14,6 +14,7 @@ import StatusBadge, { badgeClassFor } from '../components/StatusBadge'
 import FieldTabs from '../components/FieldTabs'
 import Checklist from '../components/RegistrationChecklist'
 import SystemFieldsTab from '../components/SystemFieldsTab'
+import JourneyMessages from '../components/JourneyMessages'
 
 const SECTIONS = ['פרטים', 'תשלום ומסמכים']
 
@@ -101,6 +102,7 @@ export default function RegistrationDetail() {
           },
         ]} />
       </div>
+      <JourneyMessages registrationId={id} />
     </RecordLayout>
   )
 }

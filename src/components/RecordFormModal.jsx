@@ -61,7 +61,9 @@ export default function RecordFormModal({ type, defaults = {}, title, onCreated,
   // Per-active-business-unit form (Sahar 05.09): entity pickers list only the
   // current unit's rows, and unit-specific fields hide outside their unit
   // (xconOnly / traxOnly).
-  const visibleFields = def.fields.filter(f =>
+  // createHidden: fields filled by integrations (e.g. the WhatsApp agent
+  // status), shown on the record and as list columns but not in this form.
+  const visibleFields = def.fields.filter(f => !f.createHidden &&
     !((f.xconOnly && unit !== 'Xcon') || (f.traxOnly && unit !== 'TRAX')))
   const missingRequired = visibleFields.some(f => f.required && !String(form[f.key] ?? '').trim())
 
@@ -70,6 +72,7 @@ export default function RecordFormModal({ type, defaults = {}, title, onCreated,
     setBusy(true)
     const payload = { ...defaults }
     for (const f of def.fields) {
+      if (f.createHidden) continue
       const v = form[f.key]
       // Empty optional fields are OMITTED from the payload entirely — not
       // sent as null. NOT NULL columns with DB defaults (customers.
@@ -209,6 +212,10 @@ function NewCustomerInline({ businessUnit, onCreated }) {
       email: form.email.trim() || null,
       business_unit: businessUnit,
       status: 'ליד חדש',
+      // The sale this inline customer is created for decides about the
+      // WhatsApp opening message (its own checkbox). Without this the
+      // customer's auto-created sale would message the lead too.
+      send_lead_whatsapp: false,
       // Attribution: the user who created the customer owns it (Sahar
       // 10.09 round 2) — not the default rep.
       owner_id: user?.id || null,

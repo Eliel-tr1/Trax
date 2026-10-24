@@ -330,7 +330,7 @@ function SalesTab({ unit, rangeFrom, rangeTo, ownerId, journeyId, source, campai
 
   useEffect(() => {
     setSales(null)
-    let q = supabase.from('sales').select('id, stage, loss_reason, owner_id, journey_id, expected_value, currency, created_at, updated_at, lead_source, campaign, utm_source')
+    let q = supabase.from('sales').select('id, stage, loss_reason, owner_id, journey_id, expected_value, currency, created_at, updated_at, lead_source, campaign, utm_source, ai_chat_status')
       .eq('business_unit', unit).is('deleted_at', null)
     q = applyCommonFilters(q, { ownerId, journeyId, source, campaign, utm, rangeFrom, rangeTo })
     q.then(({ data }) => setSales(data || []))
@@ -379,6 +379,15 @@ function SalesTab({ unit, rangeFrom, rangeTo, ownerId, journeyId, source, campai
 
   const lossReasons = groupCount(lost, 'loss_reason')
 
+  // WhatsApp AI agent (migration 053): who got the opening message and who
+  // answered. Empty status = no message was sent. TRAX only.
+  const aiReplied = sales.filter(s => s.ai_chat_status === 'ענה לסוכן').length
+  const aiWaiting = sales.filter(s => s.ai_chat_status === 'נשלחה הודעה').length
+  const aiFailed = sales.filter(s => s.ai_chat_status === 'השליחה נכשלה').length
+  const aiNone = sales.filter(s => !s.ai_chat_status).length
+  const aiReached = aiReplied + aiWaiting
+  const aiRate = aiReached ? Math.round((aiReplied / aiReached) * 1000) / 10 : 0
+
   return (
     <DvizRoot className="dviz-fade-in">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -392,6 +401,16 @@ function SalesTab({ unit, rangeFrom, rangeTo, ownerId, journeyId, source, campai
           <StatTile label="עסקאות בתהליך" value={inProgress.length} tooltip="עסקאות שעדיין לא נסגרו ולא הופסדו, בכל שלבי המשפך" onClick={() => drill({ 'stage@in': SALE_STAGES.filter(st => !SALE_STAGES_CLOSED.includes(st)) })} />
           <StatTile label="שווי עסקאות פתוחות" value={<CurrencyBreakdown byCurrency={pipelineByCurrency} label="סך שווי העסקאות הפתוחות לפי מטבע" />} tooltip="סכום השווי הצפוי של כל העסקאות בתהליך, לפני סגירה" onClick={() => drill({ 'stage@in': SALE_STAGES.filter(st => !SALE_STAGES_CLOSED.includes(st)) })} />
         </div>
+        {unit === 'TRAX' && (
+          <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
+            <StatTile label="קיבלו הודעה מהסוכן" value={aiReached} tooltip="מכירות שנשלחה בהן הודעת פתיחה בוואטסאפ מהסוכן (נשלחה הודעה + ענה לסוכן)" onClick={() => drill({ ai_chat_status: ['נשלחה הודעה', 'ענה לסוכן'] })} />
+            <StatTile label="ענו לסוכן" value={aiReplied} tooltip="הליד ענה בוואטסאפ אחרי הודעת הפתיחה" onClick={() => drill({ ai_chat_status: 'ענה לסוכן' })} />
+            <StatTile label="אחוז מענה לסוכן" value={`${aiRate}%`} tooltip={`${aiReplied} מתוך ${aiReached} שקיבלו הודעה`} />
+            <StatTile label="לא ענו לסוכן" value={aiWaiting} tooltip="קיבלו הודעה ועדיין לא ענו" onClick={() => drill({ ai_chat_status: 'נשלחה הודעה' })} />
+            <StatTile label="שליחה נכשלה" value={aiFailed} tooltip="הקלאודצ'אט או מטא דחו את ההודעה, הסיבה במסך המכירה" onClick={() => drill({ ai_chat_status: 'השליחה נכשלה' })} />
+            <StatTile label="לא נשלחה הודעה" value={aiNone} tooltip="מכירות בלי הודעת פתיחה מהסוכן (השדה ריק)" onClick={() => drill({ ai_chat_status: null })} />
+          </div>
+        )}
 
         <div className="grid gap-4 lg:grid-cols-2">
           <Card>

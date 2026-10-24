@@ -11,6 +11,7 @@ import UserAvatar from '../components/UserAvatar'
 import RequirePermission from '../components/RequirePermission'
 import TrashManager from '../components/TrashManager'
 import { ChecklistTemplatesTab, FeedbackReportsTab } from './settings/ChecklistAndFeedback'
+import WhatsAppAgentTab from './settings/WhatsAppAgentTab'
 import { confirmDialog, deleteConfirmDialog, promptDialog } from '../components/Dialogs'
 import { usePermissionStore, RESOURCES } from '../stores/permissionStore'
 import { startOnboarding } from '../components/Onboarding'
@@ -34,7 +35,7 @@ const DEPARTMENTS = ['ניהול', 'מכירות', 'שירות לקוחות']
 // (seeded directly in the `permissions` table) — see RolesTab to edit them.
 const ROLE_KEY_FOR_PROFILE = { 'מנהל מערכת': 'owner', 'מנהל צוות': 'team_manager', 'נציג': 'sales_rep' }
 
-const SECTIONS = ['תצוגה', 'התראות', 'פרטי מערכת', 'אוטומציות', 'מפתחות API', 'שדות מותאמים', 'משתמשים', 'תפקידים והרשאות', 'מיזוג כפילויות', 'צ׳קליסטים', 'דיווחים', 'הדרכה', 'סל מיחזור']
+const SECTIONS = ['תצוגה', 'התראות', 'פרטי מערכת', 'אוטומציות', 'וואטסאפ וסוכן AI', 'מפתחות API', 'שדות מותאמים', 'משתמשים', 'תפקידים והרשאות', 'מיזוג כפילויות', 'צ׳קליסטים', 'דיווחים', 'הדרכה', 'סל מיחזור']
 
 export default function Settings() {
   const [sec, setSec] = useState('תצוגה')
@@ -50,6 +51,7 @@ export default function Settings() {
       {sec === 'התראות' && <NotificationsTab />}
       {sec === 'פרטי מערכת' && <SystemSettings />}
       {sec === 'אוטומציות' && <AutomationRules />}
+      {sec === 'וואטסאפ וסוכן AI' && <WhatsAppAgentTab />}
       {sec === 'מפתחות API' && <ApiKeys />}
       {sec === 'שדות מותאמים' && <SchemaTab />}
       {sec === 'משתמשים' && <RequirePermission resource="users"><UsersTab /></RequirePermission>}
@@ -208,13 +210,14 @@ function SystemSettings() {
     toast('נשמר')
   }
 
-  const LABELS = { system_name: 'שם המערכת', system_logo_url: 'קישור ללוגו המערכת', cardcom_payment_url: 'קישור לדף סליקת אשראי (Cardcom)' }
+  const LABELS = { crm_public_url: 'כתובת ה-CRM בקישורים שנשלחים החוצה', system_name: 'שם המערכת', system_logo_url: 'קישור ללוגו המערכת', cardcom_payment_url: 'קישור לדף סליקת אשראי (Cardcom)' }
 
   if (!rows) return <div className="empty"><span className="spinner" /></div>
 
   return (
     <div className="field-grid">
-      {rows.map(r => (
+      {/* WhatsApp agent keys have their own tab (וואטסאפ וסוכן AI). */}
+      {rows.filter(r => !r.key.startsWith('whatsapp_')).map(r => (
         <EditField key={r.key} label={LABELS[r.key] || r.key} value={r.value} ltr={r.key === 'system_logo_url' || r.key === 'cardcom_payment_url'} onSave={v => save(r.key, v)} />
       ))}
     </div>

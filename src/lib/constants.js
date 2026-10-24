@@ -34,6 +34,10 @@ export const SALE_STAGES = [
 // Stages that count as "closed" — excluded from the "עסקאות פתוחות" preset.
 export const SALE_STAGES_CLOSED = ['נסגר בהצלחה', 'עסקה הופסדה']
 
+// WhatsApp AI agent (Max on CloudChat) conversation status per sale. Empty =
+// no opening message was sent. Migration 053, docs/decisions/0010.
+export const AI_CHAT_STATUSES = ['נשלחה הודעה', 'ענה לסוכן', 'השליחה נכשלה']
+
 export const SALE_CHANNELS = ['וואטסאפ', 'טופס אתר', 'דף נחיתה', 'טלפון']
 
 export const LOSS_REASONS = [

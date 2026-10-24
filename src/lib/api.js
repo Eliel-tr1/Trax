@@ -25,12 +25,17 @@ export async function updateField(table, row, field, newValue) {
 // Reference options for filters/selects (cached per session).
 // customers/users kept light (id + display name) — full rows are fetched
 // per-screen, not here.
+// The cache expires after a minute: a customer created in another tab, by
+// the API or by Max must show up in the pickers without a page reload
+// (Sahar 24/10: a new customer was not found in the registration form).
 let _cache = null
+let _cacheAt = 0
+const CACHE_MS = 60 * 1000
 export async function loadOptions(force = false) {
-  if (_cache && !force) return _cache
+  if (_cache && !force && Date.now() - _cacheAt < CACHE_MS) return _cache
   const [users, customers, journeys, sales, registrations] = await Promise.all([
     supabase.from('app_users').select('id, full_name, avatar_url').order('full_name'),
-    supabase.from('customers').select('id, first_name, last_name, business_unit').is('deleted_at', null).order('first_name'),
+    supabase.from('customers').select('id, first_name, last_name, business_unit, mobile_phone').is('deleted_at', null).order('first_name'),
     supabase.from('journeys').select('id, name, business_unit').is('deleted_at', null).order('departure_date'),
     // Used to resolve meetings/phone_calls/tasks' polymorphic related_id -> a
     // display name without an N+1 query per row (PostgREST can't embed a
@@ -46,9 +51,10 @@ export async function loadOptions(force = false) {
     sales: sales.data || [],
     registrations: registrations.data || [],
   }
+  _cacheAt = Date.now()
   return _cache
 }
-export function clearOptionsCache() { _cache = null }
+export function clearOptionsCache() { _cache = null; _cacheAt = 0 }
 // Sync read of whatever's currently cached (or null before the first
 // loadOptions() resolves) — for call sites that can't await, e.g. CSV
 // export cell formatters. Prefer loadOptions() everywhere else.
