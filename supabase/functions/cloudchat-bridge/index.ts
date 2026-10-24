@@ -10,6 +10,8 @@
 //         CRM 'sale.created' webhook. Auth: header x-bridge-secret.
 //   sync  {}                        reply / error / no-reply follow-up, run by the
 //         n8n schedule every 5 minutes. Auth: header x-bridge-secret.
+//   link  {customer_id | sale_id | all:true}  fill cloudchat_user_ns + chat link
+//         from an existing CloudChat subscriber by phone. Read only on CloudChat.
 //   journey {registration_id}       "ברוך הבא למסע": seat-reserved / welcome
 //         template to the customer and every passenger with a phone, once per
 //         (registration, kind, phone). Called by n8n "TRAX - ברוך הבא למסע" on
@@ -176,6 +178,45 @@ async function note(admin: SupabaseClient, relatedType: string, relatedId: strin
   await admin.from("notes").insert({ related_type: relatedType, related_id: relatedId, content });
 }
 
+// ------------------------------------------------------------------ link
+// Fill the customer's CloudChat id + chat link from an EXISTING CloudChat
+// subscriber with the same phone. Read only on CloudChat: never creates a
+// subscriber and never sends anything. Runs at lead creation (n8n calls it
+// right away, before the 60 s wait), before every send, and as a one-off
+// backfill ({all:true}).
+async function linkCustomer(admin: SupabaseClient, cust: any): Promise<string | null> {
+  if (!cust || cust.cloudchat_user_ns) return cust?.cloudchat_user_ns || null;
+  const phone = digits(cust.mobile_phone);
+  if (phone.length < 11 || phone.includes("*")) return null;
+  const info = await cc("GET", `/subscriber/get-info-by-user-id?user_id=${phone}`);
+  const ns: string = info.ok ? (info.data?.data?.user_ns || "") : "";
+  if (!ns) return null;
+  await admin.from("customers").update({ cloudchat_user_ns: ns, cloudchat_chat_url: CHAT_URL(ns) }).eq("id", cust.id).is("cloudchat_user_ns", null);
+  return ns;
+}
+
+async function link(admin: SupabaseClient, body: any) {
+  let ids: string[] = [];
+  if (body.sale_id) {
+    const { data: s } = await admin.from("sales").select("customer_id").eq("id", body.sale_id).maybeSingle();
+    if (s?.customer_id) ids = [s.customer_id];
+  } else if (body.customer_id) ids = [String(body.customer_id)];
+  let q = admin.from("customers").select("id, mobile_phone, cloudchat_user_ns").is("deleted_at", null).is("cloudchat_user_ns", null);
+  if (ids.length) q = q.in("id", ids);
+  else if (!body.all) return { error: "customer_id, sale_id or all required" };
+  const lim = Math.min(Number(body.limit) || 100, 300);
+  const off = Math.max(Number(body.offset) || 0, 0);
+  const { data: rows } = await q.order("created_at", { ascending: false }).range(off, off + lim - 1);
+  const out = { checked: 0, linked: 0, not_in_cloudchat: 0 };
+  for (const c of rows || []) {
+    out.checked++;
+    const ns = await linkCustomer(admin, c);
+    if (ns) out.linked++; else out.not_in_cloudchat++;
+    if (body.all) await new Promise((r) => setTimeout(r, 350)); // CloudChat rate limit is shared with Max
+  }
+  return out;
+}
+
 // ------------------------------------------------------------------ send
 async function send(admin: SupabaseClient, saleId: string) {
   const { data: sale } = await admin.from("sales").select("*").eq("id", saleId).maybeSingle();
@@ -184,6 +225,10 @@ async function send(admin: SupabaseClient, saleId: string) {
   if (!cust) return { result: "skipped", reason: "customer_not_found" };
   const cfg = await settings(admin);
   const phone = digits(cust.mobile_phone);
+  if (!cust.cloudchat_user_ns && !cust.deleted_at) {
+    const ns = await linkCustomer(admin, cust).catch(() => null);
+    if (ns) cust.cloudchat_user_ns = ns;
+  }
 
   if (sale.deleted_at || cust.deleted_at) return { result: "skipped", reason: "deleted" };
   // The agent and the WhatsApp number are TRAX's; Xcon leads never get it.
@@ -604,13 +649,14 @@ Deno.serve(async (req) => {
   const action = body.action;
   try {
     if (action === "chat") return await chat(req, body);
-    if (action === "send" || action === "sync" || action === "journey") {
+    if (action === "send" || action === "sync" || action === "journey" || action === "link") {
       if (!BRIDGE_SECRET || req.headers.get("x-bridge-secret") !== BRIDGE_SECRET) return json({ error: "unauthorized" }, 401);
       const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
       if (action === "send") {
         if (!body.sale_id) return json({ error: "sale_id required" }, 400);
         return json(await send(admin, String(body.sale_id)));
       }
+      if (action === "link") return json(await link(admin, body));
       if (action === "journey") {
         if (!body.registration_id) return json({ error: "registration_id required" }, 400);
         return json(await journey(admin, String(body.registration_id)));
