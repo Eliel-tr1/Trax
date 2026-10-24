@@ -28,6 +28,12 @@ const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const CC_BASE = Deno.env.get("TRAX_CLOUDCHAT_BASE") || "https://console.thecloud.chat/api";
 const CC_KEY = Deno.env.get("TRAX_CLOUDCHAT_API_KEY") || "";
 const BRIDGE_SECRET = Deno.env.get("CLOUDCHAT_BRIDGE_SECRET") || "";
+// Agent portal (portal.cloudchat.co.il) outbound log: the portal builds its
+// conversation view from its own events, so messages the CRM sends straight
+// through CloudChat must be reported to it with the rendered text. Optional:
+// skipped when the two secrets are not set.
+const PORTAL_OUTBOUND_URL = Deno.env.get("TRAX_PORTAL_OUTBOUND_URL") || "";
+const PORTAL_OUTBOUND_KEY = Deno.env.get("TRAX_PORTAL_OUTBOUND_KEY") || "";
 const CHAT_URL = (ns: string) => `https://console.thecloud.chat/inbox/${ns}`;
 
 const STATUS_SENT = "נשלחה הודעה";
@@ -151,6 +157,21 @@ function fill(tpl: string, ctx: Record<string, string>) {
   return tpl.replace(/\{(\w+)\}/g, (_, k) => ctx[k] ?? "");
 }
 
+function renderBody(tpl: any, params: Record<string, string>) {
+  return tpl?.bodyText ? String(tpl.bodyText).replace(/\{\{(\d+)\}\}/g, (_: string, n: string) => params[`BODY_{{${n}}}`] ?? "") : "";
+}
+
+async function reportToPortal(entry: { user_ns: string | null; phone: string; cloudchat_mid: string | null; template_name: string; rendered_text: string }) {
+  if (!PORTAL_OUTBOUND_URL || !PORTAL_OUTBOUND_KEY) return;
+  try {
+    await fetch(PORTAL_OUTBOUND_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${PORTAL_OUTBOUND_KEY}` },
+      body: JSON.stringify({ ...entry, source: "crm", sent_at: new Date().toISOString() }),
+    });
+  } catch { /* the portal also reconciles from CloudChat; never fail a send on this */ }
+}
+
 async function note(admin: SupabaseClient, relatedType: string, relatedId: string, content: string) {
   await admin.from("notes").insert({ related_type: relatedType, related_id: relatedId, content });
 }
@@ -178,18 +199,20 @@ async function send(admin: SupabaseClient, saleId: string) {
     .eq("customer_id", cust.id).neq("id", sale.id).gte("ai_message_sent_at", since).limit(1);
   if (recent && recent.length) return { result: "skipped", reason: "dedupe", other_sale_id: recent[0].id };
 
-  // A lead who is ALREADY talking to Max on WhatsApp (wrote in first; Max
-  // opened the customer/sale through api-v1, or the sale's channel is
-  // WhatsApp) must not get the opening template on top of the live chat.
-  // Link the chat and mark the sale "ענה לסוכן" instead.
-  {
+  // A sale opened FROM a WhatsApp chat (channel "וואטסאפ": Max created it
+  // while the lead was writing to him) must not get the opening template on
+  // top of the live chat: link the chat and mark it "ענה לסוכן" instead.
+  // Any other new sale (form, CRM screen, api-v1) always gets the template,
+  // even if the same number chatted with Max earlier (Sahar 24/10: a lead
+  // added in the CRM with the box checked must get the message).
+  if (sale.channel === "וואטסאפ") {
     const info = await cc("GET", `/subscriber/get-info-by-user-id?user_id=${phone}`);
     const ns: string = info.ok ? (info.data?.data?.user_ns || "") : "";
     let inbound: Msg[] = [];
     if (ns) {
       try { inbound = (await chatMessages(ns, 50)).filter((m) => m.type === "in" && m.ts >= Date.now() / 1000 - 24 * 3600); } catch { inbound = []; }
     }
-    if (ns && (inbound.length || sale.channel === "וואטסאפ")) {
+    if (ns) {
       await admin.from("customers").update({ cloudchat_user_ns: ns, cloudchat_chat_url: CHAT_URL(ns) }).eq("id", cust.id);
       const patch: Record<string, unknown> = { ai_chat_status: STATUS_REPLIED, ai_send_error: null };
       if (inbound.length) patch.ai_first_reply_at = new Date(inbound[0].ts * 1000).toISOString();
@@ -245,6 +268,8 @@ async function send(admin: SupabaseClient, saleId: string) {
     const info = await cc("GET", `/subscriber/get-info-by-user-id?user_id=${phone}`);
     userNs = info.data?.data?.user_ns || "";
   }
+
+  await reportToPortal({ user_ns: userNs || null, phone, cloudchat_mid: r.data?.mid || null, template_name: tpl.name, rendered_text: renderBody(tpl, params) });
 
   const salePatch: Record<string, unknown> = {
     ai_chat_status: STATUS_SENT, ai_message_sent_at: new Date().toISOString(), ai_send_error: null,
@@ -519,7 +544,8 @@ async function journey(admin: SupabaseClient, registrationId: string) {
         ],
       }).catch(() => null);
     }
-    const body = tpl.bodyText ? String(tpl.bodyText).replace(/\{\{(\d+)\}\}/g, (_: string, n: string) => params[`BODY_{{${n}}}`] ?? "") : "";
+    const body = renderBody(tpl, params);
+    await reportToPortal({ user_ns: userNs, phone: r.phone, cloudchat_mid: res.data?.mid || null, template_name: tpl.name, rendered_text: body });
     sentLines.push(`${r.name || "-"} (${r.phone})${r.isCustomer ? "" : ", נוסע נוסף"}`);
     out.push({ phone: r.phone, result: "sent" });
     if (body && sentLines.length === 1) sentLines.unshift(`נוסח: ${body}`);

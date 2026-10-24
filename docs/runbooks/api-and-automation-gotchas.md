@@ -138,9 +138,13 @@ check the Postgres logs before assuming the bug is in your own code.
   already_sent, no_valid_phone, test_mode, dedupe. A missing or unapproved
   template marks the sale `השליחה נכשלה` with the reason in `ai_send_error`;
   a failed sale is retried by the next `send` for it.
-- `send` also skips a lead who is ALREADY chatting with Max (CloudChat subscriber
-  with an inbound message in the last 24 h, or sale channel `וואטסאפ`): links the
-  chat, sets `ענה לסוכן`, notes it, sends nothing (reason already_in_conversation).
+- `send` skips only a sale opened FROM a WhatsApp chat (channel `וואטסאפ`, Max
+  created it): links the chat, sets `ענה לסוכן`, sends nothing
+  (already_in_conversation). Every other new sale gets the template even if the
+  number chatted with Max earlier (Sahar 24/10).
+- Every send is also reported to the agent portal outbound log when
+  TRAX_PORTAL_OUTBOUND_URL / TRAX_PORTAL_OUTBOUND_KEY are set (function secrets),
+  so the portal conversation shows the rendered template text.
 - Any sale INSERT fires the flow, whatever the source: CRM UI, api-v1 (POST
   customers / sales), lead-intake, wf05a (site + Facebook). Gap: wf05a REUSES an
   open sale for a returning lead (no INSERT), so a repeat submission sends nothing.
