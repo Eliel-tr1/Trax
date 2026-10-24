@@ -10,8 +10,8 @@
 //         CRM 'sale.created' webhook. Auth: header x-bridge-secret.
 //   sync  {}                        reply / error / no-reply follow-up, run by the
 //         n8n schedule every 5 minutes. Auth: header x-bridge-secret.
-//   link  {customer_id | sale_id | all:true}  fill cloudchat_user_ns + chat link
-//         from an existing CloudChat subscriber by phone. Read only on CloudChat.
+//   link  {customer_id | sale_id | all:true}  find or CREATE the CloudChat
+//         contact by phone and store cloudchat_user_ns + chat link. Never sends.
 //   journey {registration_id}       "ברוך הבא למסע": seat-reserved / welcome
 //         template to the customer and every passenger with a phone, once per
 //         (registration, kind, phone). Called by n8n "TRAX - ברוך הבא למסע" on
@@ -179,19 +179,29 @@ async function note(admin: SupabaseClient, relatedType: string, relatedId: strin
 }
 
 // ------------------------------------------------------------------ link
-// Fill the customer's CloudChat id + chat link from an EXISTING CloudChat
-// subscriber with the same phone. Read only on CloudChat: never creates a
-// subscriber and never sends anything. Runs at lead creation (n8n calls it
-// right away, before the 60 s wait), before every send, and as a one-off
-// backfill ({all:true}).
-async function linkCustomer(admin: SupabaseClient, cust: any): Promise<string | null> {
+// Make sure the customer has a CloudChat (WhatsApp) contact and store its id
+// + chat link on the customer. Finds an existing subscriber by phone; if none,
+// CREATES the contact (POST /subscriber/create, WhatsApp channel, verified
+// 24/10 to send nothing and start no flow). Never sends a message. Runs at lead
+// creation (n8n calls it before the 60 s wait), before every send, and as a
+// backfill ({all:true}). Sahar 24/10: every customer with a WhatsApp number.
+async function linkCustomer(admin: SupabaseClient, cust: any, create = true): Promise<string | null> {
   if (!cust || cust.cloudchat_user_ns) return cust?.cloudchat_user_ns || null;
   const phone = digits(cust.mobile_phone);
-  if (phone.length < 11 || phone.includes("*")) return null;
+  if (phone.length < 11 || phone.length > 15 || phone.includes("*")) return null;
   const info = await cc("GET", `/subscriber/get-info-by-user-id?user_id=${phone}`);
-  const ns: string = info.ok ? (info.data?.data?.user_ns || "") : "";
+  let ns: string = info.ok ? (info.data?.data?.user_ns || "") : "";
+  if (!ns && create) {
+    const last = cust.last_name === "-" ? "" : (cust.last_name || "");
+    const r = await cc("POST", "/subscriber/create", {
+      phone: "+" + phone, first_name: cust.first_name || "", last_name: last,
+      name: [cust.first_name, last].filter(Boolean).join(" "),
+    });
+    ns = r.ok ? (r.data?.data?.user_ns || "") : "";
+  }
   if (!ns) return null;
   await admin.from("customers").update({ cloudchat_user_ns: ns, cloudchat_chat_url: CHAT_URL(ns) }).eq("id", cust.id).is("cloudchat_user_ns", null);
+  await cc("PUT", "/subscriber/set-user-fields-by-name", { user_ns: ns, data: [{ name: "crm_customer_id", value: cust.id }] }).catch(() => null);
   return ns;
 }
 
@@ -201,18 +211,18 @@ async function link(admin: SupabaseClient, body: any) {
     const { data: s } = await admin.from("sales").select("customer_id").eq("id", body.sale_id).maybeSingle();
     if (s?.customer_id) ids = [s.customer_id];
   } else if (body.customer_id) ids = [String(body.customer_id)];
-  let q = admin.from("customers").select("id, mobile_phone, cloudchat_user_ns").is("deleted_at", null).is("cloudchat_user_ns", null);
+  let q = admin.from("customers").select("id, first_name, last_name, mobile_phone, cloudchat_user_ns").is("deleted_at", null).is("cloudchat_user_ns", null);
   if (ids.length) q = q.in("id", ids);
   else if (!body.all) return { error: "customer_id, sale_id or all required" };
   const lim = Math.min(Number(body.limit) || 100, 300);
   const off = Math.max(Number(body.offset) || 0, 0);
   const { data: rows } = await q.order("created_at", { ascending: false }).range(off, off + lim - 1);
-  const out = { checked: 0, linked: 0, not_in_cloudchat: 0 };
+  const out = { checked: 0, linked: 0, not_linked: 0 };
   for (const c of rows || []) {
     out.checked++;
     const ns = await linkCustomer(admin, c);
-    if (ns) out.linked++; else out.not_in_cloudchat++;
-    if (body.all) await new Promise((r) => setTimeout(r, 350)); // CloudChat rate limit is shared with Max
+    if (ns) out.linked++; else out.not_linked++;
+    if (body.all) await new Promise((r) => setTimeout(r, 500)); // CloudChat rate limit is shared with Max
   }
   return out;
 }
@@ -242,7 +252,8 @@ async function send(admin: SupabaseClient, saleId: string) {
   const since = new Date(Date.now() - cfg.dedupeDays * 86400_000).toISOString();
   const { data: recent } = await admin.from("sales").select("id")
     .eq("customer_id", cust.id).neq("id", sale.id).gte("ai_message_sent_at", since).limit(1);
-  if (recent && recent.length) return { result: "skipped", reason: "dedupe", other_sale_id: recent[0].id };
+  // Test phones skip the dedupe window so every test run sends (Sahar 24/10).
+  if (recent && recent.length && !cfg.testPhones.includes(phone)) return { result: "skipped", reason: "dedupe", other_sale_id: recent[0].id };
 
   // A sale opened FROM a WhatsApp chat (channel "וואטסאפ": Max created it
   // while the lead was writing to him) must not get the opening template on
