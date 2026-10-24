@@ -39,12 +39,12 @@ export default function JourneyMessages({ registrationId }) {
                 const [label, cls] = STATUS[r.status] || [r.status, 'gray']
                 return (
                   <tr key={r.id}>
-                    <td>{KIND[r.kind] || r.kind}</td>
+                    <td style={{ whiteSpace: 'nowrap' }}>{KIND[r.kind] || r.kind}</td>
                     <td>{r.recipient_name || '-'}</td>
-                    <td><PhoneDisplay value={'+' + r.phone} /></td>
+                    <td style={{ whiteSpace: 'nowrap' }}><PhoneDisplay value={'+' + r.phone} /></td>
                     <td><span className={`badge ${cls}`}>{label}</span></td>
                     <td className="small">{r.status === 'sent' ? (r.template || '') : (r.reason || '')}</td>
-                    <td className="small">{formatDateTime(r.sent_at || r.updated_at)}</td>
+                    <td className="small" style={{ whiteSpace: 'nowrap' }}>{formatDateTime(r.sent_at || r.updated_at)}</td>
                   </tr>
                 )
               })}

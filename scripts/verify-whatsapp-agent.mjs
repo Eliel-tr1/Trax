@@ -2,12 +2,12 @@
 // send checkbox in the create forms, the read-only WhatsApp panel and AI fields
 // on a customer and a sale, the sales presets/column, the dashboard tiles and
 // the Settings tab. Read-only: opens forms and closes them without saving.
-// Run from the repo root: node scripts/verify-whatsapp-agent.mjs <customerId> <saleId> <outDir>
+// Run from the repo root: node scripts/verify-whatsapp-agent.mjs <customerId> <saleId> <outDir> [registrationId]
 import { chromium } from 'playwright-core'
 import { config } from 'dotenv'
 config({ path: process.env.TRAX_ENV || new globalThis.URL('../.env', import.meta.url).pathname, quiet: true })
 
-const [customerId, saleId, outDir = '.'] = process.argv.slice(2)
+const [customerId, saleId, outDir = '.', registrationId] = process.argv.slice(2)
 const BASE = 'https://staging.trax-crm.pages.dev'
 const URL_ = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
 const ANON = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
@@ -92,6 +92,16 @@ await page.waitForTimeout(1500)
 const st = await page.locator('body').innerText()
 check('settings tab: test mode + webhook + log', st.includes('מצב בדיקה') && st.includes('sale.created') && st.includes('HTTP 200'))
 await (await page.$('.card')).screenshot({ path: `${outDir}/wa-settings.png` })
+
+check('settings tab: journey section', st.includes('ברוך הבא למסע') && st.includes('לשלוח רק אחרי שהמכירה המקושרת'))
+
+// 7. Registration screen: journey message log (decisions/0011)
+if (registrationId) {
+  await go(`/registrations/${registrationId}`, '#journey-messages')
+  const rows = await page.locator('#journey-messages tbody tr').count()
+  check('registration journey message log', rows > 0, `${rows} rows`)
+  await (await page.$('#journey-messages')).screenshot({ path: `${outDir}/wa-journey-messages.png` })
+}
 
 check('no page errors', errors.length === 0, errors.join(' | ').slice(0, 300))
 console.log(results.join('\n'))
