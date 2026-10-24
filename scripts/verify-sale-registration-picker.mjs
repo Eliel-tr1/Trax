@@ -32,20 +32,16 @@ const check = (name, ok, extra = '') => { results.push(`${ok ? 'PASS' : 'FAIL'} 
 await page.goto(`${BASE}/#/sales/${saleId}`, { waitUntil: 'domcontentloaded' })
 await page.waitForSelector('text=שווי צפוי', { timeout: 20000 })
 await page.waitForTimeout(2000)
-const valueRow = await page.locator('.field:has(label:text-is("שווי צפוי")), div:has(> label:text-is("שווי צפוי"))').first().innerText().catch(() => '')
+const body = await page.locator('body').innerText()
+const i = body.indexOf('שווי צפוי')
+const valueRow = i >= 0 ? body.slice(i, i + 40) : ''
 check('sale shows expected value', /\d/.test(valueRow), valueRow.replace(/\s+/g, ' ').slice(0, 80))
 
-// Open "הוספת הרשמה חדשה" (from the actions menu when collapsed)
-let opener = page.getByText('הוספת הרשמה חדשה', { exact: true })
-if (!(await opener.isVisible().catch(() => false))) {
-  const more = page.locator('button[aria-label="פעולות"], button:has-text("פעולות")').first()
-  if (await more.count()) await more.click()
-  opener = page.getByText('הוספת הרשמה חדשה', { exact: true })
-}
-await opener.first().click()
-await page.waitForSelector('.modal, [role="dialog"]', { timeout: 10000 })
+// Open "הוספת הרשמה חדשה" (an icon action in the record header)
+await page.locator('[title="הוספת הרשמה חדשה"]').first().click()
+await page.waitForSelector('.card-title:has-text("הרשמה למסע")', { timeout: 10000 })
 await page.waitForTimeout(1500)
-const modal = page.locator('.modal, [role="dialog"]').last()
+const modal = page.locator('.card:has(> .card-title:has-text("הרשמה למסע"))').last()
 const custField = modal.locator('.field:has(label:has-text("לקוח"))').first()
 const custText = (await custField.innerText()).replace(/\s+/g, ' ')
 check('customer preselected from the sale', custText.includes(customerName), custText.slice(0, 80))
