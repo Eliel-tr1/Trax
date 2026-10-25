@@ -90,18 +90,31 @@ Deno.serve(async (req: Request) => {
     const today = todayIL();
 
     // 1. customer by last 9 digits (paged scan: the table is small, formats vary)
-    let customer: { id: string; first_name: string | null; status: string | null; club_member: boolean | null } | null = null;
-    for (let from = 0; !customer; from += 1000) {
+    type Cust = { id: string; first_name: string | null; status: string | null; club_member: boolean | null; created_at: string };
+    const matches: Cust[] = [];
+    for (let from = 0; ; from += 1000) {
       const { data, error } = await admin
         .from("customers")
-        .select("id, first_name, status, club_member, mobile_phone")
+        .select("id, first_name, status, club_member, mobile_phone, created_at")
         .is("deleted_at", null)
         .order("id")
         .range(from, from + 999);
       if (error) throw error;
-      const hit = (data || []).find((c) => last9(c.mobile_phone) === key9);
-      if (hit) customer = hit;
+      for (const c of data || []) if (last9(c.mobile_phone) === key9) matches.push(c as Cust);
       if (!data || data.length < 1000) break;
+    }
+    // Several rows for one phone (duplicates happen): prefer the one with registrations,
+    // then the newest. All matching ids are returned so the agent can see the duplicate.
+    let customer: Cust | null = null;
+    if (matches.length === 1) customer = matches[0];
+    else if (matches.length > 1) {
+      const { data: regs } = await admin.from("registrations").select("customer_id")
+        .in("customer_id", matches.map((m) => m.id)).is("deleted_at", null);
+      const withReg = new Set((regs || []).map((r) => r.customer_id));
+      matches.sort((a, b) =>
+        (withReg.has(b.id) ? 1 : 0) - (withReg.has(a.id) ? 1 : 0) ||
+        b.created_at.localeCompare(a.created_at));
+      customer = matches[0];
     }
 
     // 2. registrations: of the customer, or (no customer match) of a passenger with this phone
@@ -164,18 +177,27 @@ Deno.serve(async (req: Request) => {
     }
 
     // 3. latest sale of the customer (stage only)
-    let sale: { id: string; stage: string | null } | null = null;
+    let sale: Record<string, unknown> | null = null;
     if (customer) {
       const { data, error } = await admin
         .from("sales")
-        .select("id, stage")
+        .select("id, stage, journey_id, participants_count, expected_value, currency, interest_area")
         .eq("customer_id", customer.id)
         .is("deleted_at", null)
         .order("created_at", { ascending: false })
         .limit(1);
       if (error) throw error;
-      sale = data && data[0] ? { id: data[0].id, stage: data[0].stage } : null;
+      sale = data && data[0] ? data[0] : null;
     }
+
+    const { data: jr, error: jerr } = await admin
+      .from("journeys")
+      .select("id, name, destination, departure_date, return_date, status, price_per_person, currency")
+      .is("deleted_at", null)
+      .gte("departure_date", today)
+      .order("departure_date");
+    if (jerr) throw jerr;
+    const journeys = (jr || []).filter((j) => j.status !== "בוטל");
 
     const activeTrips = trips.filter((t) => t.registration_status !== "בוטל");
     const isExisting =
@@ -207,6 +229,16 @@ Deno.serve(async (req: Request) => {
       prompt_block = `Known customer: NO. This phone number is not in the CRM. Treat as a new inquiry.`;
     }
 
+    const salesLine = sale
+      ? `\nOpen CRM sale for him: sale_id=${sale.id}, stage=${sale.stage}, journey_id=${sale.journey_id ?? "empty"}, participants_count=${sale.participants_count ?? "empty"}, expected_value=${sale.expected_value ?? "empty"} ${sale.currency ?? ""}.`
+      : "";
+    const idsLine = customer ? `\ncustomer_id=${customer.id} (use these ids directly for update_customers / update_sales, no lookup needed).` : "";
+    const catalog = journeys.length
+      ? `\nCRM journeys (internal, for filling CRM fields only; quote dates from here, price only as the business price list allows):\n` +
+        journeys.map((j) => `- journey_id=${j.id} | ${j.name} | ${j.departure_date} to ${j.return_date ?? "?"} | ${j.status} | price_per_person=${j.price_per_person ?? "none"} ${j.currency ?? ""}`).join("\n")
+      : "";
+    prompt_block += idsLine + salesLine + catalog;
+
     await log(200);
     return json({
       found,
@@ -218,6 +250,8 @@ Deno.serve(async (req: Request) => {
       matched_as_passenger_only: passengerOnly,
       trips,
       latest_sale: sale,
+      duplicate_customer_ids: matches.length > 1 ? matches.map((m) => m.id) : [],
+      journeys,
       today: today,
       prompt_block,
     });
