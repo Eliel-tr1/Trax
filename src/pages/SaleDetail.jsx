@@ -18,6 +18,7 @@ import FieldTabs from '../components/FieldTabs'
 import SystemFieldsTab from '../components/SystemFieldsTab'
 import { meetingsColumns } from './Meetings'
 import { phoneCallsColumns } from './PhoneCalls'
+import { registrationColumns } from './Registrations'
 import CardcomChargeModal from '../components/CardcomChargeModal'
 import Modal from '../components/Modal'
 import RecordFormModal from '../components/RecordFormModal'
@@ -44,19 +45,21 @@ export default function SaleDetail() {
   const [showCharge, setShowCharge] = useState(false)
   const [showNewRegistration, setShowNewRegistration] = useState(false)
   const [calls, setCalls] = useState([])
+  const [registrations, setRegistrations] = useState([])
   const [lossReasonPrompt, setLossReasonPrompt] = useState(false)
   const [savingLossReason, setSavingLossReason] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const load = async () => {
     setLoading(true)
-    const [{ data }, o, { data: mt }, { data: cl }] = await Promise.all([
+    const [{ data }, o, { data: mt }, { data: cl }, { data: reg }] = await Promise.all([
       supabase.from('sales').select('*, customer:customers(*)').eq('id', id).single(),
       loadOptions(),
       supabase.from('meetings').select('*').eq('related_type', 'sale').eq('related_id', id).is('deleted_at', null).order('start_at', { ascending: false }),
       supabase.from('phone_calls').select('*').eq('sale_id', id).order('occurred_at', { ascending: false }),
+      supabase.from('registrations').select('id, registration_name, status').eq('sale_id', id).is('deleted_at', null).order('created_at', { ascending: false }),
     ])
-    setS(data); setOpts(o); setMeetings(mt || []); setCalls(cl || []); setLoading(false)
+    setS(data); setOpts(o); setMeetings(mt || []); setCalls(cl || []); setRegistrations(reg || []); setLoading(false)
   }
   useEffect(() => { load() }, [id])
 
@@ -68,13 +71,14 @@ export default function SaleDetail() {
   // back to the top (Sahar 05.09: "editing a customer field in the sale
   // screen jumps the page").
   const softRefresh = async () => {
-    const [{ data }, o, { data: mt }, { data: cl }] = await Promise.all([
+    const [{ data }, o, { data: mt }, { data: cl }, { data: reg }] = await Promise.all([
       supabase.from('sales').select('*, customer:customers(*)').eq('id', id).single(),
       loadOptions(),
       supabase.from('meetings').select('*').eq('related_type', 'sale').eq('related_id', id).is('deleted_at', null).order('start_at', { ascending: false }),
       supabase.from('phone_calls').select('*').eq('sale_id', id).order('occurred_at', { ascending: false }),
+      supabase.from('registrations').select('id, registration_name, status').eq('sale_id', id).is('deleted_at', null).order('created_at', { ascending: false }),
     ])
-    setS(data); setOpts(o); setMeetings(mt || []); setCalls(cl || [])
+    setS(data); setOpts(o); setMeetings(mt || []); setCalls(cl || []); setRegistrations(reg || [])
   }
 
   const save = async (field, value) => {
@@ -149,6 +153,11 @@ export default function SaleDetail() {
     : null
 
   const related = [
+    // Registrations of this sale: same chip as the customer screen (same
+    // column builder, status badge, link to the registration, empty state).
+    { key: 'registrations', label: 'הרשמות', count: registrations.length, rows: registrations, onOpen: r => `/registrations/${r.id}`,
+      resource: 'registrations', fk: 'sale_id', recordId: id,
+      listColumns: registrationColumns(opts, refresh) },
     // Resource-mode chip (paginated, links to the standalone MeetingDetail
     // screen) instead of a static inline table — see the same comment on
     // CustomerDetail.jsx's identical `meetings` entry.

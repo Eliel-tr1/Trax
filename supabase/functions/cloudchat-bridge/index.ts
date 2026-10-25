@@ -470,9 +470,7 @@ async function journey(admin: SupabaseClient, registrationId: string) {
   const sale: any = (saleRes as any).data;
   if (!cust) return { result: "skipped", reason: "customer_not_found" };
   if ((sale?.business_unit || cust.business_unit) !== "TRAX") return { result: "skipped", reason: "not_trax" };
-  if ((raw.whatsapp_journey_require_sale_won || "true") !== "false" && sale && sale.stage !== "נסגר בהצלחה") {
-    return { result: "skipped", reason: "sale_not_won", sale_stage: sale.stage };
-  }
+  // The message depends on the REGISTRATION status only (Sahar 25/10): no gate on the sale stage.
 
   // Recipients: the customer, then every passenger with a phone; one per number.
   const recipients: { phone: string; name: string; passengerId: string | null; isCustomer: boolean }[] = [];
