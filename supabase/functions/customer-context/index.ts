@@ -14,6 +14,7 @@
 // docs/decisions/0012-customer-context-for-max.md
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { buildItineraryBlock, pickNextTripItinerary, type TripItinerary } from "./itinerary.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -90,18 +91,31 @@ Deno.serve(async (req: Request) => {
     const today = todayIL();
 
     // 1. customer by last 9 digits (paged scan: the table is small, formats vary)
-    let customer: { id: string; first_name: string | null; status: string | null; club_member: boolean | null } | null = null;
-    for (let from = 0; !customer; from += 1000) {
+    type Cust = { id: string; first_name: string | null; status: string | null; club_member: boolean | null; created_at: string };
+    const matches: Cust[] = [];
+    for (let from = 0; ; from += 1000) {
       const { data, error } = await admin
         .from("customers")
-        .select("id, first_name, status, club_member, mobile_phone")
+        .select("id, first_name, status, club_member, mobile_phone, created_at")
         .is("deleted_at", null)
         .order("id")
         .range(from, from + 999);
       if (error) throw error;
-      const hit = (data || []).find((c) => last9(c.mobile_phone) === key9);
-      if (hit) customer = hit;
+      for (const c of data || []) if (last9(c.mobile_phone) === key9) matches.push(c as Cust);
       if (!data || data.length < 1000) break;
+    }
+    // Several rows for one phone (duplicates happen): prefer the one with registrations,
+    // then the newest. All matching ids are returned so the agent can see the duplicate.
+    let customer: Cust | null = null;
+    if (matches.length === 1) customer = matches[0];
+    else if (matches.length > 1) {
+      const { data: regs } = await admin.from("registrations").select("customer_id")
+        .in("customer_id", matches.map((m) => m.id)).is("deleted_at", null);
+      const withReg = new Set((regs || []).map((r) => r.customer_id));
+      matches.sort((a, b) =>
+        (withReg.has(b.id) ? 1 : 0) - (withReg.has(a.id) ? 1 : 0) ||
+        b.created_at.localeCompare(a.created_at));
+      customer = matches[0];
     }
 
     // 2. registrations: of the customer, or (no customer match) of a passenger with this phone
@@ -137,10 +151,13 @@ Deno.serve(async (req: Request) => {
     }
 
     const trips: Trip[] = [];
+    // Day by day itinerary of each trip, from the CRM (journeys.itinerary). Kept beside the trip
+    // objects so the response shape of `trips` stays as the callers know it.
+    const tripItineraries: TripItinerary[] = [];
     if (regIds.length) {
       const { data, error } = await admin
         .from("registrations")
-        .select("id, status, journeys(name, destination, departure_date, return_date)")
+        .select("id, status, journeys(name, destination, departure_date, return_date, itinerary)")
         .in("id", regIds)
         .is("deleted_at", null);
       if (error) throw error;
@@ -148,6 +165,9 @@ Deno.serve(async (req: Request) => {
         const j = Array.isArray(r.journeys) ? r.journeys[0] : r.journeys;
         const dep = j?.departure_date ?? null;
         const ret = j?.return_date ?? null;
+        if (j?.itinerary && String(j.itinerary).trim()) {
+          tripItineraries.push({ name: j?.name ?? null, departure_date: dep, text: String(j.itinerary).trim() });
+        }
         trips.push({
           registration_id: r.id,
           journey_name: j?.name ?? null,
@@ -164,18 +184,27 @@ Deno.serve(async (req: Request) => {
     }
 
     // 3. latest sale of the customer (stage only)
-    let sale: { id: string; stage: string | null } | null = null;
+    let sale: Record<string, unknown> | null = null;
     if (customer) {
       const { data, error } = await admin
         .from("sales")
-        .select("id, stage")
+        .select("id, stage, journey_id, participants_count, expected_value, currency, interest_area")
         .eq("customer_id", customer.id)
         .is("deleted_at", null)
         .order("created_at", { ascending: false })
         .limit(1);
       if (error) throw error;
-      sale = data && data[0] ? { id: data[0].id, stage: data[0].stage } : null;
+      sale = data && data[0] ? data[0] : null;
     }
+
+    const { data: jr, error: jerr } = await admin
+      .from("journeys")
+      .select("id, name, destination, departure_date, return_date, status, price_per_person, currency")
+      .is("deleted_at", null)
+      .gte("departure_date", today)
+      .order("departure_date");
+    if (jerr) throw jerr;
+    const journeys = (jr || []).filter((j) => j.status !== "בוטל");
 
     const activeTrips = trips.filter((t) => t.registration_status !== "בוטל");
     const isExisting =
@@ -207,6 +236,22 @@ Deno.serve(async (req: Request) => {
       prompt_block = `Known customer: NO. This phone number is not in the CRM. Treat as a new inquiry.`;
     }
 
+    const salesLine = sale
+      ? `\nOpen CRM sale for him: sale_id=${sale.id}, stage=${sale.stage}, journey_id=${sale.journey_id ?? "empty"}, participants_count=${sale.participants_count ?? "empty"}, expected_value=${sale.expected_value ?? "empty"} ${sale.currency ?? ""}.`
+      : "";
+    const idsLine = customer ? `\ncustomer_id=${customer.id} (use these ids directly for update_customers / update_sales, no lookup needed).` : "";
+    // Day by day itinerary of the trip that matters now: the ongoing one, else the nearest upcoming.
+    // A customer asking "what happens on day 2" must be answered from the CRM, not from the website,
+    // and the site text is not in the prompt. Sits in prompt_block only, so the response stays small.
+    const nextTripItinerary = pickNextTripItinerary(trips, tripItineraries);
+    const itineraryBlock = buildItineraryBlock(nextTripItinerary);
+
+    const catalog = journeys.length
+      ? `\nCRM journeys (internal, for filling CRM fields only; quote dates from here, price only as the business price list allows):\n` +
+        journeys.map((j) => `- journey_id=${j.id} | ${j.name} | ${j.departure_date} to ${j.return_date ?? "?"} | ${j.status} | price_per_person=${j.price_per_person ?? "none"} ${j.currency ?? ""}`).join("\n")
+      : "";
+    prompt_block += itineraryBlock + idsLine + salesLine + catalog;
+
     await log(200);
     return json({
       found,
@@ -218,6 +263,9 @@ Deno.serve(async (req: Request) => {
       matched_as_passenger_only: passengerOnly,
       trips,
       latest_sale: sale,
+      duplicate_customer_ids: matches.length > 1 ? matches.map((m) => m.id) : [],
+      journeys,
+      next_trip_itinerary: nextTripItinerary,
       today: today,
       prompt_block,
     });
