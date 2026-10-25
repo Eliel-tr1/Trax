@@ -14,6 +14,7 @@
 // docs/decisions/0012-customer-context-for-max.md
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { buildItineraryBlock, pickNextTripItinerary, type TripItinerary } from "./itinerary.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -150,10 +151,13 @@ Deno.serve(async (req: Request) => {
     }
 
     const trips: Trip[] = [];
+    // Day by day itinerary of each trip, from the CRM (journeys.itinerary). Kept beside the trip
+    // objects so the response shape of `trips` stays as the callers know it.
+    const tripItineraries: TripItinerary[] = [];
     if (regIds.length) {
       const { data, error } = await admin
         .from("registrations")
-        .select("id, status, journeys(name, destination, departure_date, return_date)")
+        .select("id, status, journeys(name, destination, departure_date, return_date, itinerary)")
         .in("id", regIds)
         .is("deleted_at", null);
       if (error) throw error;
@@ -161,6 +165,9 @@ Deno.serve(async (req: Request) => {
         const j = Array.isArray(r.journeys) ? r.journeys[0] : r.journeys;
         const dep = j?.departure_date ?? null;
         const ret = j?.return_date ?? null;
+        if (j?.itinerary && String(j.itinerary).trim()) {
+          tripItineraries.push({ name: j?.name ?? null, departure_date: dep, text: String(j.itinerary).trim() });
+        }
         trips.push({
           registration_id: r.id,
           journey_name: j?.name ?? null,
@@ -233,11 +240,17 @@ Deno.serve(async (req: Request) => {
       ? `\nOpen CRM sale for him: sale_id=${sale.id}, stage=${sale.stage}, journey_id=${sale.journey_id ?? "empty"}, participants_count=${sale.participants_count ?? "empty"}, expected_value=${sale.expected_value ?? "empty"} ${sale.currency ?? ""}.`
       : "";
     const idsLine = customer ? `\ncustomer_id=${customer.id} (use these ids directly for update_customers / update_sales, no lookup needed).` : "";
+    // Day by day itinerary of the trip that matters now: the ongoing one, else the nearest upcoming.
+    // A customer asking "what happens on day 2" must be answered from the CRM, not from the website,
+    // and the site text is not in the prompt. Sits in prompt_block only, so the response stays small.
+    const nextTripItinerary = pickNextTripItinerary(trips, tripItineraries);
+    const itineraryBlock = buildItineraryBlock(nextTripItinerary);
+
     const catalog = journeys.length
       ? `\nCRM journeys (internal, for filling CRM fields only; quote dates from here, price only as the business price list allows):\n` +
         journeys.map((j) => `- journey_id=${j.id} | ${j.name} | ${j.departure_date} to ${j.return_date ?? "?"} | ${j.status} | price_per_person=${j.price_per_person ?? "none"} ${j.currency ?? ""}`).join("\n")
       : "";
-    prompt_block += idsLine + salesLine + catalog;
+    prompt_block += itineraryBlock + idsLine + salesLine + catalog;
 
     await log(200);
     return json({
@@ -252,6 +265,7 @@ Deno.serve(async (req: Request) => {
       latest_sale: sale,
       duplicate_customer_ids: matches.length > 1 ? matches.map((m) => m.id) : [],
       journeys,
+      next_trip_itinerary: nextTripItinerary,
       today: today,
       prompt_block,
     });
