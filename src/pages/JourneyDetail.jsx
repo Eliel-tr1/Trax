@@ -125,6 +125,7 @@ export default function JourneyDetail() {
           <EditField label="מטבע" value={j.currency} type="select" options={CURRENCIES} onSave={v => save('currency', v)} />
           <EditField label="כולל טיסות" value={j.includes_flights} type="checkbox" onSave={v => save('includes_flights', v)} />
           <EditField label="קישור לעמוד המסע" value={j.page_url} ltr type="link" onSave={v => save('page_url', v)} />
+          <EditField label="קישור לסרטון המסע" value={j.video_url} ltr type="link" onSave={v => save('video_url', v)} />
         </div>
         <div style={{ marginTop: 10 }}><EditField label="תיאור קצר" value={j.short_description} type="textarea" onSave={v => save('short_description', v)} /></div>
         <div style={{ marginTop: 10 }}><EditField label="פירוט מלא (מסלול, ימים, מקומות)" value={j.itinerary} type="textarea" onSave={v => save('itinerary', v)} /></div>

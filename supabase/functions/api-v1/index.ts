@@ -50,7 +50,7 @@ const SCHEMA: Record<string, { table: string; fields: string[]; softDelete?: boo
       "name", "business_unit", "destination", "departure_date",
       "return_date", "seats_total", "min_seats", "status",
       "price_per_person", "currency", "includes_flights",
-      "short_description", "page_url", "operations_notes", "custom", "execution_url",
+      "short_description", "page_url", "site_url", "itinerary", "video_url", "operations_notes", "custom", "execution_url",
     ],
   },
   registrations: {
